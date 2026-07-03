@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fheat"
+version = "0.1.0"
+description = "District-heating network planning from geodata: core pipeline plus NRW and flexible data adapters."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Philipp Sommer", email = "philipp.sommer@fh-muenster.de" },
+    { name = "Patrick Weßeler", email = "patrick.wesseler@fh-muenster.de" },
+    { name = "Hinnerk Willenbrink", email = "willenbrink@fh-muenster.de" },
+    ]
+keywords = [
+    "district heating", "heat planning",
+    "geodata", "GIS", "energy",
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    # Core pipeline + flexible adapter (works out of the box).
+    "geopandas>=0.14",
+    "pandas>=2.0",
+    "shapely>=2.0",
+    "networkx>=3.0",
+    "numpy>=1.24",
+    "demandlib>=0.1.9",
+]
+
+[project.optional-dependencies]
+nrw = ["owslib>=0.29", "lxml>=4.9"]         # NRW auto-download adapter (WFS + ZIP)
+holidays = ["workalendar>=17.0"]           # German public holidays for the SLP load profile
+excel = ["openpyxl>=3.1"]                  # only for writing .xlsx in the examples (pd.ExcelWriter)
+full = ["owslib>=0.29", "lxml>=4.9", "workalendar>=17.0"]
+dev = ["pytest>=7.0", "build>=1.0", "twine>=5.0"]
+
+[project.urls]
+Homepage = "https://www.fh-muenster.de/de/iep/fheat/index"
+Repository = "https://github.com/F-Heat/fheat"
+Issues = "https://github.com/F-Heat/fheat/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"fheat_core.data" = ["*.csv"]
+"fheat_nrw.data" = ["*.json", "*.csv"]
