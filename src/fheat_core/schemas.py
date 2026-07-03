@@ -1,15 +1,15 @@
 """
-Datenverträge zwischen Adaptern und Core.
+Data contracts between adapters and the core.
 
-Adapter-Implementierungen MÜSSEN GeoDataFrames liefern, die diese Schemas erfüllen.
-Core erzeugt während der Pipeline weitere Frames, die ebenfalls gegen Schemas
-validiert werden.
+Adapter implementations MUST provide GeoDataFrames that satisfy these schemas.
+The core creates additional frames during the pipeline that are also validated
+against schemas.
 
-Spaltennamen sind kanonische, sprachneutrale Identifier (siehe
-:mod:`fheat_core.columns`) — ohne Einheit im Namen; Einheiten sind Metadaten,
-die deutsche Beschriftung ist Export-Sache. Sie werden NICHT über Config oder
-Spaltenmappings ausserhalb des Adapters zur Laufzeit umkonfiguriert. Wer eigene
-Daten verwenden will, baut einen Adapter, der seine Spalten auf diese Namen mappt.
+Column names are canonical, language-neutral snake_case identifiers (see
+:mod:`fheat_core.columns`) — without units in the name; units are metadata,
+and German labels are handled at the export boundary. They are NOT reconfigured
+at runtime via Config or column mappings outside the adapter. Users who want to
+use their own data build an adapter that maps their columns to these names.
 """
 from __future__ import annotations
 
@@ -36,19 +36,19 @@ class FrameSchema:
 
     def validate(self, gdf) -> None:
         if gdf is None:
-            raise SchemaError(f"{self.name}: Frame ist None")
+            raise SchemaError(f"{self.name}: Frame is None")
         if not isinstance(gdf, (gpd.GeoDataFrame, pd.DataFrame)):
             raise SchemaError(
-                f"{self.name}: erwartet GeoDataFrame/DataFrame, "
-                f"bekommen {type(gdf).__name__}"
+                f"{self.name}: expected GeoDataFrame/DataFrame, "
+                f"got {type(gdf).__name__}"
             )
         if not self.allow_empty and gdf.empty:
-            raise SchemaError(f"{self.name}: Frame ist leer")
+            raise SchemaError(f"{self.name}: Frame is empty")
 
         missing = set(self.required_columns) - set(gdf.columns)
         if missing:
             raise SchemaError(
-                f"{self.name}: Pflichtspalten fehlen: {sorted(missing)}"
+                f"{self.name}: required columns missing: {sorted(missing)}"
             )
 
         if self.geometry_type and isinstance(gdf, gpd.GeoDataFrame) and not gdf.empty:
@@ -57,13 +57,13 @@ class FrameSchema:
             unexpected = actual - allowed
             if unexpected:
                 raise SchemaError(
-                    f"{self.name}: unerwartete Geometrietypen {sorted(unexpected)}, "
-                    f"erlaubt: {sorted(allowed)}"
+                    f"{self.name}: unexpected geometry types {sorted(unexpected)}, "
+                    f"allowed: {sorted(allowed)}"
                 )
 
 
 # ============================================================
-# Eingangsschemas — Adapter MUSS diese liefern
+# Input schemas — adapter MUST provide these
 # ============================================================
 
 BuildingsSchema = FrameSchema(
@@ -118,7 +118,7 @@ SourceSchema = FrameSchema(
 
 
 # ============================================================
-# Pipeline-Outputs — Core erzeugt diese
+# Pipeline outputs — created by the core
 # ============================================================
 
 WLDSchema = FrameSchema(
@@ -134,7 +134,7 @@ WLDSchema = FrameSchema(
 )
 
 PolygonsSchema = FrameSchema(
-    name="EignungsPolygone",
+    name="SuitabilityPolygons",
     required_columns={
         "geometry": "Polygon",
     },
@@ -171,7 +171,7 @@ NetSchema = FrameSchema(
 
 
 # ============================================================
-# Lastprofil + ResultSummary
+# Load profile + ResultSummary
 # ============================================================
 
 @dataclass(frozen=True)
@@ -188,21 +188,21 @@ class LoadProfileSchema:
 
     def validate(self, df) -> None:
         if df is None:
-            raise SchemaError(f"{self.name}: DataFrame ist None")
+            raise SchemaError(f"{self.name}: DataFrame is None")
         if not isinstance(df, pd.DataFrame):
             raise SchemaError(
-                f"{self.name}: erwartet DataFrame, bekommen {type(df).__name__}"
+                f"{self.name}: expected DataFrame, got {type(df).__name__}"
             )
         if not isinstance(df.index, pd.DatetimeIndex):
-            raise SchemaError(f"{self.name}: Index muss DatetimeIndex sein")
+            raise SchemaError(f"{self.name}: index must be a DatetimeIndex")
         if len(df) != self.required_length:
             raise SchemaError(
-                f"{self.name}: erwartet {self.required_length} Zeitschritte, "
-                f"bekommen {len(df)}"
+                f"{self.name}: expected {self.required_length} time steps, "
+                f"got {len(df)}"
             )
         missing = set(self.required_columns) - set(df.columns)
         if missing:
-            raise SchemaError(f"{self.name}: Pflichtspalten fehlen: {sorted(missing)}")
+            raise SchemaError(f"{self.name}: required columns missing: {sorted(missing)}")
 
 
 LOAD_PROFILE_SCHEMA = LoadProfileSchema()
@@ -224,12 +224,12 @@ class ResultSummarySchema:
 
     def validate(self, summary) -> None:
         if summary is None:
-            raise SchemaError(f"{self.name}: Dict ist None")
+            raise SchemaError(f"{self.name}: dict is None")
         if not isinstance(summary, dict):
-            raise SchemaError(f"{self.name}: muss Dict sein")
+            raise SchemaError(f"{self.name}: must be a dict")
         missing = set(self.required_keys) - set(summary.keys())
         if missing:
-            raise SchemaError(f"{self.name}: Pflicht-Keys fehlen: {sorted(missing)}")
+            raise SchemaError(f"{self.name}: required keys missing: {sorted(missing)}")
 
 
 RESULT_SUMMARY_SCHEMA = ResultSummarySchema()

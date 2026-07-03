@@ -1,4 +1,4 @@
-"""Step STATUS: WLD (Wärmeliniendichte) + Eignungspolygone."""
+"""Step STATUS: WLD (heat line density) + suitability polygons."""
 from __future__ import annotations
 
 import numpy as np
@@ -68,7 +68,7 @@ def _compute_wld(buildings: gpd.GeoDataFrame, streets: gpd.GeoDataFrame) -> gpd.
 
 
 # ------------------------------------------------------------------
-# Eignungspolygone
+# Suitability polygons
 # ------------------------------------------------------------------
 
 def _compute_polygons(

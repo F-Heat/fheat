@@ -1,8 +1,8 @@
-"""Generischer Platzhalter für externe Solver-Schnittstellen.
+"""Generic placeholder for external solver interfaces.
 
-Dient als Vorlage. Implementierung folgt in einer späteren Phase,
-sobald die jeweiligen Datenkontrakte definiert sind.
-Wird nicht vom Orchestrator aufgerufen.
+Serves as a template. Implementation follows in a later phase once
+the respective data contracts are defined.
+Not called by the orchestrator.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from fheat_core.state import PipelineState
 
 
 class ExternalSolverInterface(ABC):
-    """Abstrakte Schnittstelle zu einem externen Solver. Noch nicht implementiert."""
+    """Abstract interface to an external solver. Not yet implemented."""
 
     @abstractmethod
     def export(self, state: PipelineState) -> dict:
@@ -21,5 +21,5 @@ class ExternalSolverInterface(ABC):
 
 def export(state: PipelineState) -> dict:
     raise NotImplementedError(
-        "export ist noch nicht implementiert (Platzhalter)."
+        "export is not yet implemented (placeholder)."
     )

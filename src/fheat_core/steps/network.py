@@ -1,4 +1,4 @@
-"""Step NETWORK: Straßengraph + Netzberechnung + Rohrdimensionierung."""
+"""Step NETWORK: street graph + network calculation + pipe sizing."""
 from __future__ import annotations
 
 import geopandas as gpd

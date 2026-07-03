@@ -1,7 +1,7 @@
 """XPlan export — placeholder.
 
-Wird nicht vom Orchestrator aufgerufen. Implementierung folgt in einer
-späteren Phase, sobald das XPlanGML-Mapping definiert ist.
+Not called by the orchestrator. Implementation follows in a later phase
+once the XPlanGML mapping is defined.
 """
 from __future__ import annotations
 
@@ -10,5 +10,5 @@ from fheat_core.state import PipelineState
 
 def export(state: PipelineState) -> dict:
     raise NotImplementedError(
-        "export_to_xplan ist noch nicht implementiert (Platzhalter)."
+        "export_to_xplan is not yet implemented (placeholder)."
     )

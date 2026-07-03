@@ -19,17 +19,17 @@ class Phase(str, Enum):
 class PipelineState:
     phase: Phase = Phase.INITIAL
 
-    # Eingangsdaten — vom Adapter befüllt, müssen Eingangs-Schemas erfüllen
+    # Input data — populated by the adapter, must satisfy input schemas
     buildings_gdf: Optional[gpd.GeoDataFrame] = None
     streets_gdf: Optional[gpd.GeoDataFrame] = None
     parcels_gdf: Optional[gpd.GeoDataFrame] = None
     source_gdf: Optional[gpd.GeoDataFrame] = None
 
-    # Pipeline-Outputs — vom Core erzeugt, erfüllen Output-Schemas
+    # Pipeline outputs — created by the core, satisfy output schemas
     wld_gdf: Optional[gpd.GeoDataFrame] = None
     polygons_gdf: Optional[gpd.GeoDataFrame] = None
     net_gdf: Optional[gpd.GeoDataFrame] = None
 
-    # Resultate
+    # Results
     load_profile_df: Optional[pd.DataFrame] = None
     result_summary: Optional[dict] = None
