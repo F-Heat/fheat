@@ -96,8 +96,8 @@ adapter = FlexDataAdapter(
     streets_path="data/streets.gpkg",
     parcels_path="data/parcels.gpkg",
     source="data/source.gpkg",
-    column_map={                      # map YOUR columns onto the canonical schema
-        "wb_wld":                "heat_demand",       # see fheat_core.columns
+    column_map={                  # map YOUR columns onto the canonical schema
+        "waermebedarf":          "heat_demand",       # see fheat_core.columns
         "vollbenutzungsstunden": "full_load_hours",
         "lastprofil":            "load_profile",
     },
