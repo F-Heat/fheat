@@ -51,7 +51,7 @@ class TestFrameSchemaGeneric:
     def test_empty_not_allowed_raises(self):
         schema = FrameSchema(name="X", required_columns={"geometry": "Polygon"})
         empty = gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs="EPSG:25832")
-        with pytest.raises(SchemaError, match="leer"):
+        with pytest.raises(SchemaError, match="empty"):
             schema.validate(empty)
 
     def test_empty_allowed_passes(self):
@@ -80,7 +80,7 @@ class TestFrameSchemaGeneric:
             geometry="geometry",
             crs="EPSG:25832",
         )
-        with pytest.raises(SchemaError, match="Geometrietypen"):
+        with pytest.raises(SchemaError, match="geometry types"):
             schema.validate(gdf)
 
     def test_multi_variant_accepted(self):
@@ -126,7 +126,7 @@ class TestInputSchemas:
     def test_streets_wrong_geometry(self, streets_gdf):
         bad = streets_gdf.copy()
         bad["geometry"] = [Point(0, 0)]
-        with pytest.raises(SchemaError, match="Geometrietypen"):
+        with pytest.raises(SchemaError, match="geometry types"):
             StreetsSchema.validate(bad)
 
     def test_parcels_fixture_valid(self, parcels_gdf):
@@ -145,7 +145,7 @@ class TestInputSchemas:
             geometry="geometry",
             crs=crs,
         )
-        with pytest.raises(SchemaError, match="Geometrietypen"):
+        with pytest.raises(SchemaError, match="geometry types"):
             SourceSchema.validate(bad)
 
 
@@ -210,7 +210,7 @@ class TestOutputSchemas:
             geometry="geometry",
             crs=crs,
         )
-        with pytest.raises(SchemaError, match="Pflichtspalten fehlen"):
+        with pytest.raises(SchemaError, match="columns missing"):
             NetSchema.validate(gdf)
 
 
@@ -256,7 +256,7 @@ class TestLoadProfileSchema:
 
     def test_wrong_length_raises(self):
         df = _valid_load_profile().iloc[:100]
-        with pytest.raises(SchemaError, match="Zeitschritte"):
+        with pytest.raises(SchemaError, match="time steps"):
             LOAD_PROFILE_SCHEMA.validate(df)
 
     def test_missing_column_raises(self):
@@ -292,7 +292,7 @@ class TestResultSummarySchema:
             RESULT_SUMMARY_SCHEMA.validate(None)
 
     def test_non_dict_raises(self):
-        with pytest.raises(SchemaError, match="Dict"):
+        with pytest.raises(SchemaError, match="dict"):
             RESULT_SUMMARY_SCHEMA.validate(["not", "a", "dict"])
 
     def test_missing_key_raises(self):
