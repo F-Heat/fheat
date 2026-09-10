@@ -487,7 +487,11 @@ def test_to_net_gdf_works_with_the_shipped_string_dn_catalogue(
     Coercing that column to float crashed the real Burgsteinfurt run.
     """
     pipe_info = load_pipe_info()
-    assert pipe_info["DN"].dtype == object, "fixture assumes string DN labels"
+    # dtype-agnostic on purpose: pandas 2 reads this as object, pandas 3 as
+    # StringDtype. What matters is that DN is *not* numeric.
+    assert not pd.api.types.is_numeric_dtype(pipe_info["DN"]), (
+        "fixture assumes non-numeric DN labels"
+    )
 
     net = TopothermBackend._to_net_gdf(
         fake_edges_df, fake_nodes_df, buildings_gdf, pipe_info, FHeatConfig()

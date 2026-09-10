@@ -16,6 +16,7 @@ wheels/
 venv/
 env/
 ENV/
+.venv-ci/
 .python-version
 
 # Test / coverage / type-checker caches
