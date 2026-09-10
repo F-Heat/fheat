@@ -63,8 +63,8 @@ config = FHeatConfig(
     topotherm=TopothermConfig(
         optimization_mode="economic",  # "economic" (Default) | "forced"
         solver="highs",                # pip install highspy
-        heat_price=120e-3,             # €/kW Erlös
-        source_price=80e-3,            # €/kW variable Erzeugungskosten
+        heat_price=150e-3,             # €/kWh Erlös
+        source_price=50e-3,            # €/kWh variable Erzeugungskosten
         pipes_lifetime=40.0,           # Jahre
         ambient_temperature=-12.0,     # °C Auslegungsaußentemperatur
     ),
