@@ -40,6 +40,11 @@ dependencies = [
 nrw = ["owslib>=0.29", "lxml>=4.9"]         # NRW auto-download adapter (WFS + ZIP)
 holidays = ["workalendar>=17.0"]           # German public holidays for the SLP load profile
 excel = ["openpyxl>=3.1"]                  # only for writing .xlsx in the examples (pd.ExcelWriter)
+topotherm = [                                # expert mode: topotherm STS optimisation
+    "topotherm>=0.6.0",
+    "pandas<3",                              # topotherm 0.6.0 breaks on pandas 3.x
+    "highspy>=1.7",                          # open-source MILP solver
+]
 full = ["owslib>=0.29", "lxml>=4.9", "workalendar>=17.0"]
 dev = ["pytest>=7.0", "build>=1.0", "twine>=5.0"]
 

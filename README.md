@@ -32,10 +32,51 @@ DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ─�
   | `INITIAL` | download | input frames from the adapter |
   | `DOWNLOADED` | adjust | cleaned geometry, schema-validated frames |
   | `ADJUSTED` | status | heat-line density + suitability polygons |
-  | `STATUS` | network | shortest-path pipe network with sizing & losses |
+  | `STATUS` | network | pipe network with sizing & losses |
   | `NETWORK` | results | hourly load profile + result summary |
 
 Adapters must produce data conforming to the contracts in [`schemas.py`](src/fheat_core/schemas.py); the core validates against the same schemas as it goes.
+
+### Network modes
+
+The `NETWORK` phase dispatches to an interchangeable backend, selected by `FHeatConfig.network_mode`. The step itself contains no algorithm; both backends live in [`fheat_core/network/`](src/fheat_core/network/) behind the `NetworkBackend` contract and return the same `NetSchema`-compliant `net_gdf`, so everything downstream (load profile, summary, export labels) is identical.
+
+| Mode | Backend | How the route is found |
+|---|---|---|
+| `"phase0"` *(default)* | [`dijkstra.py`](src/fheat_core/network/dijkstra.py) | union of the shortest paths from the source to every building along the street graph |
+| `"expert"` | [`topotherm_backend.py`](src/fheat_core/network/topotherm_backend.py) | mixed-integer optimisation ([topotherm](https://github.com/jylambert/topotherm) single-time-step MILP) |
+
+**topotherm determines the topology only** — which street segments are built, and (in `optimization_mode="economic"`) which buildings are worth connecting. The simultaneity factor (GLF), volume flow, DN, velocity and heat losses are then computed by F|Heat with the *same* functions Phase 0 uses, from F|Heat's own pipe catalogue. That keeps the two modes directly comparable and every column meaning the same thing in both.
+
+The expert mode is opt-in and has extra requirements:
+
+```bash
+pip install -e ".[topotherm]"   # topotherm + HiGHS solver; needs Python >= 3.12
+```
+
+- **Python ≥ 3.12** — topotherm 0.6.0 uses PEP 701 f-string syntax, so it cannot even be imported on 3.10/3.11. The core itself keeps its `>=3.10` floor.
+- **A MILP solver** — the extra pulls in `highspy` (open source); Gurobi or CPLEX work too but are not required.
+- **pandas < 3** — pinned in the extra, because topotherm 0.6.0 breaks on pandas 3.x. The pin deliberately sits in the extra so users who never touch the expert mode are not held back.
+
+`import fheat_core` and the `"phase0"` mode work unchanged without any of this installed — topotherm is imported lazily, inside the expert branch only.
+
+```python
+from fheat_core.config import FHeatConfig, NetworkMode, TopothermConfig
+
+config = FHeatConfig(
+    supply_temperature=80.0,
+    return_temperature=50.0,
+    network_mode=NetworkMode.EXPERT.value,
+    topotherm=TopothermConfig(
+        optimization_mode="economic",  # "economic" (default) | "forced"
+        solver="highs",
+        heat_price=120e-3,             # €/kW revenue
+        source_price=80e-3,            # €/kW variable production cost
+    ),
+)
+```
+
+In `"economic"` mode the optimiser may leave unprofitable buildings unconnected; their `connect` flag is set to `0` so the load profile and summary stay consistent. If *nothing* is profitable the backend raises with the parameters to adjust rather than returning an empty network. See [`examples/burgsteinfurt_topotherm.py`](examples/burgsteinfurt_topotherm.py).
 
 ## Installation
 
@@ -48,6 +89,7 @@ pip install -e .              # core pipeline + flexible adapter (your own data)
 pip install -e ".[nrw]"       # + NRW auto-download adapter (owslib, lxml)
 pip install -e ".[full]"      # everything: NRW adapter + German holidays
 pip install -e ".[full,dev]"  # everything + pytest, for development
+pip install -e ".[topotherm]" # + expert network mode (topotherm + HiGHS); needs Python >= 3.12
 ```
 
 All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* in the examples.
