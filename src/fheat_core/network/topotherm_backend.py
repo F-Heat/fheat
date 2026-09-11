@@ -32,12 +32,14 @@ _MIN_SOURCE_OFFSET = 1e-3  # m — below this a source is treated as "on the roa
 
 
 # topotherm is not on PyPI, so the [topotherm] extra deliberately does not name
-# it (see pyproject.toml) — it ships only the solver and the pandas pin.
+# it (see pyproject.toml) — it ships only the solver and the pandas pin. The
+# install must be EDITABLE: topotherm 0.6.0 declares packages = ["topotherm"],
+# omitting topotherm.models, so a regular install is importable-but-broken.
 _INSTALL_HINT = (
-    "Install it with: pip install "
-    '"topotherm @ git+https://github.com/jylambert/topotherm@v0.6.0" '
-    "on a Python 3.12 interpreter. From a source checkout: "
-    'pip install -e ".[topotherm]" --group topotherm-git'
+    "Install it with: pip install --editable "
+    '"git+https://github.com/jylambert/topotherm@v0.6.0#egg=topotherm" '
+    "--src <dir outside this repo>, on a Python 3.12 interpreter. The "
+    "--editable is required: a regular install omits topotherm.models."
 )
 
 

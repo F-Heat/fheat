@@ -40,30 +40,26 @@ dependencies = [
 nrw = ["owslib>=0.29", "lxml>=4.9"]         # NRW auto-download adapter (WFS + ZIP)
 holidays = ["workalendar>=17.0"]           # German public holidays for the SLP load profile
 excel = ["openpyxl>=3.1"]                  # only for writing .xlsx in the examples (pd.ExcelWriter)
-topotherm = [                                    # topotherm ITSELF IS NOT LISTED HERE ON PURPOSE. It is not published on
+topotherm = [                                # expert mode: topotherm STS optimisation
+    # topotherm ITSELF IS NOT LISTED HERE ON PURPOSE. It is not published on
     # PyPI (only github.com/jylambert/topotherm), so naming it would make this
     # extra unresolvable and abort the whole install command. A direct git URL
     # is no alternative either: PyPI rejects direct references in Requires-Dist.
-    # Everything PyPI *can* deliver lives here; install topotherm alongside it:
-    #   pip install "topotherm @ git+https://github.com/jylambert/topotherm@v0.6.0"
-    # From a source checkout, use the "topotherm-git" dependency group below.
+    # Everything PyPI *can* deliver lives here; topotherm itself has to be
+    # installed separately AND EDITABLE — see the README for the command.
     "pandas<3",                              # topotherm 0.6.0 breaks on pandas 3.x
     "highspy>=1.7",                          # open-source MILP solver
 ]
 full = ["owslib>=0.29", "lxml>=4.9", "workalendar>=17.0"]
 dev = ["pytest>=7.0", "build>=1.0", "twine>=5.0"]
 
-
-# PEP 735 — NOT part of the published metadata, so the direct git reference
-# here never reaches PyPI and the package stays publishable. Only usable from
-# a source checkout (or an unpacked sdist), which is exactly the CI/dev case:
-#   pip install -e ".[full,excel,topotherm]" --group topotherm-git
-# The pins stay in the extra above; this group adds only topotherm itself.
-[dependency-groups]
-topotherm-git = [
-    "topotherm @ git+https://github.com/jylambert/topotherm@v0.6.0",
-]
-v = ["pytest>=7.0", "build>=1.0", "twine>=5.0"]
+# NOTE: there is deliberately no [dependency-groups] entry for topotherm.
+# A PEP 735 group can only hold requirement strings, and topotherm 0.6.0 has
+# to be installed EDITABLE: its own packaging declares
+#     [tool.setuptools] packages = ["topotherm"]
+# which omits the topotherm.models subpackage, so a regular install yields a
+# package whose __init__ dies on "from . import models". An editable install
+# imports straight from the checkout and is unaffected.
 
 [project.urls]
 Homepage = "https://www.fh-muenster.de/de/iep/fheat/index"

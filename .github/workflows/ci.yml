@@ -95,20 +95,24 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Projekt mit topotherm und HiGHS installieren
-        # Das [topotherm]-Extra liefert Solver und pandas-Pin; topotherm
-        # selbst kommt aus der Dependency-Group "topotherm-git" (PEP 735),
-        # weil es nicht auf PyPI veröffentlicht ist. Die Git-URL steht damit
-        # nur an einer Stelle — in der pyproject.toml.
+        # topotherm MUSS editable installiert werden: sein eigenes Packaging
+        # deklariert packages = ["topotherm"] und laesst damit das Subpackage
+        # topotherm.models weg. Ein normaler Install liefert ein Paket, dessen
+        # __init__ an "from . import models" stirbt (irrefuehrend als circular
+        # import gemeldet). --src legt den Checkout ausserhalb des Repos ab,
+        # damit er nicht in fheats eigenes src/ geraet.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --editable ".[full,dev,excel,topotherm]" \
-            --group topotherm-git
+          python -m pip install --editable ".[full,dev,excel,topotherm]"
+          python -m pip install --editable \
+            "git+https://github.com/jylambert/topotherm@v0.6.0#egg=topotherm" \
+            --src "${{ runner.temp }}/vendor"
 
       - name: Sicherstellen, dass topotherm wirklich nutzbar ist
         # Ohne diese Prüfung würde der Job auch dann grün, wenn die
         # tt-Fixture alle MILP-Tests stillschweigend überspringt.
         run: |
-          python -c "import topotherm, importlib.metadata as md; print('topotherm', md.version('topotherm'))"
+          python -c "import topotherm, topotherm.models, importlib.metadata as md; print('topotherm', md.version('topotherm'))"
           python -c "import pyomo.environ as pyo; assert pyo.SolverFactory('highs').available(False), 'HiGHS-Solver nicht verfuegbar'"
 
       - name: Expert-Modus-Tests ausführen

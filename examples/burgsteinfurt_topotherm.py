@@ -15,8 +15,10 @@ Voraussetzungen (zusätzlich zu burgsteinfurt.py):
     - Python 3.12 — genau diese Version: 3.10/3.11 scheitern am PEP-701-
       f-String von topotherm 0.6.0, ab 3.13.1 greift dessen eigene Schranke
       requires-python "<=3.13".
-    - pip install -e ".[nrw,topotherm]" --group topotherm-git
-      (topotherm liegt nicht auf PyPI, daher die Dependency-Group)
+    - pip install -e ".[nrw,topotherm]"
+    - pip install -e "git+https://github.com/jylambert/topotherm@v0.6.0#egg=topotherm" --src ../vendor
+      (topotherm liegt nicht auf PyPI; das --editable ist Pflicht, weil sein
+      Packaging das Subpackage topotherm.models auslaesst)
     - im Modus "economic" können Randlagen abgeworfen werden; das ist das
       erwartete Verhalten, kein Fehler. Wer alle Gebäude anschließen will,
       nutzt optimization_mode="forced".
