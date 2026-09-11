@@ -1,6 +1,6 @@
 """Tests for the expert network mode (topotherm STS backend).
 
-Almost everything here runs without the optional ``[topotherm]`` extra: the
+Almost everything here runs without topotherm installed: the
 backend's mapping steps are static methods, so they are exercised against a
 synthetic topotherm result. Only the tests that actually solve a MILP need the
 extra, and they skip via the :func:`tt` fixture.
@@ -111,7 +111,8 @@ def test_get_backend_unknown_mode_raises():
 
 
 # ---------------------------------------------------------------------------
-# Expert mode — requires the [topotherm] extra
+# Expert mode — requires topotherm itself (not just the [topotherm] extra,
+# which ships only the solver and the pandas pin; see pyproject.toml)
 # ---------------------------------------------------------------------------
 
 
@@ -360,7 +361,7 @@ def test_expert_backend_resolves_without_topotherm_installed(monkeypatch):
 
     backend = get_backend("expert")
     assert backend.name == "expert"
-    with pytest.raises(NetworkBackendError, match=r'pip install -e ".\[topotherm\]"'):
+    with pytest.raises(NetworkBackendError, match=r"git\+https://github\.com/jylambert/topotherm"):
         _require_topotherm()
 
 
@@ -375,7 +376,7 @@ def test_require_topotherm_explains_the_python_version_blocker(monkeypatch):
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
-    with pytest.raises(NetworkBackendError, match="requires Python >= 3.12"):
+    with pytest.raises(NetworkBackendError, match="requires Python 3.12"):
         _require_topotherm()
 
 
@@ -791,7 +792,7 @@ def test_merge_connect_tolerates_a_missing_connect_column(
 
 
 # ---------------------------------------------------------------------------
-# Integration — needs the [topotherm] extra and a solver
+# Integration — needs topotherm and a solver
 # ---------------------------------------------------------------------------
 
 

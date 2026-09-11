@@ -31,6 +31,16 @@ logger = logging.getLogger(__name__)
 _MIN_SOURCE_OFFSET = 1e-3  # m — below this a source is treated as "on the road"
 
 
+# topotherm is not on PyPI, so the [topotherm] extra deliberately does not name
+# it (see pyproject.toml) — it ships only the solver and the pandas pin.
+_INSTALL_HINT = (
+    "Install it with: pip install "
+    '"topotherm @ git+https://github.com/jylambert/topotherm@v0.6.0" '
+    "on a Python 3.12 interpreter. From a source checkout: "
+    'pip install -e ".[topotherm]" --group topotherm-git'
+)
+
+
 def _require_topotherm():
     """Import topotherm with an actionable error message."""
     try:
@@ -38,13 +48,13 @@ def _require_topotherm():
     except SyntaxError as exc:  # PEP 701 f-string in topotherm 0.6.0
         raise NetworkBackendError(
             "topotherm 0.6.0 cannot be imported on this Python version "
-            f"({exc}). The expert mode requires Python >= 3.12. "
-            'Install with: pip install -e ".[topotherm]" on a 3.12+ interpreter.'
+            f"({exc}). The expert mode requires Python 3.12 — 3.10/3.11 hit "
+            "this SyntaxError, and topotherm's own requires-python bound "
+            '("<=3.13") excludes 3.13.1 and newer. ' + _INSTALL_HINT
         ) from exc
     except ImportError as exc:
         raise NetworkBackendError(
-            "The expert mode requires topotherm. Install it with: "
-            'pip install -e ".[topotherm]"'
+            "The expert mode requires topotherm. " + _INSTALL_HINT
         ) from exc
     import topotherm as tt
 

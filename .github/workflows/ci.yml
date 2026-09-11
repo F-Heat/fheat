@@ -66,3 +66,50 @@ jobs:
 
       - name: Paketmetadaten prüfen
         run: python -m twine check --strict dist/*
+
+  expert:
+    name: Expert-Modus (topotherm, Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Nutzbares Fenster für topotherm 0.6.0 — faktisch nur 3.12:
+        #   < 3.12   -> SyntaxError (PEP 701 f-strings)
+        #   >= 3.13.1 -> topotherm deklariert requires-python "<=3.13"; nach
+        #               PEP 440 ist 3.13.11 NICHT <= 3.13, pip bricht ab.
+        #               setup-python liefert immer den neuesten Patch, also
+        #               scheitert "3.13" hier. Wieder aufnehmen, sobald
+        #               topotherm die Obergrenze korrigiert (<3.14).
+        python-version: ["3.12"]
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v7
+
+      - name: Python ${{ matrix.python-version }} einrichten
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Projekt mit topotherm und HiGHS installieren
+        # Das [topotherm]-Extra liefert Solver und pandas-Pin; topotherm
+        # selbst kommt aus der Dependency-Group "topotherm-git" (PEP 735),
+        # weil es nicht auf PyPI veröffentlicht ist. Die Git-URL steht damit
+        # nur an einer Stelle — in der pyproject.toml.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --editable ".[full,dev,excel,topotherm]" \
+            --group topotherm-git
+
+      - name: Sicherstellen, dass topotherm wirklich nutzbar ist
+        # Ohne diese Prüfung würde der Job auch dann grün, wenn die
+        # tt-Fixture alle MILP-Tests stillschweigend überspringt.
+        run: |
+          python -c "import topotherm, importlib.metadata as md; print('topotherm', md.version('topotherm'))"
+          python -c "import pyomo.environ as pyo; assert pyo.SolverFactory('highs').available(False), 'HiGHS-Solver nicht verfuegbar'"
+
+      - name: Expert-Modus-Tests ausführen
+        run: python -m pytest tests/test_network_expert.py -v

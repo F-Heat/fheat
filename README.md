@@ -51,10 +51,16 @@ The `NETWORK` phase dispatches to an interchangeable backend, selected by `FHeat
 The expert mode is opt-in and has extra requirements:
 
 ```bash
-pip install -e ".[topotherm]"   # topotherm + HiGHS solver; needs Python >= 3.12
+pip install -e ".[topotherm]" --group topotherm-git   # needs Python 3.12
 ```
 
-- **Python ≥ 3.12** — topotherm 0.6.0 uses PEP 701 f-string syntax, so it cannot even be imported on 3.10/3.11. The core itself keeps its `>=3.10` floor.
+**topotherm is not published on PyPI** — it lives only at [jylambert/topotherm](https://github.com/jylambert/topotherm). The `[topotherm]` extra therefore ships the solver and the pandas pin but *not* topotherm itself, because a direct git URL in the published metadata would make this package unuploadable to PyPI. The `topotherm-git` dependency group supplies it from a source checkout. Installing from a wheel instead, add it by hand:
+
+```bash
+pip install "topotherm @ git+https://github.com/jylambert/topotherm@v0.6.0"
+```
+
+- **Python 3.12 — exactly** — topotherm 0.6.0 uses PEP 701 f-string syntax, so it cannot even be imported on 3.10/3.11, and its own `requires-python = ">=3.10,<=3.13"` excludes 3.13.1 and newer (under PEP 440, `3.13.11 <= 3.13` is false) as well as 3.14. The core itself keeps its `>=3.10` floor.
 - **A MILP solver** — the extra pulls in `highspy` (open source); Gurobi or CPLEX work too but are not required.
 - **pandas < 3** — pinned in the extra, because topotherm 0.6.0 breaks on pandas 3.x. The pin deliberately sits in the extra so users who never touch the expert mode are not held back.
 
@@ -89,7 +95,7 @@ pip install -e .              # core pipeline + flexible adapter (your own data)
 pip install -e ".[nrw]"       # + NRW auto-download adapter (owslib, lxml)
 pip install -e ".[full]"      # everything: NRW adapter + German holidays
 pip install -e ".[full,dev]"  # everything + pytest, for development
-pip install -e ".[topotherm]" # + expert network mode (topotherm + HiGHS); needs Python >= 3.12
+pip install -e ".[topotherm]" --group topotherm-git  # + expert network mode; needs Python 3.12 (see above)
 ```
 
 All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* in the examples.
