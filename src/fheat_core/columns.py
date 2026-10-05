@@ -72,6 +72,22 @@ HEAT_LOSS = "heat_loss"              # heat loss [kWh/a]
 HEAT_LOSS_EXTRA_INSULATION = "heat_loss_extra_insulation"  # heat loss with extra insulation [kWh/a]
 GLF = "glf"                          # simultaneity factor
 
+# Value of TYPE for a building's house connection. Every other edge type
+# (street pipe, source connection) counts as route in the pipe summary.
+EDGE_TYPE_HOUSE_CONNECTION = "Hausanschluss"
+
+
+# ============================================================
+# Result tables — pipe summary per DN, buildings per load profile
+# ============================================================
+
+N_HOUSE_CONNECTIONS = "n_house_connections"          # number of house connections
+HOUSE_CONNECTION_LENGTH = "house_connection_length"  # house connection length [m]
+ROUTE_LENGTH = "route_length"                        # route (trunk) length [m]
+HEAT_LOSS_MWH = "heat_loss_mwh"                      # heat loss [MWh/a]
+HEAT_LOSS_EXTRA_INSULATION_MWH = "heat_loss_extra_insulation_mwh"  # heat loss with extra insulation [MWh/a]
+HEAT_DEMAND_MWH = "heat_demand_mwh"                  # heat demand [MWh/a]
+
 
 # ============================================================
 # Internal geometry helper columns
@@ -113,6 +129,11 @@ UNITS: dict[str, str] = {
     VELOCITY: "m/s",
     HEAT_LOSS: "kWh/a",
     HEAT_LOSS_EXTRA_INSULATION: "kWh/a",
+    HOUSE_CONNECTION_LENGTH: "m",
+    ROUTE_LENGTH: "m",
+    HEAT_LOSS_MWH: "MWh/a",
+    HEAT_LOSS_EXTRA_INSULATION_MWH: "MWh/a",
+    HEAT_DEMAND_MWH: "MWh/a",
 }
 
 
@@ -163,6 +184,29 @@ LABELS_DE: dict[str, str] = {
     LOSS_EXTRA_INSULATION: "Verlust bei extra Dämmung",
     TOTAL: "Gesamtsumme",
     TOTAL_EXTRA_INSULATION: "Gesamtsumme (extra Dämmung)",
+    # Result tables (same labels as the former QGIS plugin)
+    N_HOUSE_CONNECTIONS: "Anzahl Hausanschluesse",
+    HOUSE_CONNECTION_LENGTH: "Hausanschlusslaenge [m]",
+    ROUTE_LENGTH: "Trassenlaenge [m]",
+    HEAT_LOSS_MWH: "Verlust [MWh/a]",
+    HEAT_LOSS_EXTRA_INSULATION_MWH: "Verlust bei extra Daemmung [MWh/a]",
+    HEAT_DEMAND_MWH: "Waermebedarf [MWh/a]",
+}
+
+
+# German labels for the keys of ``PipelineState.result_summary`` (table export).
+SUMMARY_LABELS_DE: dict[str, str] = {
+    "total_heat_demand_mwh_a": "Gesamtwärmebedarf [MWh/a]",
+    "total_buildings": "Angeschlossene Gebäude",
+    "total_power_glf_kw": "Thermische Leistung (GLF) [kW]",
+    "glf": "Gleichzeitigkeitsfaktor",
+    "total_network_length_m": "Netzlänge [m]",
+    "total_house_connection_length_m": "Hausanschlusslänge [m]",
+    "total_route_length_m": "Trassenlänge [m]",
+    "total_loss_mwh_a": "Netzwärmeverlust [MWh/a]",
+    "total_loss_extra_insulation_mwh_a": "Netzwärmeverlust bei extra Dämmung [MWh/a]",
+    "supply_temperature_c": "Vorlauftemperatur [°C]",
+    "return_temperature_c": "Rücklauftemperatur [°C]",
 }
 
 

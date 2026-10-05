@@ -1,6 +1,6 @@
 # F|Heat
 
-**F|Heat** is a Python toolkit for **district-heating network planning from geodata**. Given buildings, streets, parcels and a heat-source location, it computes heat-line density (*Wärmeliniendichte*, WLD), derives suitability polygons (*Eignungspolygone*), dimensions a pipe network (diameters, flow velocities, heat losses, simultaneity factor / *Gleichzeitigkeitsfaktor*), and produces an hourly load profile and a result summary.
+**F|Heat** is a Python toolkit for **district-heating network planning from geodata**. Given buildings, streets, parcels and a heat-source location, it computes heat-line density (*Wärmeliniendichte*, WLD), derives suitability polygons (*Eignungspolygone*), dimensions a pipe network (diameters, flow velocities, heat losses, simultaneity factor / *Gleichzeitigkeitsfaktor*), and produces an hourly load profile, a result summary and result tables (pipe quantities per diameter, connected buildings per load profile).
 
 > Domain terms are German because the tool targets German municipal heat planning (*kommunale Wärmeplanung*), in particular the federal state of North Rhine-Westphalia (NRW).
 
@@ -19,7 +19,7 @@ All three are import packages shipped from a single distribution named `fheat` (
 ## Architecture
 
 ```
-DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ──▶ outputs (.gpkg + summary)
+DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ──▶ outputs (.gpkg + summary + tables)
 (source of data)        (frames)          (runs the phases)
 ```
 
@@ -33,7 +33,7 @@ DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ─�
   | `DOWNLOADED` | adjust | cleaned geometry, schema-validated frames |
   | `ADJUSTED` | status | heat-line density + suitability polygons |
   | `STATUS` | network | pipe network with sizing & losses |
-  | `NETWORK` | results | hourly load profile + result summary |
+  | `NETWORK` | results | hourly load profile + result summary + pipe quantities per DN + buildings per load profile |
 
 Adapters must produce data conforming to the contracts in [`schemas.py`](src/fheat_core/schemas.py); the core validates against the same schemas as it goes.
 
@@ -97,7 +97,7 @@ pip install -e ".[full,dev]"  # everything + pytest, for development
 pip install -e ".[topotherm]" # + expert network mode; topotherm itself needs a second, editable install — see above
 ```
 
-All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* in the examples.
+All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`, see below).
 
 ## Quick start
 
@@ -156,6 +156,31 @@ The pipeline uses canonical, language-neutral column names internally (see
 `fheat_core/columns.py`). On export, `save_outputs()` translates them back to
 German display labels by default (`output_language="de"`); set
 `output_language="raw"` to keep the canonical identifiers.
+
+### Result tables
+
+After the `RESULTS` step the state holds, besides `load_profile_df` and
+`result_summary`:
+
+- `pipe_summary_df` — one row per nominal diameter of the pipe catalogue
+  (unused diameters as zero): number of house connections, house connection
+  length, route length, heat loss and heat loss with extra insulation [MWh/a].
+- `building_summary_df` — number and heat demand [MWh/a] of the connected
+  buildings per load profile (`EFH, MFH, GHA, GMK, GKO`, further profiles
+  appended, buildings without a profile in a last row).
+
+`result_summary` additionally reports `total_house_connection_length_m`,
+`total_route_length_m` and `total_loss_extra_insulation_mwh_a`.
+
+`save_outputs()` writes these tables only if `FHeatConfig.table_format` is set:
+
+| `table_format` | Output |
+|---|---|
+| `None` (default) | no tables — unchanged behaviour |
+| `"csv"` | `ergebnisuebersicht.csv`, `rohrmengen.csv`, `gebaeude_lastprofil.csv`, `lastprofil.csv` |
+| `"xlsx"` | `fheat-ergebnisse.xlsx` with one sheet per table (requires `pip install "fheat[excel]"`) |
+
+The column labels follow `output_language` like the geodata export.
 
 Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
 

@@ -2,6 +2,7 @@
 
 Covers the bundled-data loaders:
 - load_pipe_info: returns the pipe catalogue used by network sizing
+- resolve_pipe_info: adapter catalogue, else the core default
 - load_default_temperature: 8760-hour outdoor temperature series
 - load_default_holidays: dict[date → name]; falls back to {} if workalendar
   is missing.
@@ -18,6 +19,7 @@ from fheat_core.resources import (
     load_default_holidays,
     load_default_temperature,
     load_pipe_info,
+    resolve_pipe_info,
 )
 
 
@@ -65,6 +67,23 @@ class TestLoadPipeInfo:
         assert vel > 0
         assert loss > 0
         assert 0 <= loss_extra <= loss
+
+
+class _CatalogueAdapter:
+    def __init__(self, pipe_info):
+        self._pipe_info = pipe_info
+
+    def provide_pipe_info(self):
+        return self._pipe_info
+
+
+class TestResolvePipeInfo:
+    def test_prefers_adapter_catalogue(self, pipe_info_df):
+        assert resolve_pipe_info(_CatalogueAdapter(pipe_info_df)) is pipe_info_df
+
+    def test_falls_back_to_core_default(self):
+        df = resolve_pipe_info(_CatalogueAdapter(None))
+        assert list(df["DN"]) == list(load_pipe_info()["DN"])
 
 
 # ---------------------------------------------------------------------------

@@ -64,6 +64,8 @@ class TestPipelineStateDefaults:
     def test_results_default_to_none(self):
         state = PipelineState()
         assert state.load_profile_df is None
+        assert state.pipe_summary_df is None
+        assert state.building_summary_df is None
         assert state.result_summary is None
 
 

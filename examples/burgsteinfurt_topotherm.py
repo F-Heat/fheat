@@ -25,6 +25,7 @@ Voraussetzungen (zusätzlich zu burgsteinfurt.py):
 """
 from __future__ import annotations
 
+import importlib.util
 import logging
 from pathlib import Path
 
@@ -62,6 +63,8 @@ config = FHeatConfig(
     year=2022,
     output_dir=str(OUTPUT_DIR),
     output_format="gpkg",
+    # Ergebnistabellen als Excel (benötigt pip install -e ".[excel]"), sonst CSV
+    table_format="xlsx" if importlib.util.find_spec("openpyxl") else "csv",
 
     # --- Experten-Modus: Netztopologie via topotherm STS ---------------
     network_mode=NetworkMode.EXPERT.value,
@@ -159,9 +162,17 @@ if summary:
     print(f"  Therm. Leistung (GLF):      {summary['total_power_glf_kw']:.1f} kW")
     print(f"  GLF:                        {summary['glf']:.3f}")
     print(f"  Netzlänge:                  {summary['total_network_length_m']:.0f} m")
+    print(f"    davon Trasse:             {summary['total_route_length_m']:.0f} m")
+    print(f"    davon Hausanschlüsse:     {summary['total_house_connection_length_m']:.0f} m")
     print(f"  Netzwärmeverlust:           {summary['total_loss_mwh_a']:.1f} MWh/a")
+    print(f"    bei extra Dämmung:        {summary['total_loss_extra_insulation_mwh_a']:.1f} MWh/a")
     print(f"  Vorlauftemperatur:          {summary['supply_temperature_c']} °C")
     print(f"  Rücklauftemperatur:         {summary['return_temperature_c']} °C")
+
+    print("\n--- Rohrmengen je DN ---")
+    print(cols.to_display(orch.state.pipe_summary_df).to_string(index=False))
+    print("\n--- Gebäude je Lastprofil ---")
+    print(cols.to_display(orch.state.building_summary_df).to_string(index=False))
 
 # ---------------------------------------------------------------------------
 # Schritt 7: Alle Ausgaben speichern

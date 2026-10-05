@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fheat"
-version = "0.1.0"
+version = "0.2.0"
 description = "District-heating network planning from geodata: core pipeline plus NRW and flexible data adapters."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,7 +39,7 @@ dependencies = [
 [project.optional-dependencies]
 nrw = ["owslib>=0.29", "lxml>=4.9"]         # NRW auto-download adapter (WFS + ZIP)
 holidays = ["workalendar>=17.0"]           # German public holidays for the SLP load profile
-excel = ["openpyxl>=3.1"]                  # only for writing .xlsx in the examples (pd.ExcelWriter)
+excel = ["openpyxl>=3.1"]                  # only for the .xlsx table export (FHeatConfig.table_format="xlsx")
 topotherm = [                                # expert mode: topotherm STS optimisation
     # topotherm ITSELF IS NOT LISTED HERE ON PURPOSE. It is not published on
     # PyPI (only github.com/jylambert/topotherm), so naming it would make this

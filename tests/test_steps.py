@@ -233,3 +233,36 @@ class TestResultsStep:
         assert s["total_network_length_m"] > 0
         assert 0 < s["glf"] <= 1.001  # n=3 → GLF < 1 by formula
         assert s["total_loss_mwh_a"] >= 0
+
+    def test_result_tables_match_summary(self, stub_adapter, cfg, pipe_info_df):
+        state = PipelineState()
+        download.run(state, cfg, stub_adapter)
+        adjust.run(state, cfg, stub_adapter)
+        status.run(state, cfg, stub_adapter)
+        network.run(state, cfg, stub_adapter)
+        results.run(state, cfg, stub_adapter)
+
+        s = state.result_summary
+        assert s["total_house_connection_length_m"] > 0
+        assert s["total_route_length_m"] > 0
+        assert s["total_house_connection_length_m"] + s["total_route_length_m"] == pytest.approx(
+            s["total_network_length_m"], abs=0.11
+        )
+        assert 0 <= s["total_loss_extra_insulation_mwh_a"] <= s["total_loss_mwh_a"]
+
+        pipes = state.pipe_summary_df
+        # every catalogue DN is listed, in catalogue order (the stub adapter's catalogue)
+        assert list(pipes[cols.NOMINAL_DIAMETER])[: len(pipe_info_df)] == list(pipe_info_df["DN"])
+        assert pipes[cols.HEAT_LOSS_MWH].sum() == pytest.approx(s["total_loss_mwh_a"], abs=1e-3)
+        assert pipes[cols.HEAT_LOSS_EXTRA_INSULATION_MWH].sum() == pytest.approx(
+            s["total_loss_extra_insulation_mwh_a"], abs=1e-3
+        )
+        assert pipes[cols.HOUSE_CONNECTION_LENGTH].sum() == pytest.approx(
+            s["total_house_connection_length_m"], abs=0.06
+        )
+        assert pipes[cols.N_HOUSE_CONNECTIONS].sum() == 3  # one per connected building
+
+        buildings = state.building_summary_df
+        assert list(buildings[cols.LOAD_PROFILE]) == ["EFH", "MFH", "GHA", "GMK", "GKO"]
+        assert buildings[cols.N_BUILDINGS].sum() == s["total_buildings"]
+        assert buildings[cols.HEAT_DEMAND_MWH].sum() == pytest.approx(s["total_heat_demand_mwh_a"])

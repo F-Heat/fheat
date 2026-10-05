@@ -10,6 +10,7 @@ import geopandas as gpd
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 from fheat_core.config import FHeatConfig
+from fheat_core.export.tables import write_tables
 from fheat_core.state import Phase, PipelineState
 from fheat_core.steps import adjust, download, network, results, status
 
@@ -91,6 +92,9 @@ class FHeatOrchestrator:
         translated to the German display labels at write time, so the on-disk
         files remain unchanged for German users. ``"raw"`` keeps the canonical
         identifiers.
+
+        With ``config.table_format`` set, the result tables are written as
+        well (see :func:`fheat_core.export.tables.write_tables`).
         """
         driver, ext = _FORMAT_MAP[self.config.output_format]
         translate = self.config.output_language == "de"
@@ -112,6 +116,7 @@ class FHeatOrchestrator:
                 out_gdf.to_file(str(out_path), driver=driver)
                 saved[name] = str(out_path)
                 logger.info("Saved %s → %s", name, out_path)
+        saved.update(write_tables(self.state, self._out_dir, self.config.table_format, translate))
         return saved
 
     # ------------------------------------------------------------------

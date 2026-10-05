@@ -100,9 +100,14 @@ class FHeatConfig:
     output_dir: str = "./output"
     output_format: str = "gpkg"
     output_language: str = "de"  # "de" = German column labels, "raw" = canonical IDs
+    # Result tables (summary, pipes per DN, buildings per load profile, load
+    # profile): None = not written, "csv" = one file each, "xlsx" = one workbook
+    # (needs the [excel] extra).
+    table_format: Optional[str] = None
 
     _ALLOWED_FORMATS: ClassVar[frozenset] = frozenset({"gpkg", "fgb", "geojson", "gml"})
     _ALLOWED_LANGUAGES: ClassVar[frozenset] = frozenset({"de", "raw"})
+    _ALLOWED_TABLE_FORMATS: ClassVar[frozenset] = frozenset({None, "csv", "xlsx"})
 
     def __post_init__(self) -> None:
         if self.supply_temperature <= self.return_temperature:
@@ -119,6 +124,11 @@ class FHeatConfig:
             raise ValueError(
                 f"output_language '{self.output_language}' is not allowed. "
                 f"Allowed values: {sorted(self._ALLOWED_LANGUAGES)}"
+            )
+        if self.table_format not in self._ALLOWED_TABLE_FORMATS:
+            raise ValueError(
+                f"table_format '{self.table_format}' is not allowed. "
+                "Allowed values: None, 'csv', 'xlsx'"
             )
 
         allowed_modes = {m.value for m in NetworkMode}
