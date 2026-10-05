@@ -10,6 +10,7 @@ import geopandas as gpd
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 from fheat_core.config import FHeatConfig
+from fheat_core.export.plots import render_charts, write_charts
 from fheat_core.export.tables import write_tables
 from fheat_core.state import Phase, PipelineState
 from fheat_core.steps import adjust, download, network, results, status
@@ -94,7 +95,9 @@ class FHeatOrchestrator:
         identifiers.
 
         With ``config.table_format`` set, the result tables are written as
-        well (see :func:`fheat_core.export.tables.write_tables`).
+        well (see :func:`fheat_core.export.tables.write_tables`); with
+        ``config.plot_format`` set, the load profile charts (see
+        :mod:`fheat_core.export.plots`), which an xlsx workbook also embeds.
         """
         driver, ext = _FORMAT_MAP[self.config.output_format]
         translate = self.config.output_language == "de"
@@ -116,7 +119,11 @@ class FHeatOrchestrator:
                 out_gdf.to_file(str(out_path), driver=driver)
                 saved[name] = str(out_path)
                 logger.info("Saved %s → %s", name, out_path)
-        saved.update(write_tables(self.state, self._out_dir, self.config.table_format, translate))
+        figures = render_charts(self.state) if self.config.plot_format else {}
+        saved.update(write_charts(figures, self._out_dir, self.config.plot_format))
+        saved.update(
+            write_tables(self.state, self._out_dir, self.config.table_format, translate, figures=figures)
+        )
         return saved
 
     # ------------------------------------------------------------------

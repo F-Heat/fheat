@@ -7,7 +7,7 @@ Schritte:
     4. Wärmedichte-Blöcke berechnen (status)
     5. Netzberechnung (network)  →  Netz.gpkg
     6. Lastprofil, Ergebniszusammenfassung, Rohrmengen je DN, Gebäude je Lastprofil (results)
-    7. Alle Ausgaben speichern (GeoPackages + fheat-ergebnisse.xlsx bzw. CSV)
+    7. Alle Ausgaben speichern (GeoPackages + fheat-ergebnisse.xlsx bzw. CSV + Lastprofil-Grafiken)
 
 Voraussetzungen:
     - planungsgebiet.gpkg im selben Verzeichnis wie dieses Skript (oder Pfad anpassen)
@@ -63,6 +63,8 @@ config = FHeatConfig(
     output_format="gpkg",
     # Ergebnistabellen als Excel (benötigt pip install -e ".[excel]"), sonst CSV
     table_format="xlsx" if importlib.util.find_spec("openpyxl") else "csv",
+    # Lastprofil-Grafiken als PNG (benötigt pip install -e ".[plots]")
+    plot_format="png" if importlib.util.find_spec("matplotlib") else None,
 )
 
 # ---------------------------------------------------------------------------

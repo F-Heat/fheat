@@ -65,6 +65,8 @@ config = FHeatConfig(
     output_format="gpkg",
     # Ergebnistabellen als Excel (benötigt pip install -e ".[excel]"), sonst CSV
     table_format="xlsx" if importlib.util.find_spec("openpyxl") else "csv",
+    # Lastprofil-Grafiken als PNG (benötigt pip install -e ".[plots]")
+    plot_format="png" if importlib.util.find_spec("matplotlib") else None,
 
     # --- Experten-Modus: Netztopologie via topotherm STS ---------------
     network_mode=NetworkMode.EXPERT.value,

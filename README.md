@@ -95,9 +95,10 @@ pip install -e ".[nrw]"       # + NRW auto-download adapter (owslib, lxml)
 pip install -e ".[full]"      # everything: NRW adapter + German holidays
 pip install -e ".[full,dev]"  # everything + pytest, for development
 pip install -e ".[topotherm]" # + expert network mode; topotherm itself needs a second, editable install — see above
+pip install -e ".[excel,plots]" # + Excel export and load profile charts of the results
 ```
 
-All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`, see below).
+All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
 
 ## Quick start
 
@@ -181,6 +182,22 @@ After the `RESULTS` step the state holds, besides `load_profile_df` and
 | `"xlsx"` | `fheat-ergebnisse.xlsx` with the sheets `Übersicht`, `Rohre`, `Statistiken`, `Lastprofil`; `Rohre` and `Statistiken` end with a bold `Gesamt` row (requires `pip install "fheat[excel]"`) |
 
 The column labels follow `output_language` like the geodata export.
+
+### Result charts
+
+With `FHeatConfig.plot_format="png"` (or `"svg"`) `save_outputs()` also draws
+the four load profile charts of the former QGIS plugin (requires
+`pip install "fheat[plots]"`):
+
+| File | Content |
+|---|---|
+| `Lastprofil` | hourly total heat demand incl. loss and the loss itself [MW] |
+| `Lastprofil_geordnet` | the same, hours sorted descending (load duration curve) |
+| `Lastprofil_extra_Daemmung` | hourly total and loss with extra insulation |
+| `Lastprofil_extra_Daemmung_geordnet` | the same, sorted descending |
+
+With `table_format="xlsx"` the charts are embedded in the `Lastprofil` sheet
+as well, next to the data. Chart labels are German.
 
 Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
 

@@ -6,6 +6,7 @@ like the geodata export.
 """
 from __future__ import annotations
 
+import io
 import logging
 from pathlib import Path
 
@@ -76,18 +77,38 @@ def with_total_row(frame: pd.DataFrame, label: str) -> pd.DataFrame:
     return pd.concat([frame.astype({first: object}), total], ignore_index=True)
 
 
+def _embed_charts(worksheet, figures: dict, first_free_column: int) -> None:
+    """Place the charts beside the load profile data, one below the other.
+
+    Same layout as the QGIS plugin: one empty column after the data, then a
+    chart every 22 rows.
+    """
+    from openpyxl.drawing.image import Image
+    from openpyxl.utils import get_column_letter
+
+    from fheat_core.export.plots import figure_png_bytes
+
+    column = get_column_letter(first_free_column + 1)
+    for i, fig in enumerate(figures.values()):
+        image = Image(io.BytesIO(figure_png_bytes(fig)))
+        worksheet.add_image(image, f"{column}{1 + 22 * i}")
+
+
 def write_tables(
     state: PipelineState,
     out_dir: str | Path,
     table_format: str | None,
     translate: bool,
+    figures: dict | None = None,
 ) -> dict[str, str]:
     """Write the result tables and return ``{key: path}`` of the written files.
 
     ``table_format=None`` writes nothing. ``"csv"`` writes one UTF-8 file per
     table, ``"xlsx"`` one workbook with a sheet per table; the pipe and
-    building sheets end with a bold total row. Tables not yet in the state
-    (before the RESULTS step) are skipped.
+    building sheets end with a bold total row. ``figures`` (from
+    :func:`fheat_core.export.plots.render_charts`) are embedded in the xlsx
+    load profile sheet. Tables not yet in the state (before the RESULTS step)
+    are skipped.
     """
     if table_format is None:
         return {}
@@ -125,6 +146,8 @@ def write_tables(
                     worksheet = writer.sheets[sheet]
                     for cell in worksheet[worksheet.max_row]:
                         cell.font = Font(bold=True)
+                if name == "lastprofil" and figures:
+                    _embed_charts(writer.sheets[sheet], figures, first_free_column=len(frame.columns) + 1)
         logger.info("Saved result tables → %s", path)
         return {XLSX_KEY: str(path)}
 

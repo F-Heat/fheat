@@ -104,10 +104,15 @@ class FHeatConfig:
     # profile): None = not written, "csv" = one file each, "xlsx" = one workbook
     # (needs the [excel] extra).
     table_format: Optional[str] = None
+    # Load profile charts (hourly and sorted, normal and extra insulation):
+    # None = not drawn, "png" / "svg" = one file each (needs the [plots]
+    # extra). With table_format="xlsx" they are also embedded in the workbook.
+    plot_format: Optional[str] = None
 
     _ALLOWED_FORMATS: ClassVar[frozenset] = frozenset({"gpkg", "fgb", "geojson", "gml"})
     _ALLOWED_LANGUAGES: ClassVar[frozenset] = frozenset({"de", "raw"})
     _ALLOWED_TABLE_FORMATS: ClassVar[frozenset] = frozenset({None, "csv", "xlsx"})
+    _ALLOWED_PLOT_FORMATS: ClassVar[frozenset] = frozenset({None, "png", "svg"})
 
     def __post_init__(self) -> None:
         if self.supply_temperature <= self.return_temperature:
@@ -129,6 +134,11 @@ class FHeatConfig:
             raise ValueError(
                 f"table_format '{self.table_format}' is not allowed. "
                 "Allowed values: None, 'csv', 'xlsx'"
+            )
+        if self.plot_format not in self._ALLOWED_PLOT_FORMATS:
+            raise ValueError(
+                f"plot_format '{self.plot_format}' is not allowed. "
+                "Allowed values: None, 'png', 'svg'"
             )
 
         allowed_modes = {m.value for m in NetworkMode}
