@@ -178,7 +178,7 @@ After the `RESULTS` step the state holds, besides `load_profile_df` and
 |---|---|
 | `None` (default) | no tables — unchanged behaviour |
 | `"csv"` | `ergebnisuebersicht.csv`, `rohrmengen.csv`, `gebaeude_lastprofil.csv`, `lastprofil.csv` |
-| `"xlsx"` | `fheat-ergebnisse.xlsx` with one sheet per table (requires `pip install "fheat[excel]"`) |
+| `"xlsx"` | `fheat-ergebnisse.xlsx` with the sheets `Übersicht`, `Rohre`, `Statistiken`, `Lastprofil`; `Rohre` and `Statistiken` end with a bold `Gesamt` row (requires `pip install "fheat[excel]"`) |
 
 The column labels follow `output_language` like the geodata export.
 

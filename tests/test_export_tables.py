@@ -3,7 +3,8 @@
 Covers:
 - table_format=None writes exactly the same files as before.
 - "csv": one file per table, German or canonical headers.
-- "xlsx": one workbook with one sheet per table.
+- "xlsx": one workbook with one sheet per table; pipe and building sheets end
+  with a bold total row, CSV files do not.
 - Missing openpyxl raises an actionable ImportError.
 - A state before RESULTS writes no tables.
 - Invalid table_format is rejected.
@@ -19,7 +20,7 @@ import pytest
 
 from fheat_core import columns as cols
 from fheat_core.config import FHeatConfig
-from fheat_core.export.tables import XLSX_FILENAME, XLSX_KEY, write_tables
+from fheat_core.export.tables import XLSX_FILENAME, XLSX_KEY, with_total_row, write_tables
 from fheat_core.orchestrator import FHeatOrchestrator
 from fheat_core.state import Phase, PipelineState
 
@@ -67,6 +68,7 @@ class TestCsv:
             assert Path(saved[name]).name == f"{name}.csv"
 
         pipes = pd.read_csv(saved["rohrmengen"])
+        assert len(pipes) == 2  # plain data, no total row
         assert list(pipes.columns) == [
             "DN [mm]",
             "Anzahl Hausanschluesse",
@@ -134,6 +136,31 @@ class TestXlsx:
         ]
         assert [c.value for c in workbook["Übersicht"][1]] == ["key", "value"]
         assert workbook["Lastprofil"]["A1"].value == "time"
+        assert workbook["Rohre"].cell(workbook["Rohre"].max_row, 1).value == "total"
+
+    def test_pipe_and_building_sheets_end_with_bold_total_row(self, tmp_path, stub_adapter, buildings_gdf):
+        openpyxl = pytest.importorskip("openpyxl")
+        state = _result_state(buildings_gdf)
+        saved = _save(tmp_path, stub_adapter, state, table_format="xlsx")
+        workbook = openpyxl.load_workbook(saved[XLSX_KEY])
+
+        pipes = workbook["Rohre"]
+        last = [cell.value for cell in pipes[pipes.max_row]]
+        assert last[:2] == ["Gesamt", 3]
+        assert last[2:] == pytest.approx([30.0, 120.0, 5.5, 4.4])
+        assert all(cell.font.bold for cell in pipes[pipes.max_row])
+        assert pipes.max_row == 1 + 2 + 1  # header + 2 DN rows + total
+
+        buildings = workbook["Statistiken"]
+        last = [cell.value for cell in buildings[buildings.max_row]]
+        assert last[:2] == ["Gesamt", 3]
+        assert last[2] == pytest.approx(75.0)
+
+        # the other sheets get no total row, and the state tables stay untouched
+        assert workbook["Übersicht"].cell(workbook["Übersicht"].max_row, 1).value != "Gesamt"
+        assert workbook["Lastprofil"].max_row == 1 + 3
+        assert len(state.pipe_summary_df) == 2
+        assert len(state.building_summary_df) == 2
 
     def test_timezone_aware_index_is_written(self, tmp_path, buildings_gdf):
         pytest.importorskip("openpyxl")
@@ -165,6 +192,27 @@ class TestXlsx:
 
         with pytest.raises(ImportError, match=r"fheat\[excel\]"):
             write_tables(_result_state(buildings_gdf), tmp_path, "xlsx", translate=True)
+
+
+class TestWithTotalRow:
+    def test_sums_numeric_columns_and_labels_first_column(self):
+        frame = pd.DataFrame({"DN": [20, 25], "n": [1, 2], "len": [1.5, 2.5], "note": ["a", "b"]})
+        result = with_total_row(frame, "Gesamt")
+        assert len(result) == 3
+        assert result.iloc[-1]["DN"] == "Gesamt"
+        assert result.iloc[-1]["n"] == 3
+        assert result.iloc[-1]["len"] == pytest.approx(4.0)
+        assert pd.isna(result.iloc[-1]["note"])
+        assert len(frame) == 2  # input not modified
+
+    def test_missing_load_profile_row_is_included(self):
+        frame = pd.DataFrame(
+            [("EFH", 2, 40.0), (pd.NA, 1, 5.0)],
+            columns=[cols.LOAD_PROFILE, cols.N_BUILDINGS, cols.HEAT_DEMAND_MWH],
+        )
+        total = with_total_row(frame, "Gesamt").iloc[-1]
+        assert total[cols.N_BUILDINGS] == 3
+        assert total[cols.HEAT_DEMAND_MWH] == pytest.approx(45.0)
 
 
 class TestConfig:

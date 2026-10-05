@@ -27,6 +27,10 @@ _TABLES = (
     ("lastprofil", "Lastprofil"),
 )
 
+# Sheets that get a bold total row in the workbook, like the QGIS plugin's
+# "Gesamt" line. CSV files stay without it so they remain plain data.
+_TOTAL_ROW_TABLES = frozenset({"rohrmengen", "gebaeude_lastprofil"})
+
 _EXCEL_HINT = 'table_format="xlsx" requires openpyxl. Install it with: pip install "fheat[excel]"'
 
 
@@ -61,6 +65,17 @@ def _excel_safe(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def with_total_row(frame: pd.DataFrame, label: str) -> pd.DataFrame:
+    """Append a row with ``label`` in the first column and the column sums.
+
+    Only numeric columns are summed; other columns stay empty.
+    """
+    first, *rest = frame.columns
+    totals = {column: frame[column].sum() for column in rest if pd.api.types.is_numeric_dtype(frame[column])}
+    total = pd.DataFrame([{first: label, **totals}], columns=frame.columns)
+    return pd.concat([frame.astype({first: object}), total], ignore_index=True)
+
+
 def write_tables(
     state: PipelineState,
     out_dir: str | Path,
@@ -70,8 +85,9 @@ def write_tables(
     """Write the result tables and return ``{key: path}`` of the written files.
 
     ``table_format=None`` writes nothing. ``"csv"`` writes one UTF-8 file per
-    table, ``"xlsx"`` one workbook with a sheet per table. Tables not yet in
-    the state (before the RESULTS step) are skipped.
+    table, ``"xlsx"`` one workbook with a sheet per table; the pipe and
+    building sheets end with a bold total row. Tables not yet in the state
+    (before the RESULTS step) are skipped.
     """
     if table_format is None:
         return {}
@@ -92,14 +108,23 @@ def write_tables(
 
     if table_format == "xlsx":
         try:
-            import openpyxl  # noqa: F401
+            from openpyxl.styles import Font
         except ImportError as exc:
             raise ImportError(_EXCEL_HINT) from exc
+        total_label = "Gesamt" if translate else "total"
         path = out_dir / XLSX_FILENAME
         with pd.ExcelWriter(path, engine="openpyxl") as writer:
             for name, sheet in _TABLES:
-                if name in tables:
-                    _excel_safe(tables[name]).to_excel(writer, sheet_name=sheet, index=False)
+                if name not in tables:
+                    continue
+                frame = _excel_safe(tables[name])
+                if name in _TOTAL_ROW_TABLES:
+                    frame = with_total_row(frame, total_label)
+                frame.to_excel(writer, sheet_name=sheet, index=False)
+                if name in _TOTAL_ROW_TABLES:
+                    worksheet = writer.sheets[sheet]
+                    for cell in worksheet[worksheet.max_row]:
+                        cell.font = Font(bold=True)
         logger.info("Saved result tables → %s", path)
         return {XLSX_KEY: str(path)}
 
