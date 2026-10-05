@@ -55,9 +55,9 @@ pip install -e ".[topotherm]"
 pip install -e "git+https://github.com/jylambert/topotherm@v0.6.0#egg=topotherm" --src ../vendor
 ```
 
-**topotherm is not published on PyPI** — it lives only at [jylambert/topotherm](https://github.com/jylambert/topotherm). The `[topotherm]` extra therefore ships the solver and the pandas pin but *not* topotherm itself: a direct git URL in the published metadata would make this package unuploadable to PyPI, and the install has to be editable anyway (below).
+**topotherm is not published on PyPI** — it lives only at [jylambert/topotherm](https://github.com/jylambert/topotherm). The `[topotherm]` extra therefore ships the solver and the pandas pin but *not* topotherm itself: a direct git URL in the published metadata would make this package unuploadable to PyPI.
 
-- **`--editable` is mandatory, not a preference.** topotherm 0.6.0 declares `[tool.setuptools] packages = ["topotherm"]`, which omits the `topotherm.models` subpackage. A regular install therefore produces a package that imports and then dies on `from . import models` — reported misleadingly as a circular import. An editable install reads straight from the checkout and is unaffected.
+- **`-e` is required** — a regular install of topotherm 0.6.0 omits its `topotherm.models` subpackage and then fails at import with a confusing "circular import" error. Editable installs read from the checkout and work.
 - **`--src` matters too.** pip drops editable VCS checkouts into `./src` by default, which would land inside this project’s own `src/` tree. Point it somewhere else.
 - **Python 3.12 — exactly** — topotherm 0.6.0 uses PEP 701 f-string syntax, so it cannot even be imported on 3.10/3.11, and its own `requires-python = ">=3.10,<=3.13"` excludes 3.13.1 and newer (under PEP 440, `3.13.11 <= 3.13` is false) as well as 3.14. The core itself keeps its `>=3.10` floor.
 - **A MILP solver** — the extra pulls in `highspy` (open source); Gurobi or CPLEX work too but are not required.
