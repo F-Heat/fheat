@@ -21,9 +21,9 @@ XLSX_KEY = "ergebnisse_xlsx"
 
 # (file stem / key, Excel sheet name) in output order
 _TABLES = (
-    ("ergebnisuebersicht", "Ergebnisübersicht"),
-    ("rohrmengen", "Rohrmengen"),
-    ("gebaeude_lastprofil", "Gebäude je Lastprofil"),
+    ("ergebnisuebersicht", "Übersicht"),
+    ("rohrmengen", "Rohre"),
+    ("gebaeude_lastprofil", "Statistiken"),
     ("lastprofil", "Lastprofil"),
 )
 

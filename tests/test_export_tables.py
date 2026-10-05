@@ -114,8 +114,8 @@ class TestXlsx:
         assert path.name == XLSX_FILENAME
 
         workbook = openpyxl.load_workbook(path)
-        assert workbook.sheetnames == ["Ergebnisübersicht", "Rohrmengen", "Gebäude je Lastprofil", "Lastprofil"]
-        header = [cell.value for cell in workbook["Rohrmengen"][1]]
+        assert workbook.sheetnames == ["Übersicht", "Rohre", "Statistiken", "Lastprofil"]
+        header = [cell.value for cell in workbook["Rohre"][1]]
         assert header[:2] == ["DN [mm]", "Anzahl Hausanschluesse"]
 
     def test_raw_keeps_canonical_headers(self, tmp_path, stub_adapter, buildings_gdf):
@@ -125,14 +125,14 @@ class TestXlsx:
         )
         workbook = openpyxl.load_workbook(saved[XLSX_KEY])
         # sheet names are file-level names and stay the same; only column labels follow output_language
-        assert workbook.sheetnames == ["Ergebnisübersicht", "Rohrmengen", "Gebäude je Lastprofil", "Lastprofil"]
-        assert [c.value for c in workbook["Rohrmengen"][1]][:2] == [cols.NOMINAL_DIAMETER, cols.N_HOUSE_CONNECTIONS]
-        assert [c.value for c in workbook["Gebäude je Lastprofil"][1]] == [
+        assert workbook.sheetnames == ["Übersicht", "Rohre", "Statistiken", "Lastprofil"]
+        assert [c.value for c in workbook["Rohre"][1]][:2] == [cols.NOMINAL_DIAMETER, cols.N_HOUSE_CONNECTIONS]
+        assert [c.value for c in workbook["Statistiken"][1]] == [
             cols.LOAD_PROFILE,
             cols.N_BUILDINGS,
             cols.HEAT_DEMAND_MWH,
         ]
-        assert [c.value for c in workbook["Ergebnisübersicht"][1]] == ["key", "value"]
+        assert [c.value for c in workbook["Übersicht"][1]] == ["key", "value"]
         assert workbook["Lastprofil"]["A1"].value == "time"
 
     def test_timezone_aware_index_is_written(self, tmp_path, buildings_gdf):
