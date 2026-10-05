@@ -19,6 +19,19 @@ def load_pipe_info() -> pd.DataFrame:
         return pd.read_csv(p)
 
 
+def resolve_pipe_info(adapter) -> pd.DataFrame:
+    """Pipe catalogue actually used by the pipeline.
+
+    The adapter may supply its own catalogue; otherwise the core default is
+    used. Network backends and the result summary must agree on it, so both
+    go through this function.
+    """
+    pipe_info = adapter.provide_pipe_info()
+    if pipe_info is None:
+        pipe_info = load_pipe_info()
+    return pipe_info
+
+
 def load_default_temperature() -> pd.Series:
     """8760 hourly outdoor temperatures [°C] from the core example year."""
     with importlib.resources.as_file(_data_path("example_temperature.csv")) as p:

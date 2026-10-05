@@ -24,7 +24,7 @@ from fheat_core.algorithms.network import (
     calculate_volumeflow,
 )
 from fheat_core.network.base import NetworkBackend, NetworkBackendError
-from fheat_core.resources import load_pipe_info
+from fheat_core.resources import resolve_pipe_info
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +84,7 @@ class TopothermBackend(NetworkBackend):
         tt = _require_topotherm()
         tcfg = config.topotherm
 
-        pipe_info = adapter.provide_pipe_info()
-        if pipe_info is None:
-            pipe_info = load_pipe_info()
+        pipe_info = resolve_pipe_info(adapter)
 
         sinks, roads, srcs = self._to_topotherm_inputs(buildings, streets, source)
         mat, gdf_nodes = self._build_matrices(tt, sinks, roads, srcs, buildings.crs, tcfg)
@@ -273,7 +271,7 @@ class TopothermBackend(NetworkBackend):
         power = edges_df["power"].to_numpy(float)      # kW, undiversified
         length = edges_df["length"].to_numpy(float)    # m
         edge_type = np.where(
-            edges_df["to_consumer"].to_numpy(), "Hausanschluss", "Straßenleitung"
+            edges_df["to_consumer"].to_numpy(), cols.EDGE_TYPE_HOUSE_CONNECTION, "Straßenleitung"
         )
 
         glf = np.array([calculate_glf(int(n)) for n in n_bld])

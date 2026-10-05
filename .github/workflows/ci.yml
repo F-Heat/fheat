@@ -36,7 +36,7 @@ jobs:
       - name: Projekt und Test-Abhängigkeiten installieren
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --editable ".[full,dev,excel]"
+          python -m pip install --editable ".[full,dev,excel,plots]"
 
       - name: Tests ausführen
         run: python -m pytest
@@ -103,7 +103,7 @@ jobs:
         # damit er nicht in fheats eigenes src/ geraet.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --editable ".[full,dev,excel,topotherm]"
+          python -m pip install --editable ".[full,dev,excel,plots,topotherm]"
           python -m pip install --editable \
             "git+https://github.com/jylambert/topotherm@v0.6.0#egg=topotherm" \
             --src "${{ runner.temp }}/vendor"

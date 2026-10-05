@@ -1,6 +1,6 @@
 # F|Heat
 
-**F|Heat** is a Python toolkit for **district-heating network planning from geodata**. Given buildings, streets, parcels and a heat-source location, it computes heat-line density (*Wärmeliniendichte*, WLD), derives suitability polygons (*Eignungspolygone*), dimensions a pipe network (diameters, flow velocities, heat losses, simultaneity factor / *Gleichzeitigkeitsfaktor*), and produces an hourly load profile and a result summary.
+**F|Heat** is a Python toolkit for **district-heating network planning from geodata**. Given buildings, streets, parcels and a heat-source location, it computes heat-line density (*Wärmeliniendichte*, WLD), derives suitability polygons (*Eignungspolygone*), dimensions a pipe network (diameters, flow velocities, heat losses, simultaneity factor / *Gleichzeitigkeitsfaktor*), and produces an hourly load profile, a result summary and result tables (pipe quantities per diameter, connected buildings per load profile).
 
 > Domain terms are German because the tool targets German municipal heat planning (*kommunale Wärmeplanung*), in particular the federal state of North Rhine-Westphalia (NRW).
 
@@ -19,7 +19,7 @@ All three are import packages shipped from a single distribution named `fheat` (
 ## Architecture
 
 ```
-DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ──▶ outputs (.gpkg + summary)
+DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ──▶ outputs (.gpkg + summary + tables)
 (source of data)        (frames)          (runs the phases)
 ```
 
@@ -33,7 +33,7 @@ DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ─�
   | `DOWNLOADED` | adjust | cleaned geometry, schema-validated frames |
   | `ADJUSTED` | status | heat-line density + suitability polygons |
   | `STATUS` | network | pipe network with sizing & losses |
-  | `NETWORK` | results | hourly load profile + result summary |
+  | `NETWORK` | results | hourly load profile + result summary + pipe quantities per DN + buildings per load profile |
 
 Adapters must produce data conforming to the contracts in [`schemas.py`](src/fheat_core/schemas.py); the core validates against the same schemas as it goes.
 
@@ -55,9 +55,9 @@ pip install -e ".[topotherm]"
 pip install -e "git+https://github.com/jylambert/topotherm@v0.6.0#egg=topotherm" --src ../vendor
 ```
 
-**topotherm is not published on PyPI** — it lives only at [jylambert/topotherm](https://github.com/jylambert/topotherm). The `[topotherm]` extra therefore ships the solver and the pandas pin but *not* topotherm itself: a direct git URL in the published metadata would make this package unuploadable to PyPI, and the install has to be editable anyway (below).
+**topotherm is not published on PyPI** — it lives only at [jylambert/topotherm](https://github.com/jylambert/topotherm). The `[topotherm]` extra therefore ships the solver and the pandas pin but *not* topotherm itself: a direct git URL in the published metadata would make this package unuploadable to PyPI.
 
-- **`--editable` is mandatory, not a preference.** topotherm 0.6.0 declares `[tool.setuptools] packages = ["topotherm"]`, which omits the `topotherm.models` subpackage. A regular install therefore produces a package that imports and then dies on `from . import models` — reported misleadingly as a circular import. An editable install reads straight from the checkout and is unaffected.
+- **`-e` is required** — a regular install of topotherm 0.6.0 omits its `topotherm.models` subpackage and then fails at import with a confusing "circular import" error. Editable installs read from the checkout and work.
 - **`--src` matters too.** pip drops editable VCS checkouts into `./src` by default, which would land inside this project’s own `src/` tree. Point it somewhere else.
 - **Python 3.12 — exactly** — topotherm 0.6.0 uses PEP 701 f-string syntax, so it cannot even be imported on 3.10/3.11, and its own `requires-python = ">=3.10,<=3.13"` excludes 3.13.1 and newer (under PEP 440, `3.13.11 <= 3.13` is false) as well as 3.14. The core itself keeps its `>=3.10` floor.
 - **A MILP solver** — the extra pulls in `highspy` (open source); Gurobi or CPLEX work too but are not required.
@@ -95,9 +95,10 @@ pip install -e ".[nrw]"       # + NRW auto-download adapter (owslib, lxml)
 pip install -e ".[full]"      # everything: NRW adapter + German holidays
 pip install -e ".[full,dev]"  # everything + pytest, for development
 pip install -e ".[topotherm]" # + expert network mode; topotherm itself needs a second, editable install — see above
+pip install -e ".[excel,plots]" # + Excel export and load profile charts of the results
 ```
 
-All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* in the examples.
+All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
 
 ## Quick start
 
@@ -156,6 +157,47 @@ The pipeline uses canonical, language-neutral column names internally (see
 `fheat_core/columns.py`). On export, `save_outputs()` translates them back to
 German display labels by default (`output_language="de"`); set
 `output_language="raw"` to keep the canonical identifiers.
+
+### Result tables
+
+After the `RESULTS` step the state holds, besides `load_profile_df` and
+`result_summary`:
+
+- `pipe_summary_df` — one row per nominal diameter of the pipe catalogue
+  (unused diameters as zero): number of house connections, house connection
+  length, route length, heat loss and heat loss with extra insulation [MWh/a].
+- `building_summary_df` — number and heat demand [MWh/a] of the connected
+  buildings per load profile (`EFH, MFH, GHA, GMK, GKO`, further profiles
+  appended, buildings without a profile in a last row).
+
+`result_summary` additionally reports `total_house_connection_length_m`,
+`total_route_length_m` and `total_loss_extra_insulation_mwh_a`.
+
+`save_outputs()` writes these tables only if `FHeatConfig.table_format` is set:
+
+| `table_format` | Output |
+|---|---|
+| `None` (default) | no tables — unchanged behaviour |
+| `"csv"` | `ergebnisuebersicht.csv`, `rohrmengen.csv`, `gebaeude_lastprofil.csv`, `lastprofil.csv` |
+| `"xlsx"` | `fheat-ergebnisse.xlsx` with the sheets `Übersicht`, `Rohre`, `Statistiken`, `Lastprofil`; `Rohre` and `Statistiken` end with a bold `Gesamt` row (requires `pip install "fheat[excel]"`) |
+
+The column labels follow `output_language` like the geodata export.
+
+### Result charts
+
+With `FHeatConfig.plot_format="png"` (or `"svg"`) `save_outputs()` also draws
+the four load profile charts of the former QGIS plugin (requires
+`pip install "fheat[plots]"`):
+
+| File | Content |
+|---|---|
+| `Lastprofil` | hourly total heat demand incl. loss and the loss itself [MW] |
+| `Lastprofil_geordnet` | the same, hours sorted descending (load duration curve) |
+| `Lastprofil_extra_Daemmung` | hourly total and loss with extra insulation |
+| `Lastprofil_extra_Daemmung_geordnet` | the same, sorted descending |
+
+With `table_format="xlsx"` the charts are embedded in the `Lastprofil` sheet
+as well, next to the data. Chart labels are German.
 
 Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
 

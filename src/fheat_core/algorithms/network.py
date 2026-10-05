@@ -32,7 +32,7 @@ def calculate_diameter_velocity_loss(
     pipe_info: pd.DataFrame,
     edge_type: str,
 ) -> tuple[float, float, float, float]:
-    start_index = 0 if edge_type == "Hausanschluss" else 2
+    start_index = 0 if edge_type == cols.EDGE_TYPE_HOUSE_CONNECTION else 2
     idx = pipe_info["max_volumeFlow"][start_index:].searchsorted(volumeflow, side="right") + start_index
     if idx >= len(pipe_info):
         idx = len(pipe_info) - 1
@@ -70,7 +70,7 @@ def connect_buildings_to_graph(G: nx.Graph, buildings_gdf: gpd.GeoDataFrame) -> 
         centroid = row[cols.CENTROID]
         cp = row.get(cols.CONNECTION_POINT)
         if cp is not None and not (hasattr(cp, "__class__") and cp.__class__.__name__ == "float"):
-            G.add_edge(centroid.coords[0], (cp.x, cp.y), **{cols.TYPE: "Hausanschluss"})
+            G.add_edge(centroid.coords[0], (cp.x, cp.y), **{cols.TYPE: cols.EDGE_TYPE_HOUSE_CONNECTION})
     return G
 
 

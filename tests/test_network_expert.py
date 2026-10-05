@@ -855,6 +855,26 @@ def test_results_phase_accepts_the_expert_net(solved_expert_net, expert_adapter)
     assert state.result_summary["total_loss_mwh_a"] > 0
 
 
+def test_result_tables_from_the_expert_net(solved_expert_net, expert_adapter):
+    """Pipe and building summaries work on the topotherm net as well."""
+    from fheat_core.schemas import BuildingSummarySchema, PipeSummarySchema
+    from fheat_core.steps import results as results_step
+
+    state = results_step.run(solved_expert_net, _forced_config(), expert_adapter)
+    s = state.result_summary
+    pipes = state.pipe_summary_df
+
+    PipeSummarySchema.validate(pipes)
+    BuildingSummarySchema.validate(state.building_summary_df)
+    # topotherm: exactly one house connection edge per connected building
+    assert pipes[cols.N_HOUSE_CONNECTIONS].sum() == s["total_buildings"]
+    assert s["total_house_connection_length_m"] + s["total_route_length_m"] == pytest.approx(
+        s["total_network_length_m"], abs=0.11
+    )
+    assert pipes[cols.HEAT_LOSS_MWH].sum() == pytest.approx(s["total_loss_mwh_a"], abs=1e-3)
+    assert state.building_summary_df[cols.N_BUILDINGS].sum() == s["total_buildings"]
+
+
 def test_both_modes_produce_the_same_columns(
     buildings_gdf, streets_gdf, parcels_gdf, source_off_street, expert_adapter,
     solved_expert_net,

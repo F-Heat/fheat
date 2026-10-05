@@ -19,7 +19,7 @@ from fheat_core.algorithms.network import (
     connect_source_to_graph,
 )
 from fheat_core.network.base import NetworkBackend
-from fheat_core.resources import load_pipe_info
+from fheat_core.resources import resolve_pipe_info
 
 
 class DijkstraBackend(NetworkBackend):
@@ -28,9 +28,7 @@ class DijkstraBackend(NetworkBackend):
     name = "phase0"
 
     def build(self, buildings, streets, source, config, adapter):
-        pipe_info = adapter.provide_pipe_info()
-        if pipe_info is None:
-            pipe_info = load_pipe_info()
+        pipe_info = resolve_pipe_info(adapter)
 
         buildings = add_centroids(buildings)
         buildings = closest_points_to_streets(buildings, streets, centroid_col="centroid")
