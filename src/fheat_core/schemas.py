@@ -165,6 +165,9 @@ NetSchema = FrameSchema(
         cols.HEAT_LOSS: "float",
         cols.HEAT_LOSS_EXTRA_INSULATION: "float",
     },
+    optional_columns={
+        cols.GLF: "float",
+    },
     geometry_type="LineString",
     allow_empty=True,
 )
