@@ -165,7 +165,38 @@ NetSchema = FrameSchema(
         cols.HEAT_LOSS: "float",
         cols.HEAT_LOSS_EXTRA_INSULATION: "float",
     },
+    optional_columns={
+        cols.GLF: "float",
+    },
     geometry_type="LineString",
+    allow_empty=True,
+)
+
+
+# ============================================================
+# Result tables — created by the RESULTS step
+# ============================================================
+
+PipeSummarySchema = FrameSchema(
+    name="PipeSummary",
+    required_columns={
+        cols.NOMINAL_DIAMETER: "str",
+        cols.N_HOUSE_CONNECTIONS: "int",
+        cols.HOUSE_CONNECTION_LENGTH: "float",
+        cols.ROUTE_LENGTH: "float",
+        cols.HEAT_LOSS_MWH: "float",
+        cols.HEAT_LOSS_EXTRA_INSULATION_MWH: "float",
+    },
+    allow_empty=True,
+)
+
+BuildingSummarySchema = FrameSchema(
+    name="BuildingSummary",
+    required_columns={
+        cols.LOAD_PROFILE: "str",
+        cols.N_BUILDINGS: "int",
+        cols.HEAT_DEMAND_MWH: "float",
+    },
     allow_empty=True,
 )
 
@@ -220,6 +251,9 @@ class ResultSummarySchema:
         "total_loss_mwh_a",
         "supply_temperature_c",
         "return_temperature_c",
+        "total_house_connection_length_m",
+        "total_route_length_m",
+        "total_loss_extra_insulation_mwh_a",
     )
 
     def validate(self, summary) -> None:

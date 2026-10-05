@@ -6,6 +6,7 @@ Covers:
 - All concrete schemas accept their respective fixtures.
 - LoadProfileSchema enforces DatetimeIndex, length 8760, required columns.
 - ResultSummarySchema enforces dict type and required keys.
+- PipeSummarySchema / BuildingSummarySchema enforce their result-table columns.
 """
 from __future__ import annotations
 
@@ -18,11 +19,13 @@ from shapely.geometry import LineString, Point, Polygon
 
 from fheat_core import columns as cols
 from fheat_core.schemas import (
+    BuildingSummarySchema,
     BuildingsSchema,
     FrameSchema,
     LOAD_PROFILE_SCHEMA,
     NetSchema,
     ParcelsSchema,
+    PipeSummarySchema,
     PolygonsSchema,
     RESULT_SUMMARY_SCHEMA,
     SchemaError,
@@ -51,7 +54,7 @@ class TestFrameSchemaGeneric:
     def test_empty_not_allowed_raises(self):
         schema = FrameSchema(name="X", required_columns={"geometry": "Polygon"})
         empty = gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs="EPSG:25832")
-        with pytest.raises(SchemaError, match="leer"):
+        with pytest.raises(SchemaError, match="empty"):
             schema.validate(empty)
 
     def test_empty_allowed_passes(self):
@@ -80,7 +83,7 @@ class TestFrameSchemaGeneric:
             geometry="geometry",
             crs="EPSG:25832",
         )
-        with pytest.raises(SchemaError, match="Geometrietypen"):
+        with pytest.raises(SchemaError, match="geometry types"):
             schema.validate(gdf)
 
     def test_multi_variant_accepted(self):
@@ -126,7 +129,7 @@ class TestInputSchemas:
     def test_streets_wrong_geometry(self, streets_gdf):
         bad = streets_gdf.copy()
         bad["geometry"] = [Point(0, 0)]
-        with pytest.raises(SchemaError, match="Geometrietypen"):
+        with pytest.raises(SchemaError, match="geometry types"):
             StreetsSchema.validate(bad)
 
     def test_parcels_fixture_valid(self, parcels_gdf):
@@ -145,7 +148,7 @@ class TestInputSchemas:
             geometry="geometry",
             crs=crs,
         )
-        with pytest.raises(SchemaError, match="Geometrietypen"):
+        with pytest.raises(SchemaError, match="geometry types"):
             SourceSchema.validate(bad)
 
 
@@ -210,7 +213,7 @@ class TestOutputSchemas:
             geometry="geometry",
             crs=crs,
         )
-        with pytest.raises(SchemaError, match="Pflichtspalten fehlen"):
+        with pytest.raises(SchemaError, match="columns missing"):
             NetSchema.validate(gdf)
 
 
@@ -256,7 +259,7 @@ class TestLoadProfileSchema:
 
     def test_wrong_length_raises(self):
         df = _valid_load_profile().iloc[:100]
-        with pytest.raises(SchemaError, match="Zeitschritte"):
+        with pytest.raises(SchemaError, match="time steps"):
             LOAD_PROFILE_SCHEMA.validate(df)
 
     def test_missing_column_raises(self):
@@ -280,6 +283,9 @@ def _valid_summary() -> dict:
         "total_loss_mwh_a": 5.0,
         "supply_temperature_c": 80.0,
         "return_temperature_c": 50.0,
+        "total_house_connection_length_m": 234.5,
+        "total_route_length_m": 1000.0,
+        "total_loss_extra_insulation_mwh_a": 4.0,
     }
 
 
@@ -292,7 +298,7 @@ class TestResultSummarySchema:
             RESULT_SUMMARY_SCHEMA.validate(None)
 
     def test_non_dict_raises(self):
-        with pytest.raises(SchemaError, match="Dict"):
+        with pytest.raises(SchemaError, match="dict"):
             RESULT_SUMMARY_SCHEMA.validate(["not", "a", "dict"])
 
     def test_missing_key_raises(self):
@@ -305,3 +311,48 @@ class TestResultSummarySchema:
         bad = _valid_summary()
         bad["custom_metric"] = 42
         RESULT_SUMMARY_SCHEMA.validate(bad)  # extra keys must not raise
+
+    @pytest.mark.parametrize(
+        "key",
+        ["total_house_connection_length_m", "total_route_length_m", "total_loss_extra_insulation_mwh_a"],
+    )
+    def test_new_summary_keys_required(self, key):
+        bad = _valid_summary()
+        del bad[key]
+        with pytest.raises(SchemaError, match=key):
+            RESULT_SUMMARY_SCHEMA.validate(bad)
+
+
+# ---------------------------------------------------------------------------
+# Result tables
+# ---------------------------------------------------------------------------
+
+
+class TestResultTableSchemas:
+    def test_pipe_summary_accepts_valid_frame(self):
+        df = pd.DataFrame(
+            {
+                cols.NOMINAL_DIAMETER: ["PEX 20"],
+                cols.N_HOUSE_CONNECTIONS: [1],
+                cols.HOUSE_CONNECTION_LENGTH: [5.0],
+                cols.ROUTE_LENGTH: [0.0],
+                cols.HEAT_LOSS_MWH: [0.1],
+                cols.HEAT_LOSS_EXTRA_INSULATION_MWH: [0.08],
+            }
+        )
+        PipeSummarySchema.validate(df)
+
+    def test_pipe_summary_missing_column_raises(self):
+        df = pd.DataFrame({cols.NOMINAL_DIAMETER: ["PEX 20"]})
+        with pytest.raises(SchemaError, match=cols.ROUTE_LENGTH):
+            PipeSummarySchema.validate(df)
+
+    def test_building_summary_accepts_valid_and_empty_frame(self):
+        columns = [cols.LOAD_PROFILE, cols.N_BUILDINGS, cols.HEAT_DEMAND_MWH]
+        BuildingSummarySchema.validate(pd.DataFrame([("EFH", 2, 40.0)], columns=columns))
+        BuildingSummarySchema.validate(pd.DataFrame(columns=columns))
+
+    def test_building_summary_missing_column_raises(self):
+        df = pd.DataFrame({cols.LOAD_PROFILE: ["EFH"], cols.N_BUILDINGS: [1]})
+        with pytest.raises(SchemaError, match=cols.HEAT_DEMAND_MWH):
+            BuildingSummarySchema.validate(df)

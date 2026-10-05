@@ -233,3 +233,85 @@ class TestResultsStep:
         assert s["total_network_length_m"] > 0
         assert 0 < s["glf"] <= 1.001  # n=3 → GLF < 1 by formula
         assert s["total_loss_mwh_a"] >= 0
+
+    def test_result_tables_match_summary(self, stub_adapter, cfg, pipe_info_df):
+        state = PipelineState()
+        download.run(state, cfg, stub_adapter)
+        adjust.run(state, cfg, stub_adapter)
+        status.run(state, cfg, stub_adapter)
+        network.run(state, cfg, stub_adapter)
+        results.run(state, cfg, stub_adapter)
+
+        s = state.result_summary
+        assert s["total_house_connection_length_m"] > 0
+        assert s["total_route_length_m"] > 0
+        assert s["total_house_connection_length_m"] + s["total_route_length_m"] == pytest.approx(
+            s["total_network_length_m"], abs=0.11
+        )
+        assert 0 <= s["total_loss_extra_insulation_mwh_a"] <= s["total_loss_mwh_a"]
+
+        pipes = state.pipe_summary_df
+        # every catalogue DN is listed, in catalogue order (the stub adapter's catalogue)
+        assert list(pipes[cols.NOMINAL_DIAMETER])[: len(pipe_info_df)] == list(pipe_info_df["DN"])
+        assert pipes[cols.HEAT_LOSS_MWH].sum() == pytest.approx(s["total_loss_mwh_a"], abs=1e-3)
+        assert pipes[cols.HEAT_LOSS_EXTRA_INSULATION_MWH].sum() == pytest.approx(
+            s["total_loss_extra_insulation_mwh_a"], abs=1e-3
+        )
+        assert pipes[cols.HOUSE_CONNECTION_LENGTH].sum() == pytest.approx(
+            s["total_house_connection_length_m"], abs=0.06
+        )
+        assert pipes[cols.N_HOUSE_CONNECTIONS].sum() == 3  # one per connected building
+
+        buildings = state.building_summary_df
+        assert list(buildings[cols.LOAD_PROFILE]) == ["EFH", "MFH", "GHA", "GMK", "GKO"]
+        assert buildings[cols.N_BUILDINGS].sum() == s["total_buildings"]
+        assert buildings[cols.HEAT_DEMAND_MWH].sum() == pytest.approx(s["total_heat_demand_mwh_a"])
+
+    def test_unreachable_building_has_no_house_connection(
+        self, buildings_gdf, streets_gdf, parcels_gdf, source_gdf,
+        pipe_info_df, temperature_series, cfg,
+    ):
+        """phase0 skips a building the router cannot reach. It stays connected,
+        so it counts in the building summary but has no house connection edge."""
+        isolated_street = gpd.GeoDataFrame(
+            {cols.ROUTABLE: [1], "geometry": [LineString([(0, 300), (60, 300)])]},
+            crs=CRS, geometry="geometry",
+        )
+        streets = gpd.GeoDataFrame(
+            pd.concat([streets_gdf, isolated_street], ignore_index=True),
+            geometry="geometry", crs=CRS,
+        )
+        remote = gpd.GeoDataFrame(
+            {
+                cols.BUILDING_ID: [3],
+                cols.CONNECT: [1],
+                cols.HEAT_DEMAND: [5000.0],
+                cols.THERMAL_POWER: [5.0],
+                cols.FULL_LOAD_HOURS: [1500.0],
+                cols.LOAD_PROFILE: ["GKO"],
+                "geometry": [Polygon([(20, 305), (30, 305), (30, 315), (20, 315)])],
+            },
+            crs=CRS, geometry="geometry",
+        )
+        buildings = gpd.GeoDataFrame(
+            pd.concat([buildings_gdf, remote], ignore_index=True),
+            geometry="geometry", crs=CRS,
+        )
+        adapter = StubAdapter(buildings, streets, parcels_gdf, source_gdf,
+                              pipe_info_df, temperature_series, {})
+        state = PipelineState()
+        download.run(state, cfg, adapter)
+        adjust.run(state, cfg, adapter)
+        status.run(state, cfg, adapter)
+        network.run(state, cfg, adapter)
+        results.run(state, cfg, adapter)
+
+        s = state.result_summary
+        assert s["total_buildings"] == 4
+        assert state.pipe_summary_df[cols.N_HOUSE_CONNECTIONS].sum() == 3
+        summary = state.building_summary_df.set_index(cols.LOAD_PROFILE)
+        assert summary.loc["GKO", cols.N_BUILDINGS] == 1
+        assert summary[cols.N_BUILDINGS].sum() == 4
+        assert s["total_house_connection_length_m"] + s["total_route_length_m"] == pytest.approx(
+            s["total_network_length_m"], abs=0.11
+        )

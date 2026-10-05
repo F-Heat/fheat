@@ -32,4 +32,6 @@ class PipelineState:
 
     # Results
     load_profile_df: Optional[pd.DataFrame] = None
+    pipe_summary_df: Optional[pd.DataFrame] = None       # pipe quantities per DN
+    building_summary_df: Optional[pd.DataFrame] = None   # connected buildings per load profile
     result_summary: Optional[dict] = None
