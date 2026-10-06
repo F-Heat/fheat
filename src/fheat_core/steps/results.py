@@ -5,6 +5,7 @@ from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
 from fheat_core.algorithms.slp import build_load_profile
 from fheat_core.algorithms.summary import network_length_split, summarize_buildings, summarize_pipes
+from fheat_core.errors import PipelineInputError
 from fheat_core.resources import load_default_holidays, load_default_temperature, resolve_pipe_info
 from fheat_core.schemas import (
     LOAD_PROFILE_SCHEMA,
@@ -12,15 +13,16 @@ from fheat_core.schemas import (
     BuildingSummarySchema,
     PipeSummarySchema,
 )
+from fheat_core.selection import connected_mask
 from fheat_core.state import Phase, PipelineState
 
 
 def run(state: PipelineState, config, adapter) -> PipelineState:
+    if state.net_gdf is None:
+        raise PipelineInputError("The RESULTS step needs the network of the NETWORK step.")
     net_gdf = state.net_gdf
     buildings = state.buildings_gdf
-
-    if cols.CONNECT in buildings.columns:
-        buildings = buildings[buildings[cols.CONNECT] == 1]
+    buildings = buildings[connected_mask(buildings, state.planning_area_gdf)]
 
     temperature = adapter.provide_temperature()
     if temperature is None:

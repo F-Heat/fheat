@@ -338,6 +338,17 @@ class TestFetchSource:
         with pytest.raises(ValueError, match="muss tuple"):
             adapter.fetch_source()
 
+    def test_source_optional(self, files_set):
+        """Without a source the analysis steps still get their frames."""
+        adapter = FlexDataAdapter(
+            buildings_path=files_set["buildings"],
+            streets_path=files_set["streets"],
+            parcels_path=files_set["parcels"],
+            column_map={"wbedarf": cols.HEAT_DEMAND},
+        )
+        assert adapter.fetch_source() is None
+        assert not adapter.fetch_buildings().empty
+
 
 # ---------------------------------------------------------------------------
 # Caching — repeated fetch returns same instance

@@ -23,7 +23,12 @@ class PipelineState:
     buildings_gdf: Optional[gpd.GeoDataFrame] = None
     streets_gdf: Optional[gpd.GeoDataFrame] = None
     parcels_gdf: Optional[gpd.GeoDataFrame] = None
-    source_gdf: Optional[gpd.GeoDataFrame] = None
+    source_gdf: Optional[gpd.GeoDataFrame] = None  # only needed from NETWORK on
+
+    # Planning area of the network (one or more polygons). The analysis steps
+    # always work on the whole area of the input frames; NETWORK and RESULTS
+    # connect only the buildings inside this area. None → all buildings.
+    planning_area_gdf: Optional[gpd.GeoDataFrame] = None
 
     # Pipeline outputs — created by the core, satisfy output schemas
     wld_gdf: Optional[gpd.GeoDataFrame] = None

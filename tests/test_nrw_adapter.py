@@ -49,9 +49,15 @@ class TestNRWDataAdapterConstructor:
         with pytest.raises(ValueError, match="municipality_name.*city_name"):
             NRWDataAdapter(source_coordinates=(52.0, 7.0))
 
-    def test_requires_source_coordinates(self):
-        with pytest.raises(ValueError, match="source_coordinates"):
-            NRWDataAdapter(source_coordinates=None, city_name="Münster")
+    def test_source_coordinates_optional(self):
+        """The heat source is only needed from the NETWORK step on."""
+        adapter = NRWDataAdapter(city_name="Münster")
+        assert adapter._source_coords is None
+        assert adapter._build_source(target_crs=CRS) is None
+
+    def test_construct_with_district_key(self):
+        adapter = NRWDataAdapter(district_key=55190)
+        assert adapter._district_key == "55190"
 
     def test_construct_with_city_name(self):
         adapter = NRWDataAdapter(
@@ -107,6 +113,29 @@ class TestFilterCities:
         })
         result = NRWDataAdapter._filter_cities("Steinfurt", df, "municipality")
         assert len(result) == 2
+
+    def test_ambiguous_city_name_raises(self):
+        df = pd.DataFrame({
+            "name": ["Altendorf", "Altendorf"],
+            "gemeinde": ["Essen", "Meckenheim"],
+            "schluessel": ["53147", "54103"],
+            "gmdschl": ["5113000", "5382032"],
+            "bbox": [(0, 0, 1, 1), (0, 0, 1, 1)],
+        })
+        with pytest.raises(RuntimeError, match="mehrdeutig.*Essen: 53147"):
+            NRWDataAdapter._filter_cities("Altendorf", df, "city")
+
+    def test_finds_district_by_key(self):
+        df = pd.DataFrame({
+            "name": ["Altendorf", "Altendorf"],
+            "gemeinde": ["Essen", "Meckenheim"],
+            "schluessel": ["53147", "54103"],
+            "gmdschl": ["5113000", "5382032"],
+            "bbox": [(0, 0, 1, 1), (0, 0, 1, 1)],
+        })
+        result = NRWDataAdapter._filter_cities("54103", df, "district")
+        assert len(result) == 1
+        assert result["gemeinde"].iloc[0] == "Meckenheim"
 
     def test_unknown_name_raises(self):
         df = pd.DataFrame({

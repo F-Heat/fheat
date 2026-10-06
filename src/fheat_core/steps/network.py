@@ -10,15 +10,25 @@ from __future__ import annotations
 import logging
 
 from fheat_core import columns as cols
+from fheat_core.errors import PipelineInputError
 from fheat_core.network import get_backend
 from fheat_core.schemas import NetSchema
+from fheat_core.selection import connected_mask
 from fheat_core.state import Phase, PipelineState
 
 logger = logging.getLogger(__name__)
 
 
 def run(state: PipelineState, config, adapter) -> PipelineState:
+    if state.source_gdf is None or state.source_gdf.empty:
+        raise PipelineInputError(
+            "The NETWORK step needs a heat source. Set PipelineState.source_gdf "
+            "or let the adapter provide one (fetch_source)."
+        )
+
     buildings_all = state.buildings_gdf
+    # All routable streets are kept, also outside the planning area: the heat
+    # source may lie outside and the route to it must follow the streets.
     streets = state.streets_gdf.copy()
     source = state.source_gdf.copy()
 
@@ -26,16 +36,18 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     if cols.ROUTABLE in streets.columns:
         streets = streets[streets[cols.ROUTABLE] == 1]
 
-    buildings = buildings_all.copy()
-    if cols.CONNECT in buildings.columns:
-        buildings = buildings[buildings[cols.CONNECT] == 1]
+    buildings = buildings_all[connected_mask(buildings_all, state.planning_area_gdf)].copy()
+    if buildings.empty:
+        raise PipelineInputError(
+            "No building to connect: no building with connect == 1 lies in the planning area."
+        )
 
     # CRS: source to buildings CRS
     if source.crs != buildings.crs:
         source = source.to_crs(buildings.crs)
 
     backend = get_backend(config.network_mode)
-    logger.info("NETWORK phase using backend '%s'", backend.name)
+    logger.info("NETWORK phase using backend '%s' for %d building(s)", backend.name, len(buildings))
     net_gdf, buildings_out = backend.build(buildings, streets, source, config, adapter)
 
     NetSchema.validate(net_gdf)

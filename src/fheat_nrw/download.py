@@ -13,6 +13,8 @@ import geopandas as gpd
 import pandas as pd
 from owslib.wfs import WebFeatureService
 
+from fheat_nrw.area import district_parcels
+
 URL_BUILDINGS = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kwp/"
 URL_PARCELS = "https://www.wfs.nrw.de/geobasis/wfs_nw_inspire-flurstuecke_alkis"
 LAYER_PARCELS = "cp:CadastralParcel"
@@ -89,7 +91,5 @@ def get_parcels_from_wfs(wfs_url: str, key: str, bbox, layer_name: str) -> gpd.G
         gdf = gpd.read_file(response)
     except Exception as e:
         raise RuntimeError(f"WFS-Anfrage an '{wfs_url}' fuer Schluessel '{key}' fehlgeschlagen: {e}") from e
-    if "nationalCadastralReference" not in gdf.columns:
-        return gdf.iloc[0:0]
-    # nationalCadastralReference starts with "0" + schluessel (e.g. "55190" → "055190...")
-    return gdf[gdf["nationalCadastralReference"].str.startswith("0" + key)].reset_index(drop=True)
+    # the bbox also returns parcels of neighbouring districts
+    return district_parcels(gdf, key).reset_index(drop=True)

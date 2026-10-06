@@ -37,10 +37,18 @@ class DataAdapter(ABC):
         """Parcels conforming to ParcelsSchema."""
         ...
 
-    @abstractmethod
-    def fetch_source(self) -> gpd.GeoDataFrame:
-        """Heat source(s) conforming to SourceSchema (Point geometry)."""
-        ...
+    def fetch_source(self) -> Optional[gpd.GeoDataFrame]:
+        """Heat source(s) conforming to SourceSchema (Point geometry).
+
+        Optional: only the NETWORK step needs a heat source. ``None`` lets the
+        analysis steps (download, adjust, status) run without one; the source
+        can be set later on ``PipelineState.source_gdf``.
+        """
+        return None
+
+    def provide_boundary(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: outline of the analysed area (one (Multi)Polygon). None → unknown."""
+        return None
 
     # Optional data — default implementation returns None;
     # the core then loads its own default.
