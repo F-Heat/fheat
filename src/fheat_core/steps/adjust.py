@@ -17,7 +17,9 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     BuildingsSchema.validate(state.buildings_gdf)
     StreetsSchema.validate(state.streets_gdf)
     ParcelsSchema.validate(state.parcels_gdf)
-    SourceSchema.validate(state.source_gdf)
+    # The heat source is only needed from the NETWORK step on.
+    if state.source_gdf is not None:
+        SourceSchema.validate(state.source_gdf)
 
     state.buildings_gdf = _fix_geom(state.buildings_gdf)
     state.streets_gdf = _fix_geom(state.streets_gdf)

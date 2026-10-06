@@ -23,7 +23,7 @@ DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ─�
 (source of data)        (frames)          (runs the phases)
 ```
 
-- A **`DataAdapter`** (`fheat_nrw` or `fheat_flex`) supplies four schema-compliant GeoDataFrames: `buildings`, `streets`, `parcels`, `source`. All region- and source-specific logic lives in the adapter.
+- A **`DataAdapter`** (`fheat_nrw` or `fheat_flex`) supplies schema-compliant GeoDataFrames: `buildings`, `streets`, `parcels` and optionally the heat `source`. All region- and source-specific logic lives in the adapter.
 - **`FHeatConfig`** holds only *calculation* parameters (temperatures, WLD threshold, buffer distance, SLP year/class).
 - **`FHeatOrchestrator`** runs the pipeline phase by phase, and can resume from any phase:
 
@@ -36,6 +36,34 @@ DataAdapter ──fetch──▶ PipelineState ──▶ FHeatOrchestrator ─�
   | `NETWORK` | results | hourly load profile + result summary + pipe quantities per DN + buildings per load profile |
 
 Adapters must produce data conforming to the contracts in [`schemas.py`](src/fheat_core/schemas.py); the core validates against the same schemas as it goes.
+
+### Stages: analysis and network planning
+
+The phases form two stages. Every step can still be run on its own with
+`run_step(phase)`; the stage runners are a convenience.
+
+| Stage | Steps | Area | Needs |
+|---|---|---|---|
+| Analysis (*Potenzialanalyse*) — `run_analysis()` | download → adjust → status | the complete input area, e.g. a whole town or district | no heat source |
+| Planning (*Netzplanung*) — `run_planning()` | network → results | buildings inside `state.planning_area_gdf` | heat source (`state.source_gdf`) |
+
+The analysis shows where a heat network makes sense (heat line density and
+suitability polygons for the whole area). The user then picks a planning area,
+for example one of the suitability polygons, and a heat source:
+
+```python
+orch.run_analysis()                                    # download → adjust → status
+orch.state.planning_area_gdf = orch.state.polygons_gdf.iloc[[0]]
+orch.state.source_gdf = my_source_gdf                  # Point(s), any CRS
+orch.run_planning()                                    # network → results
+orch.save_outputs(clip_to_planning_area=True)
+```
+
+- Network and results connect the buildings with `connect == 1` whose representative point lies inside the planning area (`fheat_core.selection.connected_mask`). The `connect` flags are not changed, so another planning area can be tried without repeating the analysis. Without a planning area all buildings with `connect == 1` are connected (previous behaviour).
+- The route to the heat source uses all routable streets, also outside the planning area, so a source outside the area is connected along the streets.
+- A step started without its inputs raises `fheat_core.errors.PipelineInputError`, e.g. the network step without a heat source.
+- `run_until(phase)` runs the missing steps up to any phase; `run_all()` still runs the whole pipeline.
+- `save_outputs(layers=[...])` writes only some layers (e.g. `["wld", "eignungspolygone"]` after the analysis), `clip_to_planning_area=True` only the features in the planning area (network and source stay complete).
 
 ### Network modes
 
@@ -110,8 +138,8 @@ from fheat_core.orchestrator import FHeatOrchestrator
 from fheat_nrw.adapter.data_adapter import NRWDataAdapter
 
 adapter = NRWDataAdapter(
-    city_name="Burgsteinfurt",              # Stadtteil/Gemarkung
-    source_coordinates=(52.1592, 7.3268),   # (lat, lon) WGS84 — heat-source location
+    city_name="Burgsteinfurt",              # Stadtteil/Gemarkung; or municipality_name="Steinfurt"
+    source_coordinates=(52.1592, 7.3268),   # (lat, lon) WGS84 — heat-source location, optional
     heat_attribute="RW_WW",                 # NRW raw heat-demand column
 )
 
@@ -131,6 +159,16 @@ print(orch.state.result_summary)
 ```
 
 Running the NRW adapter requires internet access (NRW WFS and ZIP downloads).
+
+The adapter downloads a whole municipality (`municipality_name`) or a whole
+district (*Gemarkung*: `city_name`, or the unique `district_key` from the
+`schluessel` column of [`cities.csv`](src/fheat_nrw/data/cities.csv)). Some
+district names exist in several municipalities (e.g. *Altendorf*); `city_name`
+then raises and asks for the `district_key`. `source_coordinates` are only
+needed for the network step. `adapter.provide_boundary()` returns the outline
+of the downloaded area; [`fheat_nrw.area`](src/fheat_nrw/area.py) cuts a
+district out of an already downloaded municipality (`district_boundary`,
+`clip_to_boundary`).
 
 ### Flexible adapter — bring your own data
 

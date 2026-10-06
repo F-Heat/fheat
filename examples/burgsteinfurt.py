@@ -1,13 +1,17 @@
 """Beispiel: Wärmenetzanalyse Burgsteinfurt (NRW).
 
-Schritte:
-    1. Strassen, Flurstuecke, Gebaeude herunterladen (NRW Open Geodata)
+Stufe A – Potenzialanalyse (ganzer Stadtteil, ohne Wärmequelle):
+    1. Strassen, Flurstuecke, Gebaeude des ganzen Stadtteils herunterladen (NRW Open Geodata)
     2. Strassen und Gebaeude bereinigen (adjust)
-    3. Planungsgebiet zuschneiden
-    4. Wärmedichte-Blöcke berechnen (status)
+    3. Wärmeliniendichte und Eignungspolygone berechnen (status)  →  wld.gpkg, eignungspolygone.gpkg
+Stufe B – Netzplanung (Planungsgebiet + Wärmequelle):
+    4. Planungsgebiet und Wärmequelle setzen
     5. Netzberechnung (network)  →  Netz.gpkg
     6. Lastprofil, Ergebniszusammenfassung, Rohrmengen je DN, Gebäude je Lastprofil (results)
-    7. Alle Ausgaben speichern (GeoPackages + fheat-ergebnisse.xlsx bzw. CSV + Lastprofil-Grafiken)
+    7. Ausgaben im Planungsgebiet speichern (GeoPackages + fheat-ergebnisse.xlsx bzw. CSV + Lastprofil-Grafiken)
+
+Jeder Schritt läuft hier einzeln (run_step); orch.run_analysis() bzw.
+orch.run_planning() führen eine Stufe in einem Aufruf aus.
 
 Voraussetzungen:
     - planungsgebiet.gpkg im selben Verzeichnis wie dieses Skript (oder Pfad anpassen)
@@ -28,6 +32,7 @@ import logging
 from pathlib import Path
 
 import geopandas as gpd
+from shapely.geometry import Point
 
 from fheat_core import columns as cols
 from fheat_core.config import FHeatConfig
@@ -47,11 +52,12 @@ OUTPUT_DIR = HERE / "output_burgsteinfurt"
 # ---------------------------------------------------------------------------
 # Adapter + Config
 # ---------------------------------------------------------------------------
+# Die Wärmequelle wird erst für die Netzplanung gebraucht (Schritt 4).
 adapter = NRWDataAdapter(
     city_name="Burgsteinfurt",               # Stadtteil/Gemarkung (gemeinde = "Steinfurt")
-    source_coordinates=(52.1592, 7.3268),   # (lat, lon) WGS84 — Einspeisepunkt
     heat_attribute="RW_WW",                  # NRW-Rohdatenspalte; [kWh/a]-Suffix wird autom. erkannt
 )
+SOURCE_LATLON = (52.1592, 7.3268)            # (lat, lon) WGS84 — Einspeisepunkt
 
 config = FHeatConfig(
     supply_temperature=80.0,
@@ -73,67 +79,50 @@ config = FHeatConfig(
 orch = FHeatOrchestrator(config=config, adapter=adapter)
 
 # ---------------------------------------------------------------------------
-# Schritt 1: Download — Strassen, Flurstuecke, Gebaeude
+# Schritt 1: Download — ganzer Stadtteil (Strassen, Flurstuecke, Gebaeude)
 # ---------------------------------------------------------------------------
 logging.info("=== Schritt 1: Download ===")
 orch.run_step(Phase.INITIAL)
 
 # ---------------------------------------------------------------------------
-# Schritt 2: Planungsgebiet-Clip
-#   Gebaeude und Strassen auf das Planungsgebiet zuschneiden.
-#   Dieser manuelle Schritt kommt NACH dem Download (vollständige NRW-Daten)
-#   und VOR adjust (Clip auf schema-konformen, noch unbereinigten Daten).
+# Schritt 2: Adjust — Strassen und Gebaeude bereinigen
 # ---------------------------------------------------------------------------
-logging.info("=== Schritt 2: Planungsgebiet-Clip ===")
-
-area = gpd.read_file(AREA_PATH).to_crs(orch.state.buildings_gdf.crs)
-area_geom = area.geometry.union_all()   # shapely ≥ 2.0; für ältere: unary_union(area.geometry)
-
-orch.state.buildings_gdf = (
-    orch.state.buildings_gdf[orch.state.buildings_gdf.geometry.intersects(area_geom)]
-    .reset_index(drop=True)
-)
-orch.state.streets_gdf = (
-    orch.state.streets_gdf[orch.state.streets_gdf.geometry.intersects(area_geom)]
-    .reset_index(drop=True)
-)
-
-logging.info(
-    "Nach Clip: %d Gebäude, %d Straßensegmente",
-    len(orch.state.buildings_gdf),
-    len(orch.state.streets_gdf),
-)
-
-# ---------------------------------------------------------------------------
-# Schritt 3: Adjust — Strassen und Gebaeude bereinigen
-# ---------------------------------------------------------------------------
-logging.info("=== Schritt 3: Adjust ===")
+logging.info("=== Schritt 2: Adjust ===")
 orch.run_step(Phase.DOWNLOADED)
 
 # ---------------------------------------------------------------------------
-# Schritt 4: Status — Wärmedichte-Blöcke berechnen
+# Schritt 3: Status — Wärmeliniendichte und Eignungspolygone
 # ---------------------------------------------------------------------------
-logging.info("=== Schritt 4: Wärmedichte-Blöcke (Status) ===")
+logging.info("=== Schritt 3: WLD & Eignung (Status) ===")
 orch.run_step(Phase.ADJUSTED)
 
 logging.info(
-    "Wärmedichte-Blöcke: %d Straßensegmente analysiert, %d Eignungspolygone",
+    "WLD: %d Straßensegmente analysiert, %d Eignungspolygone",
     len(orch.state.wld_gdf) if orch.state.wld_gdf is not None else 0,
     len(orch.state.polygons_gdf) if orch.state.polygons_gdf is not None else 0,
 )
+orch.save_outputs(layers=["wld", "eignungspolygone"])
 
 # ---------------------------------------------------------------------------
-# Optional: Nur bis hierher ausführen (z. B. für manuelle Netzplanung)
-#
-#   orch.save_outputs()
-#   raise SystemExit
+# Schritt 4: Planungsgebiet und Wärmequelle setzen
+#   Nur Gebäude im Planungsgebiet (und mit connect == 1) werden angeschlossen.
+#   WLD und Eignungspolygone gelten weiter für den ganzen Stadtteil. Statt
+#   planungsgebiet.gpkg kann z. B. auch ein Eignungspolygon verwendet werden:
+#     orch.state.planning_area_gdf = orch.state.polygons_gdf.iloc[[0]]
 # ---------------------------------------------------------------------------
+logging.info("=== Schritt 4: Planungsgebiet und Wärmequelle ===")
+crs = orch.state.buildings_gdf.crs
+orch.state.planning_area_gdf = gpd.read_file(AREA_PATH).to_crs(crs)
+orch.state.source_gdf = gpd.GeoDataFrame(
+    geometry=[Point(SOURCE_LATLON[1], SOURCE_LATLON[0])], crs="EPSG:4326"
+).to_crs(crs)
 
 # ---------------------------------------------------------------------------
 # Schritt 5: Netzberechnung
 #   buildings_gdf.connect == 1 und streets_gdf.routable == 1 werden
 #   durch den Adapter bereits gesetzt. Für manuelle Selektion können diese
-#   Felder vor diesem Schritt überschrieben werden.
+#   Felder vor diesem Schritt überschrieben werden. Die Route zur Quelle nutzt
+#   alle Straßen, auch außerhalb des Planungsgebiets.
 # ---------------------------------------------------------------------------
 logging.info("=== Schritt 5: Netzberechnung ===")
 orch.run_step(Phase.STATUS)
@@ -172,9 +161,9 @@ if summary:
     print(cols.to_display(orch.state.building_summary_df).to_string(index=False))
 
 # ---------------------------------------------------------------------------
-# Schritt 7: Alle Ausgaben speichern
+# Schritt 7: Ausgaben im Planungsgebiet speichern (Netz und Quelle vollständig)
 # ---------------------------------------------------------------------------
 logging.info("=== Schritt 7: Speichern ===")
-saved = orch.save_outputs()
+saved = orch.save_outputs(clip_to_planning_area=True)
 for layer, path in saved.items():
     print(f"  {layer:20s} → {path}")

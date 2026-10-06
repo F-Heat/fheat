@@ -30,9 +30,10 @@ class FlexDataAdapter(DataAdapter):
         Pfad zu den Straßendaten (LineString-Geometrie).
     parcels_path : str | Path
         Pfad zu den Flurstücksdaten (Polygon-Geometrie).
-    source : tuple[float, float] | str | Path | GeoDataFrame
+    source : tuple[float, float] | str | Path | GeoDataFrame | None
         (lat, lon) in WGS84, ODER Pfad zu einer Punkt-Geodaten-Datei,
-        ODER ein bereits geladener GeoDataFrame.
+        ODER ein bereits geladener GeoDataFrame. Erst für den NETWORK-Schritt
+        nötig; None → download, adjust und status laufen ohne Quelle.
     column_map : dict[str, str] | None
         Mapping: ``{user_spalte: schema_spalte}``. Wird auf das Buildings-
         GeoDataFrame angewandt. Zielnamen sind die kanonischen Identifier aus
@@ -53,7 +54,7 @@ class FlexDataAdapter(DataAdapter):
         buildings_path: Union[str, Path],
         streets_path: Union[str, Path],
         parcels_path: Union[str, Path],
-        source: SourceInput,
+        source: Optional[SourceInput] = None,
         column_map: Optional[dict] = None,
         default_vlh: float = 1600.0,
         default_lastprofil: str = "GMK",
@@ -90,7 +91,9 @@ class FlexDataAdapter(DataAdapter):
             self._parcels = self._load_parcels()
         return self._parcels
 
-    def fetch_source(self) -> gpd.GeoDataFrame:
+    def fetch_source(self) -> Optional[gpd.GeoDataFrame]:
+        if self._source_input is None:
+            return None
         if self._source is None:
             self._source = self._load_source()
         return self._source
