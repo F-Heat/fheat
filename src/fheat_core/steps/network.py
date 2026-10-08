@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from fheat_core import columns as cols
-from fheat_core.errors import PipelineInputError
+from fheat_core.errors import NO_BUILDINGS, PipelineInputError
 from fheat_core.network import get_backend
 from fheat_core.schemas import NetSchema
 from fheat_core.selection import connected_mask
@@ -39,7 +39,8 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     buildings = buildings_all[connected_mask(buildings_all, state.planning_area_gdf)].copy()
     if buildings.empty:
         raise PipelineInputError(
-            "No building to connect: no building with connect == 1 lies in the planning area."
+            "No building to connect: no building with connect == 1 lies in the planning area.",
+            code=NO_BUILDINGS,
         )
 
     # CRS: source to buildings CRS

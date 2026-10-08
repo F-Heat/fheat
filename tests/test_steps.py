@@ -15,6 +15,7 @@ from shapely.geometry import LineString, Point, Polygon, box
 
 from fheat_core import columns as cols
 from fheat_core.config import FHeatConfig
+from fheat_core.errors import NO_BUILDINGS, PipelineInputError
 from fheat_core.schemas import SchemaError
 from fheat_core.state import Phase, PipelineState
 from fheat_core.steps import adjust, download, network, results, status
@@ -286,6 +287,21 @@ class TestNetworkStep:
         network.run(state, cfg, adapter)
         # only 2 buildings remain → max n_buildings on a shared segment ≤ 2
         assert state.net_gdf[cols.N_BUILDINGS].max() <= 2
+
+    def test_no_building_to_connect_raises_with_code(self, buildings_gdf, streets_gdf,
+                                                     parcels_gdf, source_gdf,
+                                                     pipe_info_df, temperature_series, cfg):
+        bld = buildings_gdf.copy()
+        bld[cols.CONNECT] = 0
+        adapter = StubAdapter(bld, streets_gdf, parcels_gdf, source_gdf,
+                              pipe_info_df, temperature_series, {})
+        state = PipelineState()
+        download.run(state, cfg, adapter)
+        adjust.run(state, cfg, adapter)
+        status.run(state, cfg, adapter)
+        with pytest.raises(PipelineInputError, match="No building to connect") as excinfo:
+            network.run(state, cfg, adapter)
+        assert excinfo.value.code == NO_BUILDINGS
 
     def test_only_moegliche_route_used(self, buildings_gdf, streets_gdf,
                                        parcels_gdf, source_gdf, pipe_info_df,

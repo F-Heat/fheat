@@ -22,7 +22,15 @@ from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
 from fheat_core.config import FHeatConfig, NetworkMode, TopothermConfig
 from fheat_core.network import DijkstraBackend, get_backend
-from fheat_core.network.base import NetworkBackend, NetworkBackendError
+from fheat_core.network.base import (
+    EMPTY_NETWORK,
+    NO_ROUTABLE_STREETS,
+    SOLVER_UNAVAILABLE,
+    SOURCE_ON_STREET,
+    TOPOTHERM_UNAVAILABLE,
+    NetworkBackend,
+    NetworkBackendError,
+)
 from fheat_core.network.topotherm_backend import (
     TopothermBackend,
     _as_2d_float,
@@ -259,8 +267,9 @@ def test_source_on_street_raises_actionable_error(
         parcels_gdf=parcels_gdf,
         source_gdf=source_gdf,
     )
-    with pytest.raises(NetworkBackendError, match="lies exactly on the street network"):
+    with pytest.raises(NetworkBackendError, match="lies exactly on the street network") as excinfo:
         network_step.run(state, _forced_config(), adapter)
+    assert excinfo.value.code == SOURCE_ON_STREET
 
 
 def test_economic_mode_without_profitability_names_the_knobs(
@@ -276,8 +285,9 @@ def test_economic_mode_without_profitability_names_the_knobs(
             pipes_c_irr=0.5,
         ),
     )
-    with pytest.raises(NetworkBackendError, match="empty network"):
+    with pytest.raises(NetworkBackendError, match="empty network") as excinfo:
         network_step.run(expert_state, config, expert_adapter)
+    assert excinfo.value.code == EMPTY_NETWORK
 
 
 def test_economic_mode_with_profitability_connects_buildings(
@@ -361,8 +371,9 @@ def test_expert_backend_resolves_without_topotherm_installed(monkeypatch):
 
     backend = get_backend("expert")
     assert backend.name == "expert"
-    with pytest.raises(NetworkBackendError, match=r"git\+https://github\.com/jylambert/topotherm"):
+    with pytest.raises(NetworkBackendError, match=r"git\+https://github\.com/jylambert/topotherm") as excinfo:
         _require_topotherm()
+    assert excinfo.value.code == TOPOTHERM_UNAVAILABLE
 
 
 def test_require_topotherm_explains_the_python_version_blocker(monkeypatch):
@@ -376,8 +387,9 @@ def test_require_topotherm_explains_the_python_version_blocker(monkeypatch):
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
-    with pytest.raises(NetworkBackendError, match="requires Python 3.12"):
+    with pytest.raises(NetworkBackendError, match="requires Python 3.12") as excinfo:
         _require_topotherm()
+    assert excinfo.value.code == TOPOTHERM_UNAVAILABLE
 
 
 # ---------------------------------------------------------------------------
@@ -620,16 +632,18 @@ def test_to_topotherm_inputs_rejects_an_empty_street_frame(
         crs=crs,
         geometry="geometry",
     )
-    with pytest.raises(NetworkBackendError, match="No routable streets"):
+    with pytest.raises(NetworkBackendError, match="No routable streets") as excinfo:
         TopothermBackend._to_topotherm_inputs(buildings_gdf, streets, source_off_street)
+    assert excinfo.value.code == NO_ROUTABLE_STREETS
 
 
 def test_to_topotherm_inputs_rejects_a_source_on_the_street(
     buildings_gdf, streets_gdf, source_gdf
 ):
     """Blocker 3, at unit level — runs without the optional dependency."""
-    with pytest.raises(NetworkBackendError, match="lies exactly on the street network"):
+    with pytest.raises(NetworkBackendError, match="lies exactly on the street network") as excinfo:
         TopothermBackend._to_topotherm_inputs(buildings_gdf, streets_gdf, source_gdf)
+    assert excinfo.value.code == SOURCE_ON_STREET
 
 
 def test_to_topotherm_inputs_reprojects_the_source(
@@ -684,10 +698,11 @@ def test_writeback_connect_keeps_all_when_every_centroid_matches(buildings_gdf):
 
 def test_writeback_connect_rejects_an_empty_sink_set(buildings_gdf):
     nodes_df = pd.DataFrame({"type_": ["source"], "x": [0.0], "y": [0.0]})
-    with pytest.raises(NetworkBackendError, match="no building was connected"):
+    with pytest.raises(NetworkBackendError, match="no building was connected") as excinfo:
         TopothermBackend._writeback_connect(
             buildings_gdf, edges_df=None, nodes_df=nodes_df
         )
+    assert excinfo.value.code == EMPTY_NETWORK
 
 
 # ---------------------------------------------------------------------------
@@ -819,8 +834,9 @@ def test_unavailable_solver_names_the_fix(tt, expert_state, expert_adapter):
             optimization_mode="forced", solver="no_such_solver_here"
         ),
     )
-    with pytest.raises(NetworkBackendError, match="is not available"):
+    with pytest.raises(NetworkBackendError, match="is not available") as excinfo:
         network_step.run(expert_state, config, expert_adapter)
+    assert excinfo.value.code == SOLVER_UNAVAILABLE
 
 
 def test_expert_mode_uses_the_shipped_catalogue_when_the_adapter_has_none(
