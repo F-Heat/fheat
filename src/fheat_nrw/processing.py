@@ -195,7 +195,10 @@ def _spatial_join_parcels(
         for bg, pg in zip(joined.geometry.values, parcel_geoms)
     ]
 
-    best = joined.sort_values("_int_area", ascending=False).groupby(joined.index).first()
+    # Group the sorted frame by its own index: grouping it by joined.index
+    # would assign the building labels by position and mix up the buildings.
+    ranked = joined.sort_values("_int_area", ascending=False)
+    best = ranked.groupby(ranked.index).first()
     for attr in attributes:
         if attr in best.columns:
             bld[attr] = best[attr]

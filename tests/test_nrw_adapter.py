@@ -18,7 +18,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-from shapely.geometry import LineString, MultiLineString, Point, Polygon
+from shapely.geometry import LineString, MultiLineString, Point, Polygon, box
 
 from fheat_core import columns as cols
 from fheat_core.schemas import BuildingsSchema, StreetsSchema
@@ -31,6 +31,7 @@ from fheat_nrw.processing import (
     _extract_year,
     _resolve_heat_col,
     _rename_to_schema,
+    _spatial_join_parcels,
     process_buildings,
     process_streets,
 )
@@ -288,6 +289,25 @@ class TestAddBak:
     def test_bins_and_labels_are_consistent(self):
         # one fewer bin edge than labels because pd.cut uses N bins from N+1 edges
         assert len(BAK_BINS) == len(BAK_LABELS) + 1
+
+
+class TestSpatialJoinParcels:
+    def test_takes_attribute_from_parcel_with_largest_overlap(self):
+        # Building 0 overlaps P0 by 12 m² and P1 by 48 m²; building 1 lies in
+        # P2 with 900 m², the largest overlap of all, so sorting by overlap
+        # puts its pair first.
+        parcels = gpd.GeoDataFrame(
+            {"validFrom": ["1900-01-01", "2010-01-01", "1970-01-01"]},
+            geometry=[box(0, 0, 10, 10), box(10, 0, 30, 10), box(100, 0, 140, 40)],
+            crs=CRS,
+        )
+        bld = gpd.GeoDataFrame(
+            {"new_ID": [0, 1]},
+            geometry=[box(8, 2, 18, 8), box(105, 5, 135, 35)],
+            crs=CRS,
+        )
+        out = _spatial_join_parcels(bld, parcels, ["validFrom"])
+        assert out["validFrom"].tolist() == ["2010-01-01", "1970-01-01"]
 
 
 # ---------------------------------------------------------------------------

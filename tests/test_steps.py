@@ -11,7 +11,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, Point, Polygon, box
 
 from fheat_core import columns as cols
 from fheat_core.config import FHeatConfig
@@ -132,6 +132,80 @@ class TestStatusStep:
         # → WLD ≈ 357.1 kWh/(a·m)
         expected = 75000 / wld[cols.LENGTH]
         assert wld[cols.HEAT_LINE_DENSITY] == pytest.approx(expected, rel=1e-6)
+
+    @staticmethod
+    def _separate_parcels():
+        """Three parcels far apart, so every selected parcel stays its own block.
+
+        Parcel A holds two buildings that stick out of it (overlap 0.4 and
+        0.3), B one building completely (1.0) and C one building to 0.9.
+        Sorting by overlap therefore reorders the parcel/building pairs.
+        """
+        parcels = gpd.GeoDataFrame(
+            {"name": ["A", "B", "C"]},
+            geometry=[box(0, 0, 20, 20), box(100, 0, 120, 20), box(200, 0, 220, 20)],
+            crs=CRS,
+        )
+        buildings = gpd.GeoDataFrame(
+            {
+                cols.BUILDING_ID: [0, 1, 2, 3],
+                cols.HEAT_DEMAND: [10000.0, 20000.0, 30000.0, 40000.0],
+                cols.THERMAL_POWER: [5.0, 10.0, 15.0, 20.0],
+            },
+            geometry=[
+                box(-6, 2, 4, 12),
+                box(17, 5, 27, 15),
+                box(105, 5, 115, 15),
+                box(211, 5, 221, 15),
+            ],
+            crs=CRS,
+        )
+        streets = gpd.GeoDataFrame(
+            geometry=[LineString([(-20, -10), (240, -10)])], crs=CRS
+        )
+        return parcels, buildings, streets
+
+    @staticmethod
+    def _blocks(parcels, buildings, streets):
+        wld = status._compute_wld(buildings, streets)
+        return status._compute_polygons(parcels, wld, buildings, 0.1, 0.5)
+
+    def test_polygons_keep_every_parcel_with_connected_building(self):
+        parcels, buildings, streets = self._separate_parcels()
+        blocks = self._blocks(parcels, buildings, streets)
+        assert len(blocks) == 3
+        for parcel in parcels.geometry:
+            assert blocks.geometry.contains(parcel).any()
+
+    @pytest.mark.parametrize("seed", [0, 1, 2, 3, 4])
+    def test_polygons_independent_of_row_order(self, seed):
+        parcels, buildings, streets = self._separate_parcels()
+        expected = self._blocks(parcels, buildings, streets)
+        blocks = self._blocks(
+            parcels.sample(frac=1, random_state=seed),
+            buildings.sample(frac=1, random_state=seed + 10),
+            streets,
+        )
+        assert len(blocks) == len(expected)
+        assert blocks[cols.AREA].sum() == pytest.approx(expected[cols.AREA].sum())
+        assert blocks[cols.HEAT_DEMAND].sum() == pytest.approx(expected[cols.HEAT_DEMAND].sum())
+
+    def test_wld_counts_building_once_when_streets_are_equally_close(self):
+        # Building 0 lies diagonally off a junction: both streets end there,
+        # so they are exactly equally close to its centroid (5, 5).
+        streets = gpd.GeoDataFrame(
+            geometry=[LineString([(-50, 0), (0, 0)]), LineString([(0, 0), (0, -50)])],
+            crs=CRS,
+        )
+        buildings = gpd.GeoDataFrame(
+            {cols.BUILDING_ID: [0, 1], cols.HEAT_DEMAND: [10000.0, 5000.0]},
+            geometry=[box(2, 2, 8, 8), box(-30, 5, -20, 15)],
+            crs=CRS,
+        )
+        wld = status._compute_wld(buildings, streets)
+        assert wld[cols.HEAT_DEMAND].sum() == pytest.approx(15000.0)
+        connected = [i for ids in wld[cols.CONNECTED_IDS] for i in ids.split(",") if i]
+        assert sorted(connected) == ["0", "1"]
 
 
 # ---------------------------------------------------------------------------
