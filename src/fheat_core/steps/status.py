@@ -52,6 +52,11 @@ def _compute_wld(buildings: gpd.GeoDataFrame, streets: gpd.GeoDataFrame) -> gpd.
         crs=buildings.crs,
     )
     nearest = gpd.sjoin_nearest(centroids, streets[["geometry"]], how="left")
+    # A building equally close to several streets (e.g. at a junction) is
+    # returned once per street; keep the first street only, like the QGIS
+    # plugin (idxmin), so its heat demand is not counted twice.
+    nearest = nearest.sort_values("index_right", kind="stable")
+    nearest = nearest[~nearest.index.duplicated(keep="first")]
     grouped = nearest.groupby("index_right").agg(
         wb=(cols.HEAT_DEMAND, "sum"),
         ids=(cols.BUILDING_ID, lambda s: ",".join(s.astype(int).astype(str))),
@@ -112,7 +117,10 @@ def _compute_polygons(
     bld_geoms = connected_bld.geometry.iloc[joined["index_right"].values].values
     joined["_overlap"] = [p.intersection(b).area for p, b in zip(parcel_geoms, bld_geoms)]
     joined["_ratio"] = joined["_overlap"] / joined["_area"]
-    best = joined.sort_values("_ratio", ascending=False).groupby(joined.index).first()
+    # Group the sorted frame by its own index: grouping it by joined.index
+    # would assign the parcel labels by position and mix up the parcels.
+    ranked = joined.sort_values("_ratio", ascending=False)
+    best = ranked.groupby(ranked.index).first()
     selected = best[best["_ratio"] >= 0.1]
     if selected.empty:
         return gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs=crs)

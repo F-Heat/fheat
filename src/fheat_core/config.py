@@ -91,6 +91,12 @@ class FHeatConfig:
     wld_threshold: float = 500.0
     buffer_distance: float = 50.0
 
+    # Which heat demand of the buildings the pipeline uses, when the adapter
+    # provides both: "calculated" (floor area × specific demand of the age
+    # class, the data source value where none can be calculated) or "dataset"
+    # (the value of the data source, for NRW the LANUV RW_WW).
+    heat_demand_basis: str = "calculated"
+
     # BDEW SLP parameters (German standard load profile)
     building_class: int = 3      # NRW default per BGW 2006
     wind_class: int = 1
@@ -113,6 +119,7 @@ class FHeatConfig:
     _ALLOWED_LANGUAGES: ClassVar[frozenset] = frozenset({"de", "raw"})
     _ALLOWED_TABLE_FORMATS: ClassVar[frozenset] = frozenset({None, "csv", "xlsx"})
     _ALLOWED_PLOT_FORMATS: ClassVar[frozenset] = frozenset({None, "png", "svg"})
+    _ALLOWED_HEAT_DEMAND_BASES: ClassVar[frozenset] = frozenset({"calculated", "dataset"})
 
     def __post_init__(self) -> None:
         if self.supply_temperature <= self.return_temperature:
@@ -139,6 +146,11 @@ class FHeatConfig:
             raise ValueError(
                 f"plot_format '{self.plot_format}' is not allowed. "
                 "Allowed values: None, 'png', 'svg'"
+            )
+        if self.heat_demand_basis not in self._ALLOWED_HEAT_DEMAND_BASES:
+            raise ValueError(
+                f"heat_demand_basis '{self.heat_demand_basis}' is not allowed. "
+                f"Allowed values: {sorted(self._ALLOWED_HEAT_DEMAND_BASES)}"
             )
 
         allowed_modes = {m.value for m in NetworkMode}

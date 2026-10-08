@@ -79,10 +79,13 @@ def process_buildings(
             bld = bld[bld["Lastprofil"].notna()].copy()
         # heat_col may be renamed by merge; re-resolve
         heat_col = _resolve_heat_col(bld, heat_attribute)
+        # the custom heat demand overrides heat_col; keep the data source value
+        bld["_heat_dataset"] = bld[heat_col]
         bld = _add_custom_heat_demand(bld, wg_demand_data, building_info_db, heat_col)
         bld = _add_power(bld, heat_col)
     else:
         bld["new_ID"] = bld.index.astype("int32")
+        bld["_heat_dataset"] = bld[heat_col]
         bld["Lastprofil"] = pd.NA
         bld["Vlh"] = 1600
         bld["power_th"] = bld[heat_col] / bld["Vlh"]
@@ -195,7 +198,10 @@ def _spatial_join_parcels(
         for bg, pg in zip(joined.geometry.values, parcel_geoms)
     ]
 
-    best = joined.sort_values("_int_area", ascending=False).groupby(joined.index).first()
+    # Group the sorted frame by its own index: grouping it by joined.index
+    # would assign the building labels by position and mix up the buildings.
+    ranked = joined.sort_values("_int_area", ascending=False)
+    best = ranked.groupby(ranked.index).first()
     for attr in attributes:
         if attr in best.columns:
             bld[attr] = best[attr]
@@ -319,6 +325,10 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
     out[cols.LOAD_PROFILE] = gdf["Lastprofil"].astype("string") if "Lastprofil" in gdf.columns else pd.NA
 
     # Optional columns
+    if "_heat_dataset" in gdf.columns:
+        out[cols.HEAT_DEMAND_DATASET] = gdf["_heat_dataset"].astype("float64")
+    if "Waermebedarf" in gdf.columns:
+        out[cols.HEAT_DEMAND_CALCULATED] = gdf["Waermebedarf"].astype("float64")
     if "citygml_fu" in gdf.columns:
         out[cols.FUNCTION] = gdf["citygml_fu"]
     if "type" in gdf.columns:
