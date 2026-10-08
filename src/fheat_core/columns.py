@@ -30,6 +30,10 @@ USAGE = "usage"
 FLOOR_AREA = "floor_area"            # net floor area [m²]
 AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
+# Both heat demand values, so FHeatConfig.heat_demand_basis can choose which
+# one becomes HEAT_DEMAND (see steps/adjust.py).
+HEAT_DEMAND_DATASET = "heat_demand_dataset"        # as delivered by the data source [kWh/a]
+HEAT_DEMAND_CALCULATED = "heat_demand_calculated"  # floor area × specific demand of the age class [kWh/a]
 
 
 # ============================================================
@@ -115,6 +119,8 @@ TOTAL_EXTRA_INSULATION = "total_extra_insulation"  # total (extra insulation)
 
 UNITS: dict[str, str] = {
     HEAT_DEMAND: "kWh/a",
+    HEAT_DEMAND_DATASET: "kWh/a",
+    HEAT_DEMAND_CALCULATED: "kWh/a",
     THERMAL_POWER: "kW",
     FULL_LOAD_HOURS: "h",
     FLOOR_AREA: "m²",
@@ -157,6 +163,9 @@ LABELS_DE: dict[str, str] = {
     FLOOR_AREA: "NF [m²]",
     AGE: "Alter",
     CONSTRUCTION_CLASS: "BAK",
+    # same names as the attributes of the former QGIS plugin
+    HEAT_DEMAND_DATASET: "RW_WW [kWh/a]",
+    HEAT_DEMAND_CALCULATED: "WB [kWh/a]",
     # Streets
     ROUTABLE: "Moegliche_Route",
     # WLD

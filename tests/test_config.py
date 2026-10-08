@@ -57,6 +57,20 @@ class TestOutputFormat:
             FHeatConfig(output_format=fmt)
 
 
+class TestHeatDemandBasis:
+    def test_default_is_calculated(self):
+        assert FHeatConfig().heat_demand_basis == "calculated"
+
+    @pytest.mark.parametrize("basis", ["calculated", "dataset"])
+    def test_allowed_values_succeed(self, basis):
+        assert FHeatConfig(heat_demand_basis=basis).heat_demand_basis == basis
+
+    @pytest.mark.parametrize("basis", ["RW_WW", "WB", "", "Dataset"])
+    def test_disallowed_values_raise(self, basis):
+        with pytest.raises(ValueError, match="heat_demand_basis"):
+            FHeatConfig(heat_demand_basis=basis)
+
+
 class TestCustomConfig:
     def test_full_custom_config(self, tmp_path):
         cfg = FHeatConfig(

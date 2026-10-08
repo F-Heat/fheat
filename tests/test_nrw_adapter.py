@@ -401,6 +401,17 @@ class TestProcessBuildingsNonAlkis:
                 heat_attribute="RW_WW",
             )
 
+    def test_keeps_dataset_heat_demand(self):
+        out = process_buildings(
+            raw=self._bld(),
+            parcels=self._empty_parcels(),
+            building_info_db=pd.DataFrame(),
+            wg_demand_data=pd.DataFrame(),
+            heat_attribute="RW_WW",
+        )
+        assert out[cols.HEAT_DEMAND_DATASET].tolist() == [10000.0, 20000.0]
+        BuildingsSchema.validate(out)
+
     def test_resolves_kwh_a_suffix_attribute(self):
         bld = gpd.GeoDataFrame(
             {
@@ -438,6 +449,29 @@ class TestRenameToSchema:
         assert out[cols.HEAT_DEMAND].iloc[0] == 12000.0
         assert out[cols.THERMAL_POWER].iloc[0] == 8.0
         assert out[cols.FULL_LOAD_HOURS].iloc[0] == 1500.0
+
+    def test_keeps_dataset_and_calculated_heat_demand(self):
+        # After _add_custom_heat_demand the heat column holds the calculated
+        # value; the value of the data source was saved before.
+        gdf = gpd.GeoDataFrame(
+            {
+                "RW_WW": [15000.0],
+                "_heat_dataset": [12000.0],
+                "Waermebedarf": [15000.0],
+                "Vlh": [1500.0],
+                "power_th": [10.0],
+                "Lastprofil": ["EFH"],
+                "Anschluss": [1],
+                "new_ID": [0],
+                "geometry": [Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])],
+            },
+            crs=CRS, geometry="geometry",
+        )
+        out = _rename_to_schema(gdf, "RW_WW")
+        BuildingsSchema.validate(out)
+        assert out[cols.HEAT_DEMAND_DATASET].iloc[0] == 12000.0
+        assert out[cols.HEAT_DEMAND_CALCULATED].iloc[0] == 15000.0
+        assert out[cols.HEAT_DEMAND].iloc[0] == 15000.0
 
 
 class TestBundledReferenceData:
@@ -489,3 +523,30 @@ class TestBundledReferenceData:
         out = _add_custom_heat_demand(gdf, wg, db, "RW_WW")
         # BAK "A", EFH → waerme_efh_kwh_m2a (188.2) × NF (100) = 18820
         assert out["RW_WW"].iloc[0] == pytest.approx(18820.0)
+
+    def test_process_buildings_keeps_dataset_and_calculated_heat_demand(self):
+        db, wg = self._adapter()._load_building_info()
+        raw = gpd.GeoDataFrame(
+            {
+                "citygml_fu": ["31001_1010"],
+                "GEBAEUDETY": ["EFH_B"],
+                "WG_NWG": ["WG"],
+                "Flurstueck": ["1"],
+                "Fortschrei": ["1"],
+                "NF": [100.0],
+                "RW_WW": [10000.0],
+            },
+            geometry=[box(0, 0, 10, 10)],
+            crs=CRS,
+        )
+        parcels = gpd.GeoDataFrame(
+            {"nationalCadastralReference": ["055190001"], "validFrom": ["1900-01-01"]},
+            geometry=[box(-5, -5, 15, 15)],
+            crs=CRS,
+        )
+        out = process_buildings(raw, parcels, db, wg, "RW_WW")
+        # 1900 → BAK "B"; EFH → NF × waerme_efh_kwh_m2a of class "B"
+        expected = 100.0 * wg.loc[wg["Baualtersklasse"] == "B", "waerme_efh_kwh_m2a"].iloc[0]
+        assert out[cols.HEAT_DEMAND_DATASET].iloc[0] == pytest.approx(10000.0)
+        assert out[cols.HEAT_DEMAND_CALCULATED].iloc[0] == pytest.approx(expected)
+        assert out[cols.HEAT_DEMAND].iloc[0] == pytest.approx(expected)

@@ -97,6 +97,48 @@ class TestAdjustStep:
         adjust.run(state, cfg, adapter)
         assert state.buildings_gdf.geometry.iloc[0].is_valid
 
+    @staticmethod
+    def _adjusted(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, basis):
+        cfg = FHeatConfig(heat_demand_basis=basis)
+        adapter = StubAdapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf)
+        state = PipelineState()
+        download.run(state, cfg, adapter)
+        adjust.run(state, cfg, adapter)
+        return state.buildings_gdf
+
+    @staticmethod
+    def _with_both_heat_demands(buildings_gdf):
+        bld = buildings_gdf.copy()
+        bld[cols.HEAT_DEMAND_DATASET] = [12000.0, 20000.0, 30000.0]
+        bld[cols.HEAT_DEMAND_CALCULATED] = [15000.0, np.nan, 0.0]
+        bld[cols.FULL_LOAD_HOURS] = [1500.0, 0.0, 2000.0]
+        return bld
+
+    def test_dataset_basis_sets_heat_demand_and_power(
+        self, buildings_gdf, streets_gdf, parcels_gdf, source_gdf
+    ):
+        bld = self._with_both_heat_demands(buildings_gdf)
+        out = self._adjusted(bld, streets_gdf, parcels_gdf, source_gdf, "dataset")
+        assert out[cols.HEAT_DEMAND].tolist() == [12000.0, 20000.0, 30000.0]
+        # power = heat demand / full load hours, 0 h counts as 1600 h
+        assert out[cols.THERMAL_POWER].tolist() == pytest.approx([8.0, 12.5, 15.0])
+
+    def test_calculated_basis_falls_back_to_dataset(
+        self, buildings_gdf, streets_gdf, parcels_gdf, source_gdf
+    ):
+        bld = self._with_both_heat_demands(buildings_gdf)
+        out = self._adjusted(bld, streets_gdf, parcels_gdf, source_gdf, "calculated")
+        assert out[cols.HEAT_DEMAND].tolist() == [15000.0, 20000.0, 30000.0]
+        assert out[cols.THERMAL_POWER].tolist() == pytest.approx([10.0, 12.5, 15.0])
+
+    @pytest.mark.parametrize("basis", ["dataset", "calculated"])
+    def test_heat_demand_unchanged_without_both_values(
+        self, buildings_gdf, streets_gdf, parcels_gdf, source_gdf, basis
+    ):
+        out = self._adjusted(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, basis)
+        assert out[cols.HEAT_DEMAND].tolist() == buildings_gdf[cols.HEAT_DEMAND].tolist()
+        assert out[cols.THERMAL_POWER].tolist() == buildings_gdf[cols.THERMAL_POWER].tolist()
+
 
 # ---------------------------------------------------------------------------
 # status
