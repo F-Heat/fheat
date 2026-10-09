@@ -37,9 +37,11 @@ HTTP_TIMEOUT = 120
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OSM_TIMEOUT = 90
 # The public instance is often busy (HTTP 504/429). On 2026-10-09 two of three
-# requests for Burgsteinfurt failed that way and the next one succeeded, so
-# busy answers are retried a few times before giving up.
-OSM_RETRIES = 3
+# requests for Burgsteinfurt failed that way, and a whole-municipality request
+# for Steinfurt failed three times in a row while the next one answered in
+# 1.3 s (3.8 MB) - the size is no problem, the instance is just busy at times.
+# So busy answers are retried with growing pauses (5+10+15+20 s).
+OSM_RETRIES = 5
 OSM_RETRY_WAIT = 5  # s, multiplied by the attempt number
 _OSM_RETRY_STATUS = frozenset({429, 502, 503, 504})
 _OSM_COLUMNS = ("osm_id", "highway", "surface", "tracktype", "width", "lanes")
