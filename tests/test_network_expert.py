@@ -219,6 +219,8 @@ def test_expert_net_geometry_and_types(solved_expert_net):
     assert set(net.geometry.geom_type.unique()) == {"LineString"}
     assert set(net[cols.TYPE].unique()) <= {"Hausanschluss", "Straßenleitung"}
     assert (net[cols.LENGTH] > 0).all()
+    # the lines follow the streets: drawn length = routed length
+    assert net.geometry.length.to_numpy() == pytest.approx(net[cols.LENGTH].to_numpy(), rel=1e-6)
     # DN is a catalogue label, not a number ("PEX 50" in the shipped catalogue)
     assert net[cols.NOMINAL_DIAMETER].notna().all()
     assert (net[cols.VELOCITY] > 0).all()
@@ -1095,3 +1097,72 @@ def test_milp_without_layers_builds_the_same_net(tt, expert_state, expert_adapte
     without, _ = backend.build(*args, civil_layers=layers)
     assert cols.CIVIL_COST_FACTOR not in without.columns
     pd.testing.assert_frame_equal(pd.DataFrame(without), pd.DataFrame(reference))
+
+
+# --- route geometry: the built edges follow the street, not a straight line ---
+
+def _bent_candidates():
+    from shapely.geometry import LineString
+
+    return gpd.GeoDataFrame(
+        geometry=[
+            LineString([(0, 0), (50, 20), (100, 0)]),     # drawn start → end
+            LineString([(0, 0), (5, 5)]),                 # not built
+            LineString([(200, 0), (150, -10), (100, 0)]),  # drawn end → start
+        ],
+        crs=CRS,
+    )
+
+
+def _built_edges(lengths):
+    return pd.DataFrame(
+        {
+            "x_start": [0.0, 100.0], "y_start": [0.0, 0.0],
+            "x_end": [100.0, 200.0], "y_end": [0.0, 0.0],
+            "length": lengths,
+        }
+    )
+
+
+def _bent_result():
+    candidates = _bent_candidates()
+    l_i = candidates.length.to_numpy()
+    opt_mats = {"lambda_b_orig": np.array([1.0, 0.0, 1.0])}
+    edges_df = _built_edges([l_i[0], l_i[2]])
+    return candidates, opt_mats, {"l_i": l_i}, edges_df
+
+
+def test_result_lines_follow_the_street_from_start_to_end_node():
+    candidates, opt_mats, mat, edges_df = _bent_result()
+    lines = TopothermBackend._result_lines(candidates, opt_mats, mat, edges_df)
+    assert list(lines[0].coords) == [(0, 0), (50, 20), (100, 0)]
+    # drawn the other way round in the street data: reversed to run start → end
+    assert list(lines[1].coords) == [(100, 0), (150, -10), (200, 0)]
+
+
+def test_net_uses_the_street_geometry(fake_nodes_df, buildings_gdf, pipe_info_df):
+    candidates, opt_mats, mat, edges_df = _bent_result()
+    edges_df = edges_df.assign(
+        start_node=[0, 1], end_node=[1, 3], power=[20.0, 10.0], to_consumer=[False, True]
+    )
+    lines = TopothermBackend._result_lines(candidates, opt_mats, mat, edges_df)
+    net = TopothermBackend._to_net_gdf(
+        edges_df, fake_nodes_df, buildings_gdf, pipe_info_df, FHeatConfig(), lines=lines
+    )
+    assert list(net.geometry.iloc[0].coords) == [(0, 0), (50, 20), (100, 0)]
+    assert net.geometry.length.to_numpy() == pytest.approx(net[cols.LENGTH].to_numpy())
+
+
+def test_result_lines_fall_back_to_straight_lines(caplog):
+    candidates, opt_mats, mat, edges_df = _bent_result()
+    with caplog.at_level("WARNING"):
+        # mapping does not add up: no street geometry at all
+        assert TopothermBackend._result_lines(
+            candidates, opt_mats, mat, edges_df.assign(length=[1.0, 2.0])
+        ) is None
+        # a line that does not end at its nodes: only that edge falls back
+        moved = edges_df.copy()
+        moved.loc[1, "x_end"] = 210.0
+        lines = TopothermBackend._result_lines(candidates, opt_mats, mat, moved)
+    assert lines[0] is not None and lines[1] is None
+    assert "straight lines" in caplog.text

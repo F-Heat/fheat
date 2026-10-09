@@ -49,6 +49,7 @@ from fheat_core.resources import resolve_pipe_info
 logger = logging.getLogger(__name__)
 
 _MIN_SOURCE_OFFSET = 1e-3  # m — below this a source is treated as "on the road"
+_NODE_TOLERANCE = 1e-3     # m — a candidate line ends at a node closer than this
 
 
 # topotherm is not on PyPI, so the [topotherm] extra deliberately does not name
@@ -152,6 +153,7 @@ class TopothermBackend(NetworkBackend):
         net_gdf = self._to_net_gdf(
             edges_df, nodes_df, buildings, pipe_info, config,
             civil=self._result_civil(civil, opt_mats, mat, edges_df),
+            lines=self._result_lines(gdf_edges, opt_mats, mat, edges_df),
         )
         buildings = self._writeback_connect(buildings, edges_df, nodes_df)
         return net_gdf, buildings
@@ -350,21 +352,32 @@ class TopothermBackend(NetworkBackend):
     # -- step 5: topotherm result -> NetSchema ------------------------------
 
     @staticmethod
-    def _result_civil(civil, opt_mats, mat, edges_df):
-        """Civil works factors of the built edges, in the order of ``edges_df``.
+    def _built_candidates(opt_mats, mat, edges_df):
+        """Candidate index of every built edge, in the order of ``edges_df``.
 
         topotherm's postprocessing keeps the built candidate edges in their
         order: those with lambda_ij or lambda_ji set (``lambda_b_orig`` != 0).
-        None without layers, or when that mapping does not add up — the step
-        then intersects the result lines instead.
+        None when that mapping does not add up.
         """
-        if civil is None:
-            return None
         kept = np.flatnonzero(np.asarray(opt_mats["lambda_b_orig"], dtype=float).ravel() != 0)
         lengths = np.asarray(mat["l_i"], dtype=float)
         if len(kept) != len(edges_df) or not np.allclose(
             lengths[kept], edges_df["length"].to_numpy(float), rtol=1e-6, atol=1e-6
         ):
+            return None
+        return kept
+
+    @staticmethod
+    def _result_civil(civil, opt_mats, mat, edges_df):
+        """Civil works factors of the built edges, in the order of ``edges_df``.
+
+        None without layers, or when the built edges cannot be mapped to their
+        candidates — the step then intersects the result lines instead.
+        """
+        if civil is None:
+            return None
+        kept = TopothermBackend._built_candidates(opt_mats, mat, edges_df)
+        if kept is None:
             logger.warning(
                 "Could not map topotherm's built edges to their candidates; the civil "
                 "works factors are taken from the result lines instead."
@@ -373,11 +386,54 @@ class TopothermBackend(NetworkBackend):
         return civil.iloc[kept].reset_index(drop=True)
 
     @staticmethod
-    def _to_net_gdf(edges_df, nodes_df, buildings, pipe_info, config, civil=None):
+    def _result_lines(gdf_edges, opt_mats, mat, edges_df):
+        """Street geometry of every built edge, running from start to end node.
+
+        topotherm's result has only the two end nodes of an edge; the candidate
+        line in ``gdf_edges`` follows the street in between. Its point order is
+        the one of the street data, so a line whose first point lies at the end
+        node is reversed. An edge whose line does not end at its two nodes gets
+        None (straight line in :meth:`_to_net_gdf`); all None when the built
+        edges cannot be mapped to their candidates.
+        """
+        kept = TopothermBackend._built_candidates(opt_mats, mat, edges_df)
+        if kept is None:
+            logger.warning(
+                "Could not map topotherm's built edges to their candidates; the net "
+                "shows straight lines between the nodes."
+            )
+            return None
+        candidates = gdf_edges.geometry.reset_index(drop=True)
+        lines = []
+        for k, (_, r) in zip(kept, edges_df.iterrows()):
+            line = candidates.iloc[k]
+            if line is None or line.geom_type != "LineString":
+                lines.append(None)
+                continue
+            start = np.array([r["x_start"], r["y_start"]], dtype=float)
+            end = np.array([r["x_end"], r["y_end"]], dtype=float)
+            first, last = np.asarray(line.coords[0]), np.asarray(line.coords[-1])
+            if np.allclose(first[:2], start, atol=_NODE_TOLERANCE) and np.allclose(last[:2], end, atol=_NODE_TOLERANCE):
+                lines.append(line)
+            elif np.allclose(first[:2], end, atol=_NODE_TOLERANCE) and np.allclose(last[:2], start, atol=_NODE_TOLERANCE):
+                lines.append(line.reverse())
+            else:
+                lines.append(None)
+        if any(line is None for line in lines):
+            logger.warning(
+                "%d of topotherm's built edges do not end at their nodes; they are "
+                "shown as straight lines.", sum(line is None for line in lines),
+            )
+        return lines
+
+    @staticmethod
+    def _to_net_gdf(edges_df, nodes_df, buildings, pipe_info, config, civil=None, lines=None):
         """Apply FHeat's own GLF + sizing to topotherm's topology.
 
         ``civil`` (from :meth:`_result_civil`) adds the civil works factor and
-        road surface the optimisation used for each edge.
+        road surface the optimisation used for each edge. ``lines`` (from
+        :meth:`_result_lines`) is the street geometry of each edge; without it,
+        or where an entry is None, the edge is a straight line between its nodes.
         """
         # downstream building count per edge (topotherm's a_i is directed)
         G = nx.DiGraph()
@@ -420,9 +476,12 @@ class TopothermBackend(NetworkBackend):
             loss.append(l1)
             loss_extra.append(l2)
 
+        if lines is None:
+            lines = [None] * len(edges_df)
         geom = [
-            LineString([(r["x_start"], r["y_start"]), (r["x_end"], r["y_end"])])
-            for _, r in edges_df.iterrows()
+            line if line is not None
+            else LineString([(r["x_start"], r["y_start"]), (r["x_end"], r["y_end"])])
+            for line, (_, r) in zip(lines, edges_df.iterrows())
         ]
         civil_columns = {}
         if civil is not None:
