@@ -76,6 +76,12 @@ class NRWDataAdapter(DataAdapter):
         Spalten ``highway`` und ``surface``. Hat Vorrang vor Overpass.
     osm_overpass_url : str | None
         Anderer Overpass-Endpunkt (Standard: ``download.OVERPASS_URL``).
+    area_bbox : tuple[float, float, float, float] | None
+        (minx, miny, maxx, maxy) in EPSG:25832 für die beiden Tiefbau-Layer.
+        Ohne Angabe folgen sie den geladenen Gebäuden, Straßen und der Quelle.
+        Mit Angabe laden ``fetch_landuse``/``fetch_osm_surface`` nur die Layer,
+        ohne die Gebäude herunterzuladen (z. B. für ein schon gespeichertes
+        Gebiet); die Layer kommen dann in EPSG:25832.
     """
 
     def __init__(
@@ -94,6 +100,7 @@ class NRWDataAdapter(DataAdapter):
         download_osm_surface: bool = True,
         osm_surface_path: Optional[Path] = None,
         osm_overpass_url: Optional[str] = None,
+        area_bbox: Optional[Tuple[float, float, float, float]] = None,
     ) -> None:
         if not municipality_name and not city_name and not district_key:
             raise ValueError(
@@ -114,6 +121,7 @@ class NRWDataAdapter(DataAdapter):
         self._download_osm_surface = bool(download_osm_surface)
         self._osm_surface_path = Path(osm_surface_path) if osm_surface_path is not None else None
         self._osm_overpass_url = osm_overpass_url
+        self._area_bbox = tuple(float(v) for v in area_bbox) if area_bbox is not None else None
 
         self._buildings: Optional[gpd.GeoDataFrame] = None
         self._streets: Optional[gpd.GeoDataFrame] = None
@@ -219,8 +227,11 @@ class NRWDataAdapter(DataAdapter):
         """Bounding box of everything a network can use: buildings, streets, source.
 
         Taken from the loaded data, not from the catalogue bbox, so it also
-        fits a district cut out of its municipality.
+        fits a district cut out of its municipality — unless ``area_bbox`` was
+        given.
         """
+        if self._area_bbox is not None:
+            return gpd.GeoSeries([box(*self._area_bbox)], crs=LANDUSE_BBOX_CRS)
         self._ensure_loaded()
         crs = self._buildings.crs
         frames = [g for g in (self._buildings, self._streets, self._source) if g is not None and not g.empty]
@@ -232,8 +243,11 @@ class NRWDataAdapter(DataAdapter):
         )
 
     def _to_area_crs(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-        self._ensure_loaded()
-        crs = self._buildings.crs
+        if self._area_bbox is not None and self._buildings is None:
+            crs = LANDUSE_BBOX_CRS
+        else:
+            self._ensure_loaded()
+            crs = self._buildings.crs
         if gdf.crs is not None and crs is not None and gdf.crs != crs:
             return gdf.to_crs(crs)
         return gdf

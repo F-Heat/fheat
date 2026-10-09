@@ -674,6 +674,26 @@ class TestCivilLayers:
         assert landuse["civil_cost_factor"].tolist() == pytest.approx([1.25])
         assert osm["civil_class"].tolist() == ["asphalt"]
 
+    def test_area_bbox_loads_the_layers_without_the_buildings(self, monkeypatch):
+        from fheat_nrw import download as dl
+
+        seen = {}
+
+        def fake_wfs(url, bbox, layer, **kw):
+            seen["bbox"] = bbox
+            return _raw_landuse()
+
+        monkeypatch.setattr(dl, "get_landuse_from_wfs", fake_wfs)
+        monkeypatch.setattr(dl, "get_osm_surface_via_overpass", lambda *a, **kw: _raw_osm_wgs84())
+        adapter = NRWDataAdapter(municipality_name="Steinfurt", area_bbox=(387000, 5778000, 389000, 5780000))
+        monkeypatch.setattr(adapter, "_ensure_loaded", lambda: pytest.fail("buildings must not be loaded"))
+
+        landuse = adapter.fetch_landuse()
+        osm = adapter.fetch_osm_surface()
+        assert seen["bbox"] == pytest.approx((387000, 5778000, 389000, 5780000))
+        assert landuse.crs == CRS and osm.crs == CRS
+        assert osm["civil_class"].tolist() == ["asphalt"]
+
     def test_empty_download_gives_none(self, monkeypatch):
         from fheat_nrw import download as dl
 
