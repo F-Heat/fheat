@@ -148,6 +148,20 @@ class TestSummarizePipes:
         ):
             assert pd.api.types.is_float_dtype(df[column]), column
 
+    def test_no_cost_column_without_pipe_costs(self, net, catalogue):
+        assert cols.PIPE_COST not in summarize_pipes(net, catalogue).columns
+
+    def test_pipe_cost_per_dn(self, net, catalogue):
+        priced = net.copy()
+        priced[cols.PIPE_COST] = [100.0, 150.0, 200.0, 5000.0, 1000.0, np.nan]
+        df = summarize_pipes(priced, catalogue)
+        assert _row(df, "PEX 20")[cols.PIPE_COST] == pytest.approx(250.0)
+        assert _row(df, "PEX 25")[cols.PIPE_COST] == pytest.approx(1200.0)
+        assert _row(df, "PEX 32")[cols.PIPE_COST] == 0.0
+        assert _row(df, "KMR 100")[cols.PIPE_COST] == pytest.approx(5000.0)   # NaN counts as 0
+        assert pd.api.types.is_float_dtype(df[cols.PIPE_COST])
+        assert df[cols.PIPE_COST].sum() == pytest.approx(priced[cols.PIPE_COST].sum())
+
 
 def _buildings(profiles, demands):
     polys = [Polygon([(i * 20, 0), (i * 20 + 10, 0), (i * 20 + 10, 10), (i * 20, 10)]) for i in range(len(profiles))]

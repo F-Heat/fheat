@@ -13,7 +13,10 @@ def _data_path(filename: str):
 def load_pipe_info() -> pd.DataFrame:
     """Load the pipe catalogue from the core default.
 
-    Columns: DN, di, U-Value, U-Value_extra_insulation, max_volumeFlow
+    Columns: DN, di, U-Value, U-Value_extra_insulation, max_volumeFlow and the
+    standardised pipe costs cost_main (route) and cost_h-connect (house
+    connection) in € per metre of trench, used by
+    :func:`fheat_core.network.costs.annotate_network_costs`.
     """
     with importlib.resources.as_file(_data_path("pipe_data.csv")) as p:
         return pd.read_csv(p)

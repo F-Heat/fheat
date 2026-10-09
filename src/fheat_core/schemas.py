@@ -169,6 +169,10 @@ NetSchema = FrameSchema(
     },
     optional_columns={
         cols.GLF: "float",
+        cols.CIVIL_COST_FACTOR: "float",
+        cols.ROAD_SURFACE: "str",
+        cols.PIPE_COST: "float",
+        cols.CIVIL_COST: "float",
     },
     geometry_type="LineString",
     allow_empty=True,
@@ -188,6 +192,9 @@ PipeSummarySchema = FrameSchema(
         cols.ROUTE_LENGTH: "float",
         cols.HEAT_LOSS_MWH: "float",
         cols.HEAT_LOSS_EXTRA_INSULATION_MWH: "float",
+    },
+    optional_columns={
+        cols.PIPE_COST: "float",  # only when the net carries pipe costs
     },
     allow_empty=True,
 )
@@ -256,6 +263,14 @@ class ResultSummarySchema:
         "total_house_connection_length_m",
         "total_route_length_m",
         "total_loss_extra_insulation_mwh_a",
+    )
+    # Present only when the net carries civil cost factors / pipe costs
+    # (left out rather than set to 0, see steps/results.py).
+    optional_keys: tuple = (
+        "civil_cost_share",
+        "total_pipe_cost_eur",
+        "total_civil_cost_eur",
+        "mean_civil_cost_factor",
     )
 
     def validate(self, summary) -> None:

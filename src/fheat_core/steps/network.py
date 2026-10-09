@@ -2,8 +2,10 @@
 
 The step no longer contains an algorithm. It prepares the input frames
 (filtering + CRS), hands them to the backend selected by
-``config.network_mode``, validates the result against ``NetSchema`` and merges
-a backend-decided connection status back into the full buildings frame.
+``config.network_mode``, validates the result against ``NetSchema``, writes
+the civil works factors and pipe costs onto the net (the same for every
+backend) and merges a backend-decided connection status back into the full
+buildings frame.
 """
 from __future__ import annotations
 
@@ -12,6 +14,8 @@ import logging
 from fheat_core import columns as cols
 from fheat_core.errors import NO_BUILDINGS, PipelineInputError
 from fheat_core.network import get_backend
+from fheat_core.network.costs import annotate_network_costs, civil_layers
+from fheat_core.resources import resolve_pipe_info
 from fheat_core.schemas import NetSchema
 from fheat_core.selection import connected_mask
 from fheat_core.state import Phase, PipelineState
@@ -47,11 +51,22 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     if source.crs != buildings.crs:
         source = source.to_crs(buildings.crs)
 
+    if state.landuse_gdf is None and state.osm_surface_gdf is None:
+        # A state resumed from STATUS (as fheat-web does) has no layers yet.
+        state.landuse_gdf = adapter.fetch_landuse()
+        state.osm_surface_gdf = adapter.fetch_osm_surface()
+    layers = civil_layers(state)
+
     backend = get_backend(config.network_mode)
     logger.info("NETWORK phase using backend '%s' for %d building(s)", backend.name, len(buildings))
-    net_gdf, buildings_out = backend.build(buildings, streets, source, config, adapter)
+    net_gdf, buildings_out = backend.build(
+        buildings, streets, source, config, adapter, civil_layers=layers
+    )
 
     NetSchema.validate(net_gdf)
+    net_gdf = annotate_network_costs(
+        net_gdf, layers, resolve_pipe_info(adapter), config.civil_cost_share
+    )
 
     state.net_gdf = net_gdf
     state.buildings_gdf = _merge_connect(buildings_all, buildings_out)

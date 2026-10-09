@@ -25,6 +25,11 @@ class PipelineState:
     parcels_gdf: Optional[gpd.GeoDataFrame] = None
     source_gdf: Optional[gpd.GeoDataFrame] = None  # only needed from NETWORK on
 
+    # Civil works layers (optional, see DataAdapter.fetch_landuse /
+    # fetch_osm_surface). None → civil works factor 1.0.
+    landuse_gdf: Optional[gpd.GeoDataFrame] = None
+    osm_surface_gdf: Optional[gpd.GeoDataFrame] = None
+
     # Planning area of the network (one or more polygons). The analysis steps
     # always work on the whole area of the input frames; NETWORK and RESULTS
     # connect only the buildings inside this area. None → all buildings.

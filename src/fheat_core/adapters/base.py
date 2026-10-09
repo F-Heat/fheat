@@ -50,10 +50,28 @@ class DataAdapter(ABC):
         """Optional: outline of the analysed area (one (Multi)Polygon). None → unknown."""
         return None
 
+    # Civil works layers — each one yields a factor per route (see
+    # fheat_core.algorithms.civil_cost). None → factor 1.0, no error.
+    def fetch_landuse(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: land use polygons with a ``civil_cost_factor`` column.
+
+        An optional ``civil_class`` column names the land use class.
+        """
+        return None
+
+    def fetch_osm_surface(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: buffered road polygons with ``civil_cost_factor`` and
+        ``civil_class`` (the road surface, e.g. ``asphalt``)."""
+        return None
+
     # Optional data — default implementation returns None;
     # the core then loads its own default.
     def provide_pipe_info(self) -> Optional[pd.DataFrame]:
-        """Optional: pipe catalogue (DN, di, U-Value, max_volumeFlow). None → core default."""
+        """Optional: pipe catalogue (DN, di, U-Value, max_volumeFlow). None → core default.
+
+        The cost columns cost_main and cost_h-connect [€/m] are optional:
+        without them the network gets no pipe costs (a warning is logged).
+        """
         return None
 
     def provide_temperature(self) -> Optional[pd.Series]:

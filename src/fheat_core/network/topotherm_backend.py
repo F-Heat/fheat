@@ -7,6 +7,14 @@ buildings are connected. Everything downstream — simultaneity factor (GLF),
 volume flow, DN, velocity and heat losses — is computed by fheat_core with the
 *same* functions the Phase-0 backend uses, so the two modes stay comparable and
 the German export labels keep their meaning.
+
+Civil works
+-----------
+With civil works layers, every candidate edge k gets its civil works factor
+f_k and the multiplier m_k = (1 − s) + s·f_k (s = ``civil_cost_share``). m_k
+scales topotherm's pipe cost term of that edge, so the MILP avoids expensive
+routes. The factors of the built edges are handed on to the net; without
+layers the model is topotherm's own, unchanged.
 """
 from __future__ import annotations
 
@@ -18,6 +26,7 @@ import numpy as np
 from shapely.geometry import LineString
 
 from fheat_core import columns as cols
+from fheat_core.algorithms.civil_cost import civil_factors_for_lines, cost_multiplier, usable_layers
 from fheat_core.algorithms.network import (
     calculate_diameter_velocity_loss,
     calculate_glf,
@@ -86,6 +95,40 @@ def _as_2d_float(arr) -> np.ndarray:
     return a.reshape(a.shape[0], -1)
 
 
+def _weigh_pipe_capex(model, mat, regression_inst, economics) -> None:
+    """Replace topotherm's pipe CAPEX constraint by one weighted with mat["civil_m"].
+
+    topotherm 0.6.0 prices every candidate edge k with (a·P_k + b·λ_k)·l_k in
+    ``model.capex_pipe_constr`` (single time step 0, P indexed
+    [dir, "in", k, t], lambda_ indexed [dir, k]). The civil works multiplier
+    m_k scales that whole term — the same m the net's pipe_cost uses. The
+    regression a, b itself stays topotherm's.
+    """
+    import pyomo.environ as pyo
+    from topotherm.models.calc import annuity
+
+    a = float(regression_inst["a"])
+    b = float(regression_inst["b"])
+    # plain floats: numpy scalars on the left of a pyomo expression misbehave
+    l_i = [float(v) for v in np.asarray(mat["l_i"], dtype=float)]
+    m = [float(v) for v in np.asarray(mat["civil_m"], dtype=float)]
+    pipe_annuity = float(annuity(economics.pipes_c_irr, economics.pipes_lifetime))
+
+    def _rule(mdl):
+        return mdl.capex_pipes == sum(
+            (
+                a * (mdl.P["ij", "in", k, 0] + mdl.P["ji", "in", k, 0])
+                + b * (mdl.lambda_["ij", k] + mdl.lambda_["ji", k])
+            )
+            * l_i[k]
+            * m[k]
+            for k in mdl.set_n_i
+        ) * pipe_annuity
+
+    model.del_component(model.capex_pipe_constr)
+    model.capex_pipe_constr = pyo.Constraint(rule=_rule, doc="CAPEX Pipe (civil works weighted)")
+
+
 class TopothermBackend(NetworkBackend):
     """Network generation via topotherm's STS optimisation."""
 
@@ -93,19 +136,23 @@ class TopothermBackend(NetworkBackend):
 
     # -- public ---------------------------------------------------------
 
-    def build(self, buildings, streets, source, config, adapter):
+    def build(self, buildings, streets, source, config, adapter, civil_layers=None):
         tt = _require_topotherm()
         tcfg = config.topotherm
 
         pipe_info = resolve_pipe_info(adapter)
 
         sinks, roads, srcs = self._to_topotherm_inputs(buildings, streets, source)
-        mat, gdf_nodes = self._build_matrices(tt, sinks, roads, srcs, buildings.crs, tcfg)
+        mat, gdf_nodes, gdf_edges = self._build_matrices(tt, sinks, roads, srcs, buildings.crs, tcfg)
+        civil = self._candidate_civil_factors(mat, gdf_edges, civil_layers, buildings.crs, config)
         settings = self._build_settings(tt, config)
         model, opt_mats = self._solve(tt, mat, settings, tcfg)
         nodes_df, edges_df = tt.postprocessing.to_dataframe(opt_mats, mat)
 
-        net_gdf = self._to_net_gdf(edges_df, nodes_df, buildings, pipe_info, config)
+        net_gdf = self._to_net_gdf(
+            edges_df, nodes_df, buildings, pipe_info, config,
+            civil=self._result_civil(civil, opt_mats, mat, edges_df),
+        )
         buildings = self._writeback_connect(buildings, edges_df, nodes_df)
         return net_gdf, buildings
 
@@ -170,7 +217,10 @@ class TopothermBackend(NetworkBackend):
                 "street/source input.",
                 code=UNMATCHED_NODES,
             )
-        mat, gdf_nodes, _ = tt.create_matrices.create_matrices_from_gdf(gdf_nodes, gdf_edges)
+        # topotherm drops duplicate candidate edges here; the gdf_edges it
+        # returns stays aligned with the matrices: mat["l_i"][k] and column k
+        # of a_i belong to gdf_edges.iloc[k] (topotherm 0.6.0).
+        mat, gdf_nodes, gdf_edges = tt.create_matrices.create_matrices_from_gdf(gdf_nodes, gdf_edges)
 
         # topotherm returns object arrays here; the model needs 2-D floats.
         mat["q_c"] = _as_2d_float(mat["q_c"])
@@ -179,7 +229,31 @@ class TopothermBackend(NetworkBackend):
         n_src = mat["a_p"].shape[1]
         weighted = (mat["q_c"] * mat["flh_sinks"]).sum(axis=0) / mat["q_c"].sum(axis=0)
         mat["flh_sources"] = np.tile(np.round(weighted, 2), (n_src, 1))
-        return mat, gdf_nodes
+        return mat, gdf_nodes, gdf_edges
+
+    @staticmethod
+    def _candidate_civil_factors(mat, gdf_edges, civil_layers, crs, config):
+        """Civil works factor per candidate edge, stored as mat["civil_f"] / ["civil_m"].
+
+        Returns the factors and surfaces in candidate order, or None without
+        usable layers — then mat is left untouched and the model stays
+        topotherm's own.
+        """
+        if not usable_layers(civil_layers):
+            return None
+        lines = gdf_edges.geometry.reset_index(drop=True)
+        l_i = np.asarray(mat["l_i"], dtype=float)
+        if len(lines) != len(l_i) or not np.allclose(lines.length.to_numpy(), l_i, rtol=1e-6, atol=1e-6):
+            logger.warning(
+                "topotherm's candidate edges do not match its matrices; the routes "
+                "are chosen without civil works factors."
+            )
+            return None
+        civil = civil_factors_for_lines(lines, civil_layers, crs=crs)
+        factor = civil[cols.CIVIL_COST_FACTOR].to_numpy(dtype=float)
+        mat["civil_f"] = factor
+        mat["civil_m"] = np.atleast_1d(cost_multiplier(factor, config.civil_cost_share))
+        return civil
 
     # -- step 3: FHeatConfig -> topotherm Settings -------------------------
 
@@ -237,6 +311,8 @@ class TopothermBackend(NetworkBackend):
             regression_inst=r_cap,
             regression_losses=r_loss,
         )
+        if "civil_m" in mat:
+            _weigh_pipe_capex(model, mat, r_cap, settings.economics)
         opt = pyo.SolverFactory(tcfg.solver)
         if not opt.available(False):
             raise NetworkBackendError(
@@ -274,8 +350,35 @@ class TopothermBackend(NetworkBackend):
     # -- step 5: topotherm result -> NetSchema ------------------------------
 
     @staticmethod
-    def _to_net_gdf(edges_df, nodes_df, buildings, pipe_info, config):
-        """Apply FHeat's own GLF + sizing to topotherm's topology."""
+    def _result_civil(civil, opt_mats, mat, edges_df):
+        """Civil works factors of the built edges, in the order of ``edges_df``.
+
+        topotherm's postprocessing keeps the built candidate edges in their
+        order: those with lambda_ij or lambda_ji set (``lambda_b_orig`` != 0).
+        None without layers, or when that mapping does not add up — the step
+        then intersects the result lines instead.
+        """
+        if civil is None:
+            return None
+        kept = np.flatnonzero(np.asarray(opt_mats["lambda_b_orig"], dtype=float).ravel() != 0)
+        lengths = np.asarray(mat["l_i"], dtype=float)
+        if len(kept) != len(edges_df) or not np.allclose(
+            lengths[kept], edges_df["length"].to_numpy(float), rtol=1e-6, atol=1e-6
+        ):
+            logger.warning(
+                "Could not map topotherm's built edges to their candidates; the civil "
+                "works factors are taken from the result lines instead."
+            )
+            return None
+        return civil.iloc[kept].reset_index(drop=True)
+
+    @staticmethod
+    def _to_net_gdf(edges_df, nodes_df, buildings, pipe_info, config, civil=None):
+        """Apply FHeat's own GLF + sizing to topotherm's topology.
+
+        ``civil`` (from :meth:`_result_civil`) adds the civil works factor and
+        road surface the optimisation used for each edge.
+        """
         # downstream building count per edge (topotherm's a_i is directed)
         G = nx.DiGraph()
         for i, r in edges_df.iterrows():
@@ -321,6 +424,12 @@ class TopothermBackend(NetworkBackend):
             LineString([(r["x_start"], r["y_start"]), (r["x_end"], r["y_end"])])
             for _, r in edges_df.iterrows()
         ]
+        civil_columns = {}
+        if civil is not None:
+            civil_columns = {
+                cols.CIVIL_COST_FACTOR: civil[cols.CIVIL_COST_FACTOR].to_numpy(dtype=float),
+                cols.ROAD_SURFACE: civil[cols.ROAD_SURFACE].to_numpy(),
+            }
         return gpd.GeoDataFrame(
             {
                 cols.TYPE: edge_type,
@@ -337,6 +446,7 @@ class TopothermBackend(NetworkBackend):
                 cols.VELOCITY: np.asarray(vel, dtype=float),
                 cols.HEAT_LOSS: np.asarray(loss, dtype=float),
                 cols.HEAT_LOSS_EXTRA_INSULATION: np.asarray(loss_extra, dtype=float),
+                **civil_columns,
             },
             geometry=geom,
             crs=buildings.crs,

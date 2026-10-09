@@ -71,6 +71,20 @@ class TestHeatDemandBasis:
             FHeatConfig(heat_demand_basis=basis)
 
 
+class TestCivilCostShare:
+    def test_default_is_sixty_percent(self):
+        assert FHeatConfig().civil_cost_share == 0.60
+
+    @pytest.mark.parametrize("share", [0.0, 0.35, 1.0])
+    def test_allowed_values_succeed(self, share):
+        assert FHeatConfig(civil_cost_share=share).civil_cost_share == share
+
+    @pytest.mark.parametrize("share", [-0.01, 1.01, float("nan")])
+    def test_values_outside_zero_to_one_raise(self, share):
+        with pytest.raises(ValueError, match="civil_cost_share"):
+            FHeatConfig(civil_cost_share=share)
+
+
 class TestCustomConfig:
     def test_full_custom_config(self, tmp_path):
         cfg = FHeatConfig(

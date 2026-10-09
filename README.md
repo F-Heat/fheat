@@ -111,6 +111,32 @@ config = FHeatConfig(
 
 In `"economic"` mode the optimiser may leave unprofitable buildings unconnected; their `connect` flag is set to `0` so the load profile and summary stay consistent. If *nothing* is profitable the backend raises with the parameters to adjust rather than returning an empty network. See [`examples/burgsteinfurt_topotherm.py`](examples/burgsteinfurt_topotherm.py).
 
+### Civil works / road surfaces
+
+The network step prices every edge with the standardised pipe costs of its DN — `cost_main` for routes, `cost_h-connect` for house connections, in € per metre of trench, from the pipe catalogue [`pipe_data.csv`](src/fheat_core/data/pipe_data.csv) — and scales the civil works part of them with what lies on top of the route. For an edge of length `l`, pipe costs `c`, civil works factor `f` and civil works share `s`:
+
+```
+m          = (1 − s) + s · f      # cost multiplier of the edge
+pipe_cost  = l · c · m            # €
+civil_cost = l · c · s · f        # of which civil works, €
+```
+
+- `FHeatConfig.civil_cost_share` is `s`, the share of the pipe costs that is civil works (trench, backfill, surface restoration). Default `0.6`, allowed `0…1`; `0` means the road surface has no effect on the costs.
+- `f` is the area-weighted mean of the layer polygons under a 1.5 m buffer around the edge, multiplied over the layers ([`civil_cost.py`](src/fheat_core/algorithms/civil_cost.py)). A layer without data under an edge contributes 1.0.
+- `"phase0"` keeps its length-based topology; the costs are written onto the finished net. `"expert"` puts `m` into topotherm's pipe cost term, so the optimisation avoids expensive routes.
+- The net gets the columns `civil_cost_factor`, `road_surface` (the dominant surface along the edge), `pipe_cost` and `civil_cost`; the result summary `civil_cost_share`, `total_pipe_cost_eur`, `total_civil_cost_eur` and `mean_civil_cost_factor` (length-weighted). They are left out when the pipe catalogue has no cost columns (an adapter's own catalogue may omit them; a warning is logged).
+
+The layers come from the adapter (`DataAdapter.fetch_landuse`, `fetch_osm_surface`); without them every factor is 1.0. The NRW adapter loads two:
+
+| Layer | Source | Axis | Licence |
+|---|---|---|---|
+| land use | ALKIS "Tatsächliche Nutzung", WFS `wfs_nw_alkis_vereinfacht`, layer `ave:Nutzung` | legal/planning (road, railway, water, green space …) | [Datenlizenz Deutschland – Zero 2.0](https://www.govdata.de/dl-de/zero-2-0) |
+| road surface | OpenStreetMap `highway`/`surface` via the Overpass API | material (asphalt, paving stones, gravel …) | [ODbL](https://opendatacommons.org/licenses/odbl/), © OpenStreetMap contributors |
+
+Both are loaded for the bounding box of the loaded buildings, streets and source. If a download fails (service down, Overpass busy), the adapter logs one warning, the layer is left out and its factor is 1.0 — the pipeline continues. `NRWDataAdapter(download_landuse=False, download_osm_surface=False)` switches them off, `landuse_path=` / `osm_surface_path=` use local files instead, `landuse_wfs=` / `osm_overpass_url=` other endpoints. A state resumed from `STATUS` without the layers gets them from the adapter in the network step.
+
+**Open points.** The factor tables ([`fheat_nrw/civil_cost.py`](src/fheat_nrw/civil_cost.py), [`fheat_nrw/osm_surface.py`](src/fheat_nrw/osm_surface.py)) and the pipe costs are the values of the previous F|Heat version; the source of the pipe costs is still to be documented, and both are to be calibrated with values from practice. topotherm's own cost regression (`a`, `b`) is not yet aligned with `pipe_data.csv`.
+
 ## Installation
 
 Requires **Python ≥ 3.10**. The geospatial stack (GeoPandas, Shapely, etc.) is easiest to install with `conda`/`mamba`, but `pip` works on most platforms.
@@ -218,7 +244,10 @@ After the `RESULTS` step the state holds, besides `load_profile_df` and
   appended, buildings without a profile in a last row).
 
 `result_summary` additionally reports `total_house_connection_length_m`,
-`total_route_length_m` and `total_loss_extra_insulation_mwh_a`.
+`total_route_length_m` and `total_loss_extra_insulation_mwh_a`, and — when the
+net carries pipe costs — the pipe investment (see
+[Civil works / road surfaces](#civil-works--road-surfaces)); `pipe_summary_df`
+then has a `pipe_cost` column per DN.
 
 `save_outputs()` writes these tables only if `FHeatConfig.table_format` is set:
 

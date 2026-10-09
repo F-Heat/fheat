@@ -9,5 +9,7 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     state.streets_gdf = adapter.fetch_streets()
     state.parcels_gdf = adapter.fetch_parcels()
     state.source_gdf = adapter.fetch_source()
+    state.landuse_gdf = adapter.fetch_landuse()
+    state.osm_surface_gdf = adapter.fetch_osm_surface()
     state.phase = Phase.DOWNLOADED
     return state

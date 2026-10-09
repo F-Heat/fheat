@@ -131,6 +131,8 @@ class StubAdapter(DataAdapter):
         pipe_info: Optional[pd.DataFrame] = None,
         temperature: Optional[pd.Series] = None,
         holidays: Optional[dict] = None,
+        landuse: Optional[gpd.GeoDataFrame] = None,
+        osm_surface: Optional[gpd.GeoDataFrame] = None,
     ):
         self._buildings = buildings
         self._streets = streets
@@ -139,6 +141,8 @@ class StubAdapter(DataAdapter):
         self._pipe_info = pipe_info
         self._temperature = temperature
         self._holidays = holidays
+        self._landuse = landuse
+        self._osm_surface = osm_surface
 
     def fetch_buildings(self):
         return self._buildings
@@ -160,6 +164,12 @@ class StubAdapter(DataAdapter):
 
     def provide_holidays(self):
         return self._holidays
+
+    def fetch_landuse(self):
+        return self._landuse
+
+    def fetch_osm_surface(self):
+        return self._osm_surface
 
 
 @pytest.fixture

@@ -550,3 +550,155 @@ class TestBundledReferenceData:
         assert out[cols.HEAT_DEMAND_DATASET].iloc[0] == pytest.approx(10000.0)
         assert out[cols.HEAT_DEMAND_CALCULATED].iloc[0] == pytest.approx(expected)
         assert out[cols.HEAT_DEMAND].iloc[0] == pytest.approx(expected)
+
+
+# ---------------------------------------------------------------------------
+# Civil works layers (ALKIS land use, OSM road surface) — downloads mocked
+# ---------------------------------------------------------------------------
+
+
+def _loaded_adapter(**kwargs) -> NRWDataAdapter:
+    """Adapter whose area is already loaded (buildings + streets in EPSG:25832)."""
+    adapter = NRWDataAdapter(municipality_name="Steinfurt", **kwargs)
+    adapter._buildings = gpd.GeoDataFrame(
+        {"geometry": [box(388000, 5779000, 388010, 5779010)]}, crs=CRS
+    )
+    adapter._streets = gpd.GeoDataFrame(
+        {"geometry": [LineString([(387900, 5778900), (388100, 5779100)])]}, crs=CRS
+    )
+    return adapter
+
+
+def _raw_landuse():
+    return gpd.GeoDataFrame(
+        {"nutzart": ["Straßenverkehr"], "geometry": [box(387900, 5778900, 388100, 5779100)]}, crs=CRS
+    )
+
+
+def _raw_osm_wgs84():
+    line = gpd.GeoSeries([LineString([(387950, 5779000), (388050, 5779000)])], crs=CRS).to_crs("EPSG:4326")
+    return gpd.GeoDataFrame({"highway": ["residential"], "surface": ["asphalt"]}, geometry=line.values, crs="EPSG:4326")
+
+
+class TestCivilLayers:
+    def test_landuse_bbox_comes_from_the_loaded_area(self, monkeypatch):
+        from fheat_nrw import download as dl
+
+        seen = {}
+
+        def fake_wfs(url, bbox, layer, **kw):
+            seen.update(url=url, bbox=bbox, layer=layer)
+            return _raw_landuse()
+
+        monkeypatch.setattr(dl, "get_landuse_from_wfs", fake_wfs)
+        out = _loaded_adapter().fetch_landuse()
+
+        assert seen["layer"] == dl.LAYER_LANDUSE
+        # buildings ∪ streets
+        assert seen["bbox"] == pytest.approx((387900, 5778900, 388100, 5779100))
+        assert out["civil_cost_factor"].tolist() == pytest.approx([1.25])
+        assert out["civil_class"].tolist() == ["Straßenverkehr"]
+
+    def test_osm_bbox_is_south_west_north_east_and_layer_is_buffered(self, monkeypatch):
+        from fheat_nrw import download as dl
+
+        seen = {}
+
+        def fake_overpass(bbox, overpass_url=None, **kw):
+            seen.update(bbox=bbox, url=overpass_url)
+            return _raw_osm_wgs84()
+
+        monkeypatch.setattr(dl, "get_osm_surface_via_overpass", fake_overpass)
+        out = _loaded_adapter(osm_overpass_url="https://mirror/").fetch_osm_surface()
+
+        south, west, north, east = seen["bbox"]
+        assert 52 < south < north < 53 and 7 < west < east < 8
+        assert seen["url"] == "https://mirror/"
+        assert out.crs == CRS
+        assert out.geometry.geom_type.tolist() == ["Polygon"]
+        assert out["civil_class"].tolist() == ["asphalt"]
+        assert out["civil_cost_factor"].tolist() == pytest.approx([1.15])
+
+    def test_download_failure_gives_none_and_one_warning(self, monkeypatch, caplog):
+        from fheat_nrw import download as dl
+
+        calls = []
+
+        def failing(*a, **kw):
+            calls.append(1)
+            raise RuntimeError("Overpass-Anfrage fehlgeschlagen: HTTP 504")
+
+        monkeypatch.setattr(dl, "get_osm_surface_via_overpass", failing)
+        monkeypatch.setattr(dl, "get_landuse_from_wfs", failing)
+        adapter = _loaded_adapter()
+        with caplog.at_level("WARNING"):
+            assert adapter.fetch_osm_surface() is None
+            assert adapter.fetch_landuse() is None
+            # asked again (e.g. by the network step): no second download
+            assert adapter.fetch_osm_surface() is None
+            assert adapter.fetch_landuse() is None
+        assert len(calls) == 2
+        warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+        assert len(warnings) == 2
+        assert "Tiefbau-Faktor 1.0" in warnings[0].getMessage()
+
+    def test_switched_off_downloads_give_none(self, monkeypatch):
+        from fheat_nrw import download as dl
+
+        def must_not_run(*a, **kw):
+            raise AssertionError("download must not run")
+
+        monkeypatch.setattr(dl, "get_osm_surface_via_overpass", must_not_run)
+        monkeypatch.setattr(dl, "get_landuse_from_wfs", must_not_run)
+        adapter = _loaded_adapter(download_landuse=False, download_osm_surface=False)
+        assert adapter.fetch_landuse() is None
+        assert adapter.fetch_osm_surface() is None
+
+    def test_local_paths_win_over_the_download(self, monkeypatch, tmp_path):
+        from fheat_nrw import download as dl
+
+        def must_not_run(*a, **kw):
+            raise AssertionError("download must not run")
+
+        monkeypatch.setattr(dl, "get_osm_surface_via_overpass", must_not_run)
+        monkeypatch.setattr(dl, "get_landuse_from_wfs", must_not_run)
+        landuse_path = tmp_path / "nutzung.gpkg"
+        osm_path = tmp_path / "osm.gpkg"
+        _raw_landuse().to_crs("EPSG:4326").to_file(landuse_path, driver="GPKG")
+        _raw_osm_wgs84().to_file(osm_path, driver="GPKG")
+
+        adapter = _loaded_adapter(landuse_path=landuse_path, osm_surface_path=osm_path)
+        landuse = adapter.fetch_landuse()
+        osm = adapter.fetch_osm_surface()
+        assert landuse.crs == CRS and osm.crs == CRS     # reprojected to the buildings
+        assert landuse["civil_cost_factor"].tolist() == pytest.approx([1.25])
+        assert osm["civil_class"].tolist() == ["asphalt"]
+
+    def test_area_bbox_loads_the_layers_without_the_buildings(self, monkeypatch):
+        from fheat_nrw import download as dl
+
+        seen = {}
+
+        def fake_wfs(url, bbox, layer, **kw):
+            seen["bbox"] = bbox
+            return _raw_landuse()
+
+        monkeypatch.setattr(dl, "get_landuse_from_wfs", fake_wfs)
+        monkeypatch.setattr(dl, "get_osm_surface_via_overpass", lambda *a, **kw: _raw_osm_wgs84())
+        adapter = NRWDataAdapter(municipality_name="Steinfurt", area_bbox=(387000, 5778000, 389000, 5780000))
+        monkeypatch.setattr(adapter, "_ensure_loaded", lambda: pytest.fail("buildings must not be loaded"))
+
+        landuse = adapter.fetch_landuse()
+        osm = adapter.fetch_osm_surface()
+        assert seen["bbox"] == pytest.approx((387000, 5778000, 389000, 5780000))
+        assert landuse.crs == CRS and osm.crs == CRS
+        assert osm["civil_class"].tolist() == ["asphalt"]
+
+    def test_empty_download_gives_none(self, monkeypatch):
+        from fheat_nrw import download as dl
+
+        monkeypatch.setattr(
+            dl, "get_osm_surface_via_overpass",
+            lambda *a, **kw: gpd.GeoDataFrame({"highway": [], "surface": []}, geometry=[], crs="EPSG:4326"),
+        )
+        assert _loaded_adapter().fetch_osm_surface() is None
