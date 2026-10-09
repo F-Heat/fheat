@@ -37,5 +37,24 @@ class NetworkBackend(ABC):
         ...
 
 
+# Codes of NetworkBackendError: stable identifiers an application can turn
+# into its own message (the exception text is meant for developers).
+EMPTY_NETWORK = "empty_network"                  # economic mode: no connection was profitable
+SOURCE_ON_STREET = "source_on_street"            # heat source lies exactly on the street network
+TIME_LIMIT = "time_limit"                        # solver reached its time limit before the optimum
+NO_OPTIMAL_SOLUTION = "no_optimal_solution"      # solver ended without an optimal solution
+NO_ROUTABLE_STREETS = "no_routable_streets"      # no street may carry a pipe
+UNMATCHED_NODES = "unmatched_nodes"              # street/source endpoints not matched to a node
+SOLVER_UNAVAILABLE = "solver_unavailable"        # MILP solver not installed
+TOPOTHERM_UNAVAILABLE = "topotherm_unavailable"  # topotherm missing or not importable
+
+
 class NetworkBackendError(RuntimeError):
-    """Raised when a backend cannot produce a network."""
+    """Raised when a backend cannot produce a network.
+
+    ``code`` is one of the constants above, or None for an unexpected failure.
+    """
+
+    def __init__(self, message: str, code: str | None = None):
+        super().__init__(message)
+        self.code = code
