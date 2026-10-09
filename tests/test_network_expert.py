@@ -890,3 +890,186 @@ def test_both_modes_produce_the_same_columns(
         set(cols.to_display(phase0.net_gdf).columns)
         == set(cols.to_display(solved_expert_net.net_gdf).columns)
     )
+
+
+# ---------------------------------------------------------------------------
+# Civil works factors — mapping without topotherm, MILP with it
+# ---------------------------------------------------------------------------
+
+
+def _civil_layer(factor, geometry, civil_class=None):
+    return gpd.GeoDataFrame(
+        {cols.CIVIL_COST_FACTOR: [factor], "civil_class": [civil_class]},
+        geometry=[geometry], crs=CRS,
+    )
+
+
+def test_candidate_factors_fill_the_matrices():
+    from shapely.geometry import LineString, box
+
+    edges = gpd.GeoDataFrame(
+        geometry=[LineString([(0, 0), (10, 0)]), LineString([(0, 50), (10, 50)])], crs=CRS
+    )
+    mat = {"l_i": np.array([10.0, 10.0])}
+    layers = [_civil_layer(3.0, box(-5, -5, 15, 5)), None]
+    config = FHeatConfig(civil_cost_share=0.5)
+
+    civil = TopothermBackend._candidate_civil_factors(mat, edges, layers, CRS, config)
+
+    assert civil[cols.CIVIL_COST_FACTOR].tolist() == pytest.approx([3.0, 1.0])
+    assert mat["civil_f"].tolist() == pytest.approx([3.0, 1.0])
+    assert mat["civil_m"].tolist() == pytest.approx([2.0, 1.0])     # 0.5 + 0.5·f
+
+
+@pytest.mark.parametrize("layers", [None, [], [None, None], [gpd.GeoDataFrame(geometry=[], crs=CRS)]])
+def test_without_layers_the_matrices_stay_untouched(layers):
+    from shapely.geometry import LineString
+
+    edges = gpd.GeoDataFrame(geometry=[LineString([(0, 0), (10, 0)])], crs=CRS)
+    mat = {"l_i": np.array([10.0])}
+    assert TopothermBackend._candidate_civil_factors(mat, edges, layers, CRS, FHeatConfig()) is None
+    assert set(mat) == {"l_i"}
+
+
+def test_candidate_factors_refuse_misaligned_edges(caplog):
+    from shapely.geometry import LineString, box
+
+    edges = gpd.GeoDataFrame(geometry=[LineString([(0, 0), (10, 0)])], crs=CRS)
+    mat = {"l_i": np.array([12.0])}                     # not the edge's length
+    layers = [_civil_layer(3.0, box(-5, -5, 15, 5))]
+    with caplog.at_level("WARNING"):
+        assert TopothermBackend._candidate_civil_factors(mat, edges, layers, CRS, FHeatConfig()) is None
+    assert "civil_m" not in mat
+    assert "do not match" in caplog.text
+
+
+def _candidate_civil():
+    return pd.DataFrame(
+        {
+            cols.CIVIL_COST_FACTOR: [1.1, 3.0, 1.2, 0.9],
+            cols.ROAD_SURFACE: ["asphalt", None, "sett", None],
+        }
+    )
+
+
+def test_result_civil_keeps_the_built_candidates_in_order():
+    opt_mats = {"lambda_b_orig": np.array([1.0, 0.0, 1.0, 0.0])}
+    mat = {"l_i": np.array([10.0, 0.0, 20.0, 0.0])}     # postprocessing zeroes unbuilt edges
+    edges_df = pd.DataFrame({"length": [10.0, 20.0]})
+    out = TopothermBackend._result_civil(_candidate_civil(), opt_mats, mat, edges_df)
+    assert out[cols.CIVIL_COST_FACTOR].tolist() == [1.1, 1.2]
+    assert out[cols.ROAD_SURFACE].tolist() == ["asphalt", "sett"]
+
+
+def test_result_civil_gives_up_when_the_mapping_does_not_add_up(caplog):
+    opt_mats = {"lambda_b_orig": np.array([1.0, 0.0, 1.0, 0.0])}
+    mat = {"l_i": np.array([10.0, 0.0, 20.0, 0.0])}
+    with caplog.at_level("WARNING"):
+        assert TopothermBackend._result_civil(
+            _candidate_civil(), opt_mats, mat, pd.DataFrame({"length": [10.0, 20.0, 5.0]})
+        ) is None
+        assert TopothermBackend._result_civil(
+            _candidate_civil(), opt_mats, mat, pd.DataFrame({"length": [10.0, 25.0]})
+        ) is None
+    assert TopothermBackend._result_civil(None, opt_mats, mat, pd.DataFrame()) is None
+
+
+def test_to_net_gdf_carries_the_civil_factors(fake_edges_df, fake_nodes_df, buildings_gdf, pipe_info_df):
+    civil = pd.DataFrame(
+        {
+            cols.CIVIL_COST_FACTOR: [1.1, 1.2, 1.3, 1.4, 1.5],
+            cols.ROAD_SURFACE: ["asphalt", "sett", None, None, "asphalt"],
+        }
+    )
+    net = TopothermBackend._to_net_gdf(
+        fake_edges_df, fake_nodes_df, buildings_gdf, pipe_info_df, FHeatConfig(), civil=civil
+    )
+    NetSchema.validate(net)
+    assert net[cols.CIVIL_COST_FACTOR].tolist() == [1.1, 1.2, 1.3, 1.4, 1.5]
+    assert net[cols.ROAD_SURFACE].tolist() == ["asphalt", "sett", None, None, "asphalt"]
+
+
+# Two equally long routes between the junctions (0, 0) and (100, 0): north via
+# y = 20 and south via y = −20. Each is split in the middle so topotherm does
+# not drop one of them as a duplicate edge. Source in the west, one building
+# in the east.
+def _two_route_inputs():
+    from shapely.geometry import LineString, box
+
+    streets = gpd.GeoDataFrame(
+        {
+            cols.ROUTABLE: [1] * 6,
+            "geometry": [
+                LineString([(-50, 0), (0, 0)]),
+                LineString([(0, 0), (0, 20), (50, 20)]),
+                LineString([(50, 20), (100, 20), (100, 0)]),
+                LineString([(0, 0), (0, -20), (50, -20)]),
+                LineString([(50, -20), (100, -20), (100, 0)]),
+                LineString([(100, 0), (150, 0)]),
+            ],
+        },
+        crs=CRS,
+    )
+    buildings = gpd.GeoDataFrame(
+        {
+            cols.BUILDING_ID: [0],
+            cols.CONNECT: [1],
+            cols.HEAT_DEMAND: [30000.0],
+            cols.THERMAL_POWER: [20.0],
+            cols.FULL_LOAD_HOURS: [1500.0],
+            cols.LOAD_PROFILE: ["EFH"],
+            "geometry": [box(120, 8, 130, 16)],
+        },
+        crs=CRS,
+    )
+    source = gpd.GeoDataFrame({"geometry": [Point(-25, 10)]}, crs=CRS)
+    return buildings, streets, source
+
+
+def _solve_two_routes(expensive_y):
+    """Run the expert network step with factor 3 on the route at ``expensive_y``."""
+    from shapely.geometry import box
+
+    buildings, streets, source = _two_route_inputs()
+    landuse = None
+    if expensive_y is not None:
+        landuse = _civil_layer(3.0, box(-5, expensive_y - 5, 105, expensive_y + 5), "Bahnverkehr")
+    # the eastern stem is asphalt (factor 1.5) in the surface layer
+    osm = _civil_layer(1.5, box(105, -2, 140, 2), "asphalt")
+    adapter = StubAdapter(buildings, streets, buildings.iloc[0:0], source, landuse=landuse, osm_surface=osm)
+    state = PipelineState(phase=Phase.STATUS, buildings_gdf=buildings, streets_gdf=streets, source_gdf=source)
+    return network_step.run(state, _forced_config(), adapter).net_gdf
+
+
+def _routes_built(net):
+    """(north route built, south route built) — only they reach |y| = 20."""
+    bounds = net.geometry.bounds
+    return bool((bounds["maxy"] > 15).any()), bool((bounds["miny"] < -15).any())
+
+
+def test_milp_avoids_the_expensive_route(tt):
+    assert _routes_built(_solve_two_routes(expensive_y=-20)) == (True, False)
+    assert _routes_built(_solve_two_routes(expensive_y=20)) == (False, True)
+
+
+def test_milp_hands_its_factors_to_the_net(tt):
+    net = _solve_two_routes(expensive_y=-20)
+    stem = net[np.isclose(net[cols.CIVIL_COST_FACTOR], 1.5)]
+    assert not stem.empty
+    assert set(stem[cols.ROAD_SURFACE]) == {"asphalt"}
+    assert net[cols.PIPE_COST].notna().all()
+    # nothing on the expensive route was built
+    assert not np.isclose(net[cols.CIVIL_COST_FACTOR], 3.0).any()
+
+
+@pytest.mark.parametrize("layers", [[None, None], [gpd.GeoDataFrame(geometry=[], crs=CRS), None]])
+def test_milp_without_layers_builds_the_same_net(tt, expert_state, expert_adapter, layers):
+    backend = TopothermBackend()
+    args = (
+        expert_state.buildings_gdf, expert_state.streets_gdf, expert_state.source_gdf,
+        _forced_config(), expert_adapter,
+    )
+    reference, _ = backend.build(*args)
+    without, _ = backend.build(*args, civil_layers=layers)
+    assert cols.CIVIL_COST_FACTOR not in without.columns
+    pd.testing.assert_frame_equal(pd.DataFrame(without), pd.DataFrame(reference))

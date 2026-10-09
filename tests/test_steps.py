@@ -439,20 +439,15 @@ class TestResultsStep:
 
 
 class CivilStubAdapter(StubAdapter):
-    """StubAdapter that also provides the two civil works layers."""
+    """StubAdapter that counts how often the civil works layers are asked for."""
 
-    def __init__(self, *args, landuse=None, osm_surface=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._landuse = landuse
-        self._osm_surface = osm_surface
         self.civil_calls = 0
 
     def fetch_landuse(self):
         self.civil_calls += 1
-        return self._landuse
-
-    def fetch_osm_surface(self):
-        return self._osm_surface
+        return super().fetch_landuse()
 
 
 def _civil_layers():
