@@ -75,6 +75,11 @@ VELOCITY = "velocity"                # flow velocity [m/s]
 HEAT_LOSS = "heat_loss"              # heat loss [kWh/a]
 HEAT_LOSS_EXTRA_INSULATION = "heat_loss_extra_insulation"  # heat loss with extra insulation [kWh/a]
 GLF = "glf"                          # simultaneity factor
+# Civil works (written by the NETWORK step, see fheat_core/network/costs.py)
+CIVIL_COST_FACTOR = "civil_cost_factor"  # civil works factor of the route (1.0 = neutral)
+ROAD_SURFACE = "road_surface"        # dominant road surface / class along the edge
+PIPE_COST = "pipe_cost"              # pipe investment of the edge [€]
+CIVIL_COST = "civil_cost"            # civil works part of pipe_cost [€]
 
 # Value of TYPE for a building's house connection. Every other edge type
 # (street pipe, source connection) counts as route in the pipe summary.
@@ -140,6 +145,8 @@ UNITS: dict[str, str] = {
     HEAT_LOSS_MWH: "MWh/a",
     HEAT_LOSS_EXTRA_INSULATION_MWH: "MWh/a",
     HEAT_DEMAND_MWH: "MWh/a",
+    PIPE_COST: "€",
+    CIVIL_COST: "€",
 }
 
 
@@ -187,6 +194,10 @@ LABELS_DE: dict[str, str] = {
     HEAT_LOSS: "Verlust [kWh/a]",
     HEAT_LOSS_EXTRA_INSULATION: "Verlust bei extra Daemmung [kWh/a]",
     GLF: "GLF",
+    CIVIL_COST_FACTOR: "Tiefbau_Faktor",
+    ROAD_SURFACE: "Belag",
+    PIPE_COST: "Rohrkosten [€]",
+    CIVIL_COST: "Tiefbaukosten [€]",
     # Load profile
     BUILDING_DEMAND_SUM: "Summe aller Gebäudetypen",
     LOSS: "Verlust",
@@ -216,6 +227,10 @@ SUMMARY_LABELS_DE: dict[str, str] = {
     "total_loss_extra_insulation_mwh_a": "Netzwärmeverlust bei extra Dämmung [MWh/a]",
     "supply_temperature_c": "Vorlauftemperatur [°C]",
     "return_temperature_c": "Rücklauftemperatur [°C]",
+    "civil_cost_share": "Tiefbauanteil der Rohrkosten",
+    "total_pipe_cost_eur": "Investition Rohrleitungen [€]",
+    "total_civil_cost_eur": "davon Tiefbau [€]",
+    "mean_civil_cost_factor": "Mittlerer Tiefbaufaktor",
 }
 
 

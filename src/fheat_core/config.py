@@ -97,6 +97,11 @@ class FHeatConfig:
     # (the value of the data source, for NRW the LANUV RW_WW).
     heat_demand_basis: str = "calculated"
 
+    # Share of the standardised pipe costs that is civil works (trench,
+    # backfill, surface restoration). Only this share is multiplied by the
+    # civil works factor of the road surface; 0 = the surface has no effect.
+    civil_cost_share: float = 0.60
+
     # BDEW SLP parameters (German standard load profile)
     building_class: int = 3      # NRW default per BGW 2006
     wind_class: int = 1
@@ -151,6 +156,11 @@ class FHeatConfig:
             raise ValueError(
                 f"heat_demand_basis '{self.heat_demand_basis}' is not allowed. "
                 f"Allowed values: {sorted(self._ALLOWED_HEAT_DEMAND_BASES)}"
+            )
+
+        if not 0.0 <= self.civil_cost_share <= 1.0:
+            raise ValueError(
+                f"civil_cost_share ({self.civil_cost_share}) must be between 0 and 1."
             )
 
         allowed_modes = {m.value for m in NetworkMode}
