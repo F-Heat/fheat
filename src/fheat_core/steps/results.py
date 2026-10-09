@@ -1,6 +1,8 @@
 """Step RESULTS: load profiles, result summary and result tables."""
 from __future__ import annotations
 
+import pandas as pd
+
 from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
 from fheat_core.algorithms.slp import build_load_profile
@@ -72,6 +74,7 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
         "total_route_length_m": round(route_length, 1),
         "total_loss_extra_insulation_mwh_a": round(total_loss_extra, 3),
     }
+    summary.update(_civil_cost_summary(net_gdf, config.civil_cost_share))
 
     RESULT_SUMMARY_SCHEMA.validate(summary)
 
@@ -86,3 +89,28 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     state.building_summary_df = building_summary_df
     state.phase = Phase.RESULTS
     return state
+
+
+def _civil_cost_summary(net_gdf, civil_cost_share: float) -> dict:
+    """Pipe investment and civil works keys of the summary.
+
+    Left out (not set to 0) when the net carries no civil works factors or
+    no pipe costs, e.g. a net computed before they existed or a pipe
+    catalogue without cost columns.
+    """
+    out: dict = {}
+    if net_gdf.empty:
+        return out
+    length = pd.to_numeric(net_gdf[cols.LENGTH], errors="coerce").fillna(0.0)
+    if cols.PIPE_COST in net_gdf.columns and net_gdf[cols.PIPE_COST].notna().any():
+        out["civil_cost_share"] = civil_cost_share
+        out["total_pipe_cost_eur"] = round(float(net_gdf[cols.PIPE_COST].sum()), 2)
+        if cols.CIVIL_COST in net_gdf.columns:
+            out["total_civil_cost_eur"] = round(float(net_gdf[cols.CIVIL_COST].sum()), 2)
+    if cols.CIVIL_COST_FACTOR in net_gdf.columns:
+        factor = pd.to_numeric(net_gdf[cols.CIVIL_COST_FACTOR], errors="coerce")
+        weight = length.where(factor.notna(), 0.0)
+        if weight.sum() > 0:
+            out.setdefault("civil_cost_share", civil_cost_share)
+            out["mean_civil_cost_factor"] = round(float((factor.fillna(0.0) * weight).sum() / weight.sum()), 4)
+    return out

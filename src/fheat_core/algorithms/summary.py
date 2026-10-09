@@ -35,7 +35,7 @@ def _is_house_connection(net: pd.DataFrame) -> pd.Series:
 
 
 def summarize_pipes(net_gdf: pd.DataFrame | None, pipe_info: pd.DataFrame | None) -> pd.DataFrame:
-    """Pipe quantities per nominal diameter.
+    """Pipe quantities (and costs) per nominal diameter.
 
     One row per DN of the pipe catalogue, in catalogue order and including
     unused diameters (all zero). Diameters that occur in the net but not in
@@ -47,11 +47,20 @@ def summarize_pipes(net_gdf: pd.DataFrame | None, pipe_info: pd.DataFrame | None
     the number of house-connection edges, as in the QGIS plugin. In phase 0 a
     building the router cannot reach gets no edge, so the count can be lower
     than the number of connected buildings.
+
+    When the net carries pipe costs, the column ``pipe_cost`` [€] sums them
+    per DN.
     """
     catalogue = list(pipe_info["DN"]) if pipe_info is not None and "DN" in pipe_info.columns else []
+    with_cost = (
+        net_gdf is not None
+        and cols.PIPE_COST in net_gdf.columns
+        and net_gdf[cols.PIPE_COST].notna().any()
+    )
+    value_columns = [*_PIPE_VALUE_COLUMNS, *([cols.PIPE_COST] if with_cost else [])]
 
     if net_gdf is None or net_gdf.empty or cols.NOMINAL_DIAMETER not in net_gdf.columns:
-        edges = pd.DataFrame(columns=[cols.NOMINAL_DIAMETER, *_PIPE_VALUE_COLUMNS])
+        edges = pd.DataFrame(columns=[cols.NOMINAL_DIAMETER, *value_columns])
     else:
         net = net_gdf[net_gdf[cols.NOMINAL_DIAMETER].notna()]
         house = _is_house_connection(net)
@@ -68,13 +77,15 @@ def summarize_pipes(net_gdf: pd.DataFrame | None, pipe_info: pd.DataFrame | None
                 ).to_numpy(),
             }
         )
+        if with_cost:
+            edges[cols.PIPE_COST] = _numeric(net, cols.PIPE_COST).to_numpy()
 
     order = list(dict.fromkeys([*catalogue, *pd.unique(edges[cols.NOMINAL_DIAMETER])]))
-    totals = edges.groupby(cols.NOMINAL_DIAMETER, sort=False)[_PIPE_VALUE_COLUMNS].sum()
+    totals = edges.groupby(cols.NOMINAL_DIAMETER, sort=False)[value_columns].sum()
     result = totals.reindex(pd.Index(order, name=cols.NOMINAL_DIAMETER), fill_value=0).reset_index()
 
     result[cols.N_HOUSE_CONNECTIONS] = result[cols.N_HOUSE_CONNECTIONS].astype(int)
-    for column in _PIPE_VALUE_COLUMNS[1:]:
+    for column in value_columns[1:]:
         result[column] = result[column].astype(float)
     return result
 
