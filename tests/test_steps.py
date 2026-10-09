@@ -431,3 +431,171 @@ class TestResultsStep:
         assert s["total_house_connection_length_m"] + s["total_route_length_m"] == pytest.approx(
             s["total_network_length_m"], abs=0.11
         )
+
+
+# ---------------------------------------------------------------------------
+# civil works factors and pipe costs
+# ---------------------------------------------------------------------------
+
+
+class CivilStubAdapter(StubAdapter):
+    """StubAdapter that also provides the two civil works layers."""
+
+    def __init__(self, *args, landuse=None, osm_surface=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._landuse = landuse
+        self._osm_surface = osm_surface
+        self.civil_calls = 0
+
+    def fetch_landuse(self):
+        self.civil_calls += 1
+        return self._landuse
+
+    def fetch_osm_surface(self):
+        return self._osm_surface
+
+
+def _civil_layers():
+    # land use: a road area left of x = 50 (factor 1.4); OSM: the whole street
+    # band (y = -5) is asphalt (factor 1.15)
+    landuse = gpd.GeoDataFrame(
+        {cols.CIVIL_COST_FACTOR: [1.4], "civil_class": ["Straßenverkehr"]},
+        geometry=[box(-20, -20, 50, 20)], crs=CRS,
+    )
+    osm = gpd.GeoDataFrame(
+        {cols.CIVIL_COST_FACTOR: [1.15], "civil_class": ["asphalt"]},
+        geometry=[box(-20, -8, 220, -2)], crs=CRS,
+    )
+    return landuse, osm
+
+
+def _expected_pipe_cost(net, share):
+    """Σ l·c·m with c from the shipped catalogue and m from the net's factor."""
+    from fheat_core.algorithms.civil_cost import cost_multiplier
+    from fheat_core.resources import load_pipe_info
+
+    catalogue = load_pipe_info().set_index("DN")
+    house = net[cols.TYPE] == cols.EDGE_TYPE_HOUSE_CONNECTION
+    c = np.where(
+        house,
+        net[cols.NOMINAL_DIAMETER].map(catalogue["cost_h-connect"]),
+        net[cols.NOMINAL_DIAMETER].map(catalogue["cost_main"]),
+    )
+    f = net[cols.CIVIL_COST_FACTOR].to_numpy()
+    return float((net[cols.LENGTH] * c * cost_multiplier(f, share)).sum())
+
+
+class TestCivilCosts:
+    @staticmethod
+    def _run(adapter, cfg, until="results"):
+        state = PipelineState()
+        for step in (download, adjust, status, network, results):
+            step.run(state, cfg, adapter)
+            if step.__name__.endswith(until):
+                break
+        return state
+
+    @staticmethod
+    def _adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, temperature_series, layers=(None, None)):
+        landuse, osm = layers
+        # pipe_info=None → the shipped catalogue with its cost columns
+        return CivilStubAdapter(
+            buildings_gdf, streets_gdf, parcels_gdf, source_gdf,
+            temperature=temperature_series, holidays={},
+            landuse=landuse, osm_surface=osm,
+        )
+
+    def test_download_step_keeps_the_layers(self, buildings_gdf, streets_gdf, parcels_gdf,
+                                            source_gdf, temperature_series, cfg):
+        landuse, osm = _civil_layers()
+        adapter = self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf,
+                                temperature_series, (landuse, osm))
+        state = download.run(PipelineState(), cfg, adapter)
+        assert state.landuse_gdf is landuse
+        assert state.osm_surface_gdf is osm
+
+    def test_net_gets_factors_surface_and_costs(self, buildings_gdf, streets_gdf, parcels_gdf,
+                                                source_gdf, temperature_series, cfg):
+        adapter = self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf,
+                                temperature_series, _civil_layers())
+        state = self._run(adapter, cfg)
+        net = state.net_gdf
+
+        assert {cols.CIVIL_COST_FACTOR, cols.ROAD_SURFACE, cols.PIPE_COST, cols.CIVIL_COST} <= set(net.columns)
+        assert (net[cols.CIVIL_COST_FACTOR] != 1.0).any()
+        street = net[cols.TYPE] == "Straßenleitung"
+        assert (net.loc[street, cols.ROAD_SURFACE] == "asphalt").all()
+        # street west of x = 50: land use × surface
+        west = street & (net.geometry.bounds["maxx"] <= 45)
+        assert west.any()
+        assert net.loc[west, cols.CIVIL_COST_FACTOR].tolist() == pytest.approx([1.4 * 1.15] * int(west.sum()))
+        assert net[cols.PIPE_COST].notna().all()
+
+        s = state.result_summary
+        assert s["civil_cost_share"] == cfg.civil_cost_share
+        assert s["total_pipe_cost_eur"] == pytest.approx(_expected_pipe_cost(net, cfg.civil_cost_share), abs=0.01)
+        assert s["total_pipe_cost_eur"] == pytest.approx(net[cols.PIPE_COST].sum(), abs=0.01)
+        assert s["total_civil_cost_eur"] == pytest.approx(net[cols.CIVIL_COST].sum(), abs=0.01)
+        assert s["total_civil_cost_eur"] < s["total_pipe_cost_eur"]
+        assert s["mean_civil_cost_factor"] > 1.0
+        assert state.pipe_summary_df[cols.PIPE_COST].sum() == pytest.approx(s["total_pipe_cost_eur"], abs=0.01)
+
+    def test_without_layers_the_factor_is_one(self, buildings_gdf, streets_gdf, parcels_gdf,
+                                              source_gdf, temperature_series, cfg):
+        adapter = self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, temperature_series)
+        state = self._run(adapter, cfg)
+        net = state.net_gdf
+        assert (net[cols.CIVIL_COST_FACTOR] == 1.0).all()
+        assert net[cols.ROAD_SURFACE].isna().all()
+        # m = 1 → pipe_cost = l·c
+        assert state.result_summary["total_pipe_cost_eur"] == pytest.approx(_expected_pipe_cost(net, 1.0), abs=0.01)
+        assert state.result_summary["mean_civil_cost_factor"] == 1.0
+
+    def test_zero_share_ignores_the_surfaces(self, buildings_gdf, streets_gdf, parcels_gdf,
+                                             source_gdf, temperature_series, cfg):
+        with_layers = self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf,
+                                    temperature_series, _civil_layers())
+        without = self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, temperature_series)
+        cfg.civil_cost_share = 0.0
+        a = self._run(with_layers, cfg).result_summary
+        b = self._run(without, cfg).result_summary
+        assert a["total_pipe_cost_eur"] == pytest.approx(b["total_pipe_cost_eur"])
+        assert a["total_civil_cost_eur"] == 0.0
+
+    def test_resumed_state_asks_the_adapter_for_the_layers(self, buildings_gdf, streets_gdf, parcels_gdf,
+                                                           source_gdf, temperature_series, cfg):
+        """fheat-web resumes from STATUS without layers: same factors as a full run."""
+        layers = _civil_layers()
+        full = self._run(
+            self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, temperature_series, layers),
+            cfg, until="network",
+        )
+        analysed = self._run(
+            self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, temperature_series),
+            cfg, until="status",
+        )
+        resumed = PipelineState(
+            phase=Phase.STATUS,
+            buildings_gdf=analysed.buildings_gdf,
+            streets_gdf=analysed.streets_gdf,
+            source_gdf=analysed.source_gdf,
+        )
+        adapter = self._adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, temperature_series, layers)
+        network.run(resumed, cfg, adapter)
+
+        assert adapter.civil_calls == 1
+        assert resumed.landuse_gdf is layers[0]
+        pd.testing.assert_series_equal(
+            resumed.net_gdf[cols.CIVIL_COST_FACTOR], full.net_gdf[cols.CIVIL_COST_FACTOR]
+        )
+        pd.testing.assert_series_equal(resumed.net_gdf[cols.PIPE_COST], full.net_gdf[cols.PIPE_COST])
+
+    def test_catalogue_without_costs_leaves_the_totals_out(self, stub_adapter, cfg, caplog):
+        # the conftest catalogue has no cost columns
+        with caplog.at_level("WARNING"):
+            state = self._run(stub_adapter, cfg)
+        assert state.net_gdf[cols.PIPE_COST].isna().all()
+        assert "total_pipe_cost_eur" not in state.result_summary
+        assert "total_civil_cost_eur" not in state.result_summary
+        assert cols.PIPE_COST not in state.pipe_summary_df.columns
+        assert any("no cost columns" in r.getMessage() for r in caplog.records)

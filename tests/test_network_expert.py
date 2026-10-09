@@ -721,7 +721,7 @@ class _DroppingBackend(NetworkBackend):
 
     name = "stub"
 
-    def build(self, buildings, streets, source, config, adapter):
+    def build(self, buildings, streets, source, config, adapter, civil_layers=None):
         out = buildings.copy()
         connect = np.ones(len(out), dtype=np.int64)
         connect[-1] = 0

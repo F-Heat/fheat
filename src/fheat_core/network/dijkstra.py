@@ -27,7 +27,9 @@ class DijkstraBackend(NetworkBackend):
 
     name = "phase0"
 
-    def build(self, buildings, streets, source, config, adapter):
+    def build(self, buildings, streets, source, config, adapter, civil_layers=None):
+        # civil_layers is not used: the topology stays length-based and the
+        # step writes the civil works factors onto the finished net.
         pipe_info = resolve_pipe_info(adapter)
 
         buildings = add_centroids(buildings)

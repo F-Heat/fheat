@@ -7,7 +7,7 @@ NetSchema-compliant ``net_gdf``. Which backend runs is decided by
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Optional, Tuple
 
 import geopandas as gpd
 
@@ -26,6 +26,7 @@ class NetworkBackend(ABC):
         source: gpd.GeoDataFrame,
         config,
         adapter,
+        civil_layers: Optional[list] = None,
     ) -> Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
         """Return ``(net_gdf, buildings)``.
 
@@ -33,6 +34,12 @@ class NetworkBackend(ABC):
         ``buildings`` is returned so a backend that decides which buildings are
         connected (topotherm's ``economic`` mode) can write ``connect`` back.
         Backends that do not change it return it unchanged.
+
+        ``civil_layers`` are the civil works layers (land use, road surface;
+        entries may be None). A backend that optimises costs may weigh its
+        candidate routes with them and write ``civil_cost_factor`` (and
+        ``road_surface``) onto the net; the step adds the factors and pipe
+        costs for every backend that does not.
         """
         ...
 
