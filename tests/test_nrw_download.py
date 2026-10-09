@@ -11,6 +11,7 @@ Covers (with HTTP and WFS calls mocked):
 from __future__ import annotations
 
 import io
+import json
 import urllib.error
 import urllib.request
 import zipfile
@@ -320,3 +321,140 @@ class TestGetParcelsFromWfs:
                 wfs_url="https://fake/", key="55190",
                 bbox=(0, 0, 10, 10), layer_name="cp:CadastralParcel",
             )
+
+
+# ---------------------------------------------------------------------------
+# get_landuse_from_wfs
+# ---------------------------------------------------------------------------
+
+
+class TestGetLanduseFromWfs:
+    def test_returns_raw_attributes(self, monkeypatch, tmp_path):
+        gdf = gpd.GeoDataFrame(
+            {"nutzart": ["Straßenverkehr"], "geometry": [Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])]},
+            crs=CRS, geometry="geometry",
+        )
+        path = tmp_path / "landuse.gpkg"
+        gdf.to_file(str(path), driver="GPKG")
+        payload = path.read_bytes()
+        calls = {}
+
+        class FakeWFS:
+            def __init__(self, *a, **kw):
+                pass
+
+            def getfeature(self, typename, outputFormat, bbox):
+                calls["typename"], calls["bbox"] = typename, bbox
+                return io.BytesIO(payload)
+
+        monkeypatch.setattr(nrw_download, "WebFeatureService", FakeWFS)
+        result = nrw_download.get_landuse_from_wfs("https://fake/", (0, 0, 10, 10), "ave:Nutzung")
+        assert result["nutzart"].tolist() == ["Straßenverkehr"]
+        assert calls == {"typename": "ave:Nutzung", "bbox": (0, 0, 10, 10)}
+
+    def test_wfs_failure_raises_runtime(self, monkeypatch):
+        class FakeWFS:
+            def __init__(self, *a, **kw):
+                raise OSError("simulated network failure")
+
+        monkeypatch.setattr(nrw_download, "WebFeatureService", FakeWFS)
+        with pytest.raises(RuntimeError, match="Nutzung"):
+            nrw_download.get_landuse_from_wfs("https://fake/", (0, 0, 10, 10), "ave:Nutzung")
+
+
+# ---------------------------------------------------------------------------
+# get_osm_surface_via_overpass
+# ---------------------------------------------------------------------------
+
+_OVERPASS_PAYLOAD = {
+    "elements": [
+        {
+            "type": "way", "id": 1,
+            "tags": {"highway": "residential", "surface": "asphalt", "lanes": "2"},
+            "geometry": [{"lat": 52.15, "lon": 7.33}, {"lat": 52.151, "lon": 7.331}],
+        },
+        {
+            "type": "way", "id": 2,
+            "tags": {"highway": "track"},
+            "geometry": [{"lat": 52.16, "lon": 7.34}, {"lat": 52.161, "lon": 7.341}],
+        },
+        {"type": "way", "id": 3, "tags": {"highway": "path"}, "geometry": [{"lat": 52.1, "lon": 7.3}]},
+        {"type": "node", "id": 4, "lat": 52.1, "lon": 7.3},
+    ]
+}
+_EMPTY_OVERPASS = json.dumps({"elements": []}).encode()
+
+
+def _http_error(code):
+    return urllib.error.HTTPError("https://fake/", code, "busy", {}, None)
+
+
+class TestGetOsmSurfaceViaOverpass:
+    def test_parses_ways_into_lines(self, monkeypatch):
+        seen = {}
+
+        def fake_urlopen(req, timeout=None):
+            seen["ua"] = req.get_header("User-agent")
+            seen["data"] = req.data.decode()
+            return _FakeResponse(json.dumps(_OVERPASS_PAYLOAD).encode())
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        out = nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5), overpass_url="https://fake/")
+
+        assert out.crs == "EPSG:4326"
+        assert {"osm_id", "highway", "surface", "tracktype", "width", "lanes"} <= set(out.columns)
+        assert out["osm_id"].tolist() == [1, 2]          # one-point way and node dropped
+        assert out["surface"].tolist() == ["asphalt", None]
+        assert out.geometry.geom_type.tolist() == ["LineString", "LineString"]
+        assert seen["ua"].startswith("fheat/")
+        assert "52.0%2C7.0%2C52.5%2C7.5" in seen["data"]
+
+    def test_empty_answer_gives_empty_frame_with_columns(self, monkeypatch):
+        monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=None: _FakeResponse(_EMPTY_OVERPASS))
+        out = nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5))
+        assert out.empty
+        assert "surface" in out.columns
+        assert out.crs == "EPSG:4326"
+
+    def test_http_error_raises_runtime(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):
+            raise _http_error(400)
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        with pytest.raises(RuntimeError, match="Overpass"):
+            nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5))
+
+    def test_busy_server_is_retried(self, monkeypatch):
+        attempts = []
+
+        def fake_urlopen(req, timeout=None):
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise _http_error(504)
+            return _FakeResponse(_EMPTY_OVERPASS)
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(nrw_download.time, "sleep", lambda s: None)
+        nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5), retries=3)
+        assert len(attempts) == 3
+
+    def test_gives_up_after_the_retries(self, monkeypatch):
+        attempts = []
+
+        def fake_urlopen(req, timeout=None):
+            attempts.append(1)
+            raise _http_error(504)
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(nrw_download.time, "sleep", lambda s: None)
+        with pytest.raises(RuntimeError, match="Overpass"):
+            nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5), retries=2)
+        assert len(attempts) == 2
+
+    def test_unreachable_raises_runtime(self, monkeypatch):
+        def fake_urlopen(req, timeout=None):
+            raise urllib.error.URLError("no route")
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        with pytest.raises(RuntimeError, match="Overpass"):
+            nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5))
