@@ -7,7 +7,7 @@ Stufe A – Potenzialanalyse (ganzer Stadtteil, ohne Wärmequelle):
 Stufe B – Netzplanung (Planungsgebiet + Wärmequelle):
     4. Planungsgebiet und Wärmequelle setzen
     5. Netzberechnung (network)  →  Netz.gpkg
-    6. Lastprofil, Ergebniszusammenfassung, Rohrmengen je DN, Gebäude je Lastprofil (results)
+    6. Lastprofil, Ergebniszusammenfassung, Rohrkosten, Rohrmengen je DN, Gebäude je Lastprofil (results)
     7. Ausgaben im Planungsgebiet speichern (GeoPackages + fheat-ergebnisse.xlsx bzw. CSV + Lastprofil-Grafiken)
 
 Jeder Schritt läuft hier einzeln (run_step); orch.run_analysis() bzw.
@@ -16,7 +16,8 @@ orch.run_planning() führen eine Stufe in einem Aufruf aus.
 Voraussetzungen:
     - planungsgebiet.gpkg im selben Verzeichnis wie dieses Skript (oder Pfad anpassen)
     - .venv mit installierten Paketen: pip install -e ".[nrw]"  (im Repo-Root)
-    - Internetverbindung (NRW WFS / ZIP-Download)
+    - Internetverbindung (NRW WFS / ZIP-Download; ALKIS-Nutzung und OSM-Straßenbeläge
+      für die Tiefbaukosten — fehlen sie, rechnet das Netz mit Tiefbaufaktor 1,0)
 
 Rohdatenspalten (NRW) → kanonisches Schema (siehe fheat_core.columns):
     - Wärmebedarf:      RW_WW  (oder RW_WW [kWh/a])  → wird zu  heat_demand
@@ -65,6 +66,7 @@ config = FHeatConfig(
     wld_threshold=500.0,     # WLD-Schwellenwert [kWh/(a·m)]
     buffer_distance=50.0,    # Puffer für Eignungspolygone [m]
     year=2022,
+    civil_cost_share=0.6,    # Anteil der Rohrkosten, der auf den Tiefbau entfällt
     output_dir=str(OUTPUT_DIR),
     output_format="gpkg",
     # Ergebnistabellen als Excel (benötigt pip install -e ".[excel]"), sonst CSV
@@ -154,6 +156,11 @@ if summary:
     print(f"    bei extra Dämmung:        {summary['total_loss_extra_insulation_mwh_a']:.1f} MWh/a")
     print(f"  Vorlauftemperatur:          {summary['supply_temperature_c']} °C")
     print(f"  Rücklauftemperatur:         {summary['return_temperature_c']} °C")
+    if "total_pipe_cost_eur" in summary:
+        print(f"  Investition Rohrleitungen:  {summary['total_pipe_cost_eur']:,.0f} €")
+        print(f"    davon Tiefbau:            {summary['total_civil_cost_eur']:,.0f} €"
+              f" (Tiefbauanteil {summary['civil_cost_share']:.0%})")
+        print(f"  Mittlerer Tiefbaufaktor:    {summary['mean_civil_cost_factor']:.2f}")
 
     print("\n--- Rohrmengen je DN ---")
     print(cols.to_display(orch.state.pipe_summary_df).to_string(index=False))
