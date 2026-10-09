@@ -195,6 +195,11 @@ def test_expert_net_satisfies_net_schema(solved_expert_net):
         cols.VELOCITY,
         cols.HEAT_LOSS,
         cols.HEAT_LOSS_EXTRA_INSULATION,
+        # written by the network step for every backend
+        cols.CIVIL_COST_FACTOR,
+        cols.ROAD_SURFACE,
+        cols.PIPE_COST,
+        cols.CIVIL_COST,
     }
     assert expected == set(net.columns)
     assert not net.empty
@@ -986,7 +991,8 @@ def test_to_net_gdf_carries_the_civil_factors(fake_edges_df, fake_nodes_df, buil
     )
     NetSchema.validate(net)
     assert net[cols.CIVIL_COST_FACTOR].tolist() == [1.1, 1.2, 1.3, 1.4, 1.5]
-    assert net[cols.ROAD_SURFACE].tolist() == ["asphalt", "sett", None, None, "asphalt"]
+    surfaces = [None if pd.isna(v) else v for v in net[cols.ROAD_SURFACE]]  # pandas 3: NaN
+    assert surfaces == ["asphalt", "sett", None, None, "asphalt"]
 
 
 # Two equally long routes between the junctions (0, 0) and (100, 0): north via

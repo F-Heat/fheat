@@ -404,7 +404,8 @@ class TestGetOsmSurfaceViaOverpass:
         assert out.crs == "EPSG:4326"
         assert {"osm_id", "highway", "surface", "tracktype", "width", "lanes"} <= set(out.columns)
         assert out["osm_id"].tolist() == [1, 2]          # one-point way and node dropped
-        assert out["surface"].tolist() == ["asphalt", None]
+        assert out["surface"].iloc[0] == "asphalt"
+        assert pd.isna(out["surface"].iloc[1])
         assert out.geometry.geom_type.tolist() == ["LineString", "LineString"]
         assert seen["ua"].startswith("fheat/")
         assert "52.0%2C7.0%2C52.5%2C7.5" in seen["data"]

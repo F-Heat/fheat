@@ -186,7 +186,8 @@ def test_road_surface_is_the_class_with_the_largest_area():
     lines = _lines([(10, 0), (70, 0)], [(40, 0), (90, 0)], [(200, 200), (210, 200)])
     out = civil_factors_for_lines(lines, [_layer(1.25), osm], crs=CRS, buffer_m=1.0)
     # 40 m asphalt vs 20 m paving; 10 m asphalt vs 40 m paving; no hit
-    assert out[cols.ROAD_SURFACE].tolist() == ["asphalt", "paving_stones", None]
+    assert out[cols.ROAD_SURFACE].tolist()[:2] == ["asphalt", "paving_stones"]
+    assert pd.isna(out[cols.ROAD_SURFACE].iloc[2])
 
 
 def test_road_surface_comes_only_from_the_surface_layer():
