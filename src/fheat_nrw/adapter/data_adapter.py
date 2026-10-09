@@ -2,19 +2,27 @@
 from __future__ import annotations
 
 import json
+import logging
 from importlib.resources import files
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Point
+from shapely.geometry import Point, box
 
 from fheat_core.adapters.base import DataAdapter
 
 from fheat_nrw import download as dl
 from fheat_nrw.area import boundary_from_parcels, clip_to_boundary
+from fheat_nrw.civil_cost import annotate_landuse_costs
+from fheat_nrw.osm_surface import annotate_osm_surface_costs, buffer_osm_lines
 from fheat_nrw.processing import process_buildings, process_streets
+
+logger = logging.getLogger(__name__)
+
+#: CRS of the ALKIS WFS bbox (default CRS of the service).
+LANDUSE_BBOX_CRS = "EPSG:25832"
 
 REQUIRED_CITIES_COLUMNS = ("schluessel", "gmdschl", "name", "gemeinde", "bbox")
 
@@ -47,6 +55,27 @@ class NRWDataAdapter(DataAdapter):
     district_key : str | None
         Eindeutiger Stadtteil-/Gemarkungsschlüssel (Spalte "schluessel" in cities.csv).
         Hat Vorrang vor city_name und municipality_name.
+    download_landuse : bool
+        Wenn True (Standard), wird die ALKIS-„Tatsächliche Nutzung" für das
+        geladene Gebiet vom WFS geladen und liefert je Trasse einen
+        Tiefbau-Kostenfaktor. Schlägt der Download fehl, wird eine Warnung
+        geloggt und der Faktor 1.0 verwendet. ``False`` schaltet den Layer ab.
+    landuse_path : Path | None
+        Optionaler Pfad zu einer lokalen ALKIS-Nutzungsdatei (GeoPackage/Shape).
+        Hat Vorrang vor dem WFS-Download.
+    landuse_wfs : tuple[str, str] | None
+        Optional ``(wfs_url, layer)`` statt ``download.URL_LANDUSE`` /
+        ``download.LAYER_LANDUSE``.
+    download_osm_surface : bool
+        Wenn True (Standard), werden zusätzlich die OSM-Wege (``highway``/
+        ``surface``) für das Gebiet von der Overpass-API geladen und als
+        zweiter Tiefbau-Layer (Straßenbelag) verwendet. Fehler → Warnung +
+        Faktor 1.0.
+    osm_surface_path : Path | None
+        Optionaler Pfad zu einer lokal vorbereiteten OSM-Wege-Datei mit den
+        Spalten ``highway`` und ``surface``. Hat Vorrang vor Overpass.
+    osm_overpass_url : str | None
+        Anderer Overpass-Endpunkt (Standard: ``download.OVERPASS_URL``).
     """
 
     def __init__(
@@ -59,6 +88,12 @@ class NRWDataAdapter(DataAdapter):
         building_age_classes_path: Optional[Path] = None,
         heat_attribute: str = "RW_WW",
         district_key: Optional[str] = None,
+        download_landuse: bool = True,
+        landuse_path: Optional[Path] = None,
+        landuse_wfs: Optional[Tuple[str, str]] = None,
+        download_osm_surface: bool = True,
+        osm_surface_path: Optional[Path] = None,
+        osm_overpass_url: Optional[str] = None,
     ) -> None:
         if not municipality_name and not city_name and not district_key:
             raise ValueError(
@@ -73,12 +108,21 @@ class NRWDataAdapter(DataAdapter):
         self._building_functions_path = building_functions_path
         self._building_age_classes_path = building_age_classes_path
         self._heat_attribute = heat_attribute
+        self._download_landuse = bool(download_landuse)
+        self._landuse_path = Path(landuse_path) if landuse_path is not None else None
+        self._landuse_wfs = landuse_wfs
+        self._download_osm_surface = bool(download_osm_surface)
+        self._osm_surface_path = Path(osm_surface_path) if osm_surface_path is not None else None
+        self._osm_overpass_url = osm_overpass_url
 
         self._buildings: Optional[gpd.GeoDataFrame] = None
         self._streets: Optional[gpd.GeoDataFrame] = None
         self._parcels: Optional[gpd.GeoDataFrame] = None
         self._source: Optional[gpd.GeoDataFrame] = None
         self._boundary: Optional[gpd.GeoDataFrame] = None
+        # Civil works layers, loaded once: a failed download stays None instead
+        # of being tried again by every step that asks.
+        self._civil: dict[str, Optional[gpd.GeoDataFrame]] = {}
 
     # ------------------------------------------------------------------
     # DataAdapter API
@@ -106,6 +150,93 @@ class NRWDataAdapter(DataAdapter):
         if self._boundary is None:
             self._boundary = boundary_from_parcels(self._parcels)
         return self._boundary
+
+    def fetch_landuse(self) -> Optional[gpd.GeoDataFrame]:
+        """ALKIS land use of the loaded area with ``civil_cost_factor`` (None on failure)."""
+        return self._civil_layer(
+            "landuse", self._load_landuse,
+            "ALKIS-Flaechennutzung konnte nicht geladen werden (%s) — Tiefbau-Faktor 1.0 "
+            "fuer diesen Layer. Endpunkt via landuse_wfs=(url, layer) oder landuse_path=... "
+            "setzen, oder download_landuse=False zum Abschalten.",
+        )
+
+    def fetch_osm_surface(self) -> Optional[gpd.GeoDataFrame]:
+        """Buffered OSM roads of the loaded area with ``civil_cost_factor`` (None on failure)."""
+        return self._civil_layer(
+            "osm_surface", self._load_osm_surface,
+            "OSM-Strassenbelaege konnten nicht geladen werden (%s) — Tiefbau-Faktor 1.0 "
+            "fuer diesen Layer. Endpunkt via osm_overpass_url=... oder osm_surface_path=... "
+            "setzen, oder download_osm_surface=False zum Abschalten.",
+        )
+
+    # ------------------------------------------------------------------
+    # Internal: civil works layers
+    # ------------------------------------------------------------------
+
+    def _civil_layer(self, key: str, load: Callable, warning: str) -> Optional[gpd.GeoDataFrame]:
+        if key not in self._civil:
+            try:
+                layer = load()
+            except Exception as e:  # network/IO dependent: never stop the pipeline
+                logger.warning(warning, e)
+                layer = None
+            self._civil[key] = layer if layer is not None and not layer.empty else None
+        return self._civil[key]
+
+    def _load_landuse(self) -> Optional[gpd.GeoDataFrame]:
+        if self._landuse_path is not None:
+            raw = gpd.read_file(str(self._landuse_path))
+        elif self._download_landuse:
+            url, layer = self._landuse_wfs or (dl.URL_LANDUSE, dl.LAYER_LANDUSE)
+            bbox = tuple(float(v) for v in self._area_box().to_crs(LANDUSE_BBOX_CRS).total_bounds)
+            raw = dl.get_landuse_from_wfs(url, bbox, layer)
+        else:
+            return None
+        if raw is None or raw.empty:
+            return None
+        raw = raw.copy()
+        raw["geometry"] = raw.geometry.buffer(0)
+        return annotate_landuse_costs(self._to_area_crs(raw))
+
+    def _load_osm_surface(self) -> Optional[gpd.GeoDataFrame]:
+        if self._osm_surface_path is not None:
+            raw = gpd.read_file(str(self._osm_surface_path))
+        elif self._download_osm_surface:
+            # Overpass expects (south, west, north, east) in lat/lon
+            minx, miny, maxx, maxy = self._area_box().to_crs("EPSG:4326").total_bounds
+            raw = dl.get_osm_surface_via_overpass(
+                (float(miny), float(minx), float(maxy), float(maxx)),
+                overpass_url=self._osm_overpass_url or dl.OVERPASS_URL,
+            )
+        else:
+            return None
+        if raw is None or raw.empty:
+            return None
+        # buffer in the metric CRS of the buildings
+        return annotate_osm_surface_costs(buffer_osm_lines(self._to_area_crs(raw)))
+
+    def _area_box(self) -> gpd.GeoSeries:
+        """Bounding box of everything a network can use: buildings, streets, source.
+
+        Taken from the loaded data, not from the catalogue bbox, so it also
+        fits a district cut out of its municipality.
+        """
+        self._ensure_loaded()
+        crs = self._buildings.crs
+        frames = [g for g in (self._buildings, self._streets, self._source) if g is not None and not g.empty]
+        bounds = [(g.to_crs(crs) if g.crs != crs else g).total_bounds for g in frames]
+        return gpd.GeoSeries(
+            [box(min(b[0] for b in bounds), min(b[1] for b in bounds),
+                 max(b[2] for b in bounds), max(b[3] for b in bounds))],
+            crs=crs,
+        )
+
+    def _to_area_crs(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+        self._ensure_loaded()
+        crs = self._buildings.crs
+        if gdf.crs is not None and crs is not None and gdf.crs != crs:
+            return gdf.to_crs(crs)
+        return gdf
 
     # ------------------------------------------------------------------
     # Internal: download + processing
