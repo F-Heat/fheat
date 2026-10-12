@@ -1,4 +1,5 @@
 """Mapping of F|Heat data onto XWaermeplan objects."""
 from fheat_core.xwp.mapping.bestand import MappingNotes, build_inventory
+from fheat_core.xwp.mapping.planning import NetworkInput, build_plan
 
-__all__ = ["MappingNotes", "build_inventory"]
+__all__ = ["MappingNotes", "NetworkInput", "build_inventory", "build_plan"]

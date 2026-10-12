@@ -136,3 +136,36 @@ def document_all(model, maximal: bool, variable_as: str = "surface") -> tuple[Xw
             doc.add(objects[name])
     doc.link_reverse()
     return doc, objects
+
+
+def small_town():
+    """Two street blocks (100 m × 100 m each): west holds 6 houses, east 2 commercial buildings
+    (one unheated). Returns buildings, heat lines, streets and the outline in EPSG:25832."""
+    import geopandas as gpd
+    import pandas as pd
+    from shapely.geometry import box
+
+    from fheat_core import columns as cols
+
+    CRS = "EPSG:25832"
+    streets = gpd.GeoDataFrame(geometry=[
+        LineString([(X0, Y0), (X0 + 200, Y0)]), LineString([(X0, Y0 + 100), (X0 + 200, Y0 + 100)]),
+        LineString([(X0, Y0), (X0, Y0 + 100)]), LineString([(X0 + 100, Y0), (X0 + 100, Y0 + 100)]),
+        LineString([(X0 + 200, Y0), (X0 + 200, Y0 + 100)]),
+    ], crs=CRS)
+    points = [(X0 + 15 * i + 10, Y0 + 50) for i in range(6)] + [(X0 + 150, Y0 + 30), (X0 + 150, Y0 + 70)]
+    buildings = gpd.GeoDataFrame({
+        cols.BUILDING_ID: list(range(8)),
+        cols.CONNECT: [1] * 8,
+        cols.HEAT_DEMAND: [20_000.0] * 6 + [100_000.0, 0.0],
+        cols.FLOOR_AREA: [150.0] * 6 + [1_000.0, 500.0],
+        cols.XWP_BUILDING_TYPE: ["10001"] * 5 + ["10002", "20001", "20001"],
+        cols.CONSTRUCTION_YEAR: pd.array([1965] * 4 + [1985, None, 2005, 2005], dtype="Int64"),
+    }, geometry=[Point(p).buffer(4, cap_style=3) for p in points], crs=CRS)
+    wld = streets.copy()
+    wld[cols.LENGTH] = wld.length
+    wld[cols.HEAT_DEMAND] = [120_000.0, 0.0, 0.0, 100_000.0, 0.0]
+    wld[cols.HEAT_LINE_DENSITY] = wld[cols.HEAT_DEMAND] / wld[cols.LENGTH]
+    wld[cols.CONNECTED_IDS] = ["0,1,2,3,4,5", "", "", "6,7", ""]
+    boundary = box(X0, Y0, X0 + 200, Y0 + 100)
+    return buildings, wld, streets, boundary

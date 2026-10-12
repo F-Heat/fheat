@@ -37,6 +37,20 @@ RASTER_SIZE_M = 100
 
 
 @dataclass
+class InventoryContext:
+    """Intermediate results phase 7 builds on."""
+
+    plan: object
+    in_bereich: Ref
+    ids: "Ids"
+    heated: pd.DataFrame  # buildings with heat demand, plus _type and _age
+    blocks: list[Block]
+    block_features: dict[str, tuple]  # block key -> (WP_GebaeudeBaublock, WP_EnergieBaublock)
+    area: BaseGeometry
+    base_year: int | None
+
+
+@dataclass
 class MappingNotes:
     """What the mapping left out, for the check report (phase 9)."""
 
@@ -44,6 +58,11 @@ class MappingNotes:
     buildings_in_dropped_blocks: int = 0
     raster_cells_dropped: int = 0
     lines_without_demand: int = 0
+    # phase 7
+    networks: int = 0
+    networks_skipped: list[str] = field(default_factory=list)
+    proposed_supply_areas: int = 0
+    proposed_suitability_checks: int = 0
     messages: list[str] = field(default_factory=list)
 
 
@@ -68,6 +87,23 @@ def build_inventory(
     data_year: int | None = None,
 ) -> tuple[XwpPlanDocument, MappingNotes]:
     """Plan document with plan, area, heat lines, building blocks and base year figures."""
+    doc, notes, _ = inventory(buildings, wld, config, parcels=parcels, streets=streets,
+                              boundary=boundary, data_year=data_year)
+    return doc, notes
+
+
+def inventory(
+    buildings: gpd.GeoDataFrame,
+    wld: gpd.GeoDataFrame | None,
+    config: XwpConfig,
+    *,
+    parcels: gpd.GeoDataFrame | None = None,
+    streets: gpd.GeoDataFrame | None = None,
+    boundary: BaseGeometry | gpd.GeoDataFrame | None = None,
+    data_year: int | None = None,
+    link: bool = True,
+) -> tuple[XwpPlanDocument, MappingNotes, InventoryContext]:
+    """:func:`build_inventory` plus the intermediate results; ``link=False`` leaves reverse links to the caller."""
     plan_cfg = config.plan
     ids = Ids(plan_cfg.name, plan_cfg.gemeinde.regional_schluessel12)
     notes = MappingNotes()
@@ -102,8 +138,11 @@ def build_inventory(
             f"{len(dropped)} Baublock/Baublöcke mit zusammen {notes.buildings_in_dropped_blocks} Gebäuden "
             f"unter der Datenschutzschwelle ({config.privacy_min_buildings}) und ohne Nachbarn: nicht ausgegeben."
         )
+    block_features = {}
     for block in blocks:
-        doc.add(*_block_features(block, heated, in_bereich, ids))
+        features = _block_features(block, heated, in_bereich, ids)
+        block_features[block.key] = tuple(features)
+        doc.add(*features)
 
     if config.energy_raster:
         doc.add(*_raster(heated, config.privacy_min_buildings, in_bereich, ids, notes))
@@ -113,8 +152,10 @@ def build_inventory(
     else:
         notes.messages.append("Kein Basisjahr: WP_WaermeinfrastrukturAggregiert für das Basisjahr fehlt.")
 
-    doc.link_reverse()
-    return doc, notes
+    if link:
+        doc.link_reverse()
+    context = InventoryContext(plan, in_bereich, ids, heated, blocks, block_features, area, base_year)
+    return doc, notes, context
 
 
 # --------------------------------------------------------------------------

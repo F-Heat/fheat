@@ -15,6 +15,7 @@ from fheat_core.xwp.mapping.age_class import age_class, parse_year, subclass, to
 from fheat_core.xwp.mapping.bestand import _prevailing
 from fheat_core.xwp.mapping.blocks import Block, build_blocks, merge_small_blocks
 from fheat_core.xwp.model import current as m
+from tests.xwp_synth import small_town
 
 CRS = "EPSG:25832"
 X0, Y0 = 400_000.0, 5_760_000.0
@@ -157,25 +158,7 @@ def _config(**kw):
 
 @pytest.fixture
 def area():
-    """Two street blocks; west holds 6 houses, east 2 commercial buildings."""
-    streets = gpd.GeoDataFrame(geometry=[
-        LineString([(X0, Y0), (X0 + 200, Y0)]), LineString([(X0, Y0 + 100), (X0 + 200, Y0 + 100)]),
-        LineString([(X0, Y0), (X0, Y0 + 100)]), LineString([(X0 + 100, Y0), (X0 + 100, Y0 + 100)]),
-        LineString([(X0 + 200, Y0), (X0 + 200, Y0 + 100)]),
-    ], crs=CRS)
-    points = [(X0 + 15 * i + 10, Y0 + 50) for i in range(6)] + [(X0 + 150, Y0 + 30), (X0 + 150, Y0 + 70)]
-    buildings = gpd.GeoDataFrame({
-        cols.HEAT_DEMAND: [20_000.0] * 6 + [100_000.0, 0.0],
-        cols.FLOOR_AREA: [150.0] * 6 + [1_000.0, 500.0],
-        cols.XWP_BUILDING_TYPE: ["10001"] * 5 + ["10002", "20001", "20001"],
-        cols.CONSTRUCTION_YEAR: pd.array([1965] * 4 + [1985, None, 2005, 2005], dtype="Int64"),
-    }, geometry=[Point(p).buffer(4, cap_style=3) for p in points], crs=CRS)
-    wld = streets.copy()
-    wld[cols.LENGTH] = wld.length
-    wld[cols.HEAT_DEMAND] = [120_000.0, 0.0, 0.0, 100_000.0, 0.0]
-    wld[cols.HEAT_LINE_DENSITY] = wld[cols.HEAT_DEMAND] / wld[cols.LENGTH]
-    boundary = box(X0, Y0, X0 + 200, Y0 + 100)
-    return buildings, wld, streets, boundary
+    return small_town()
 
 
 def test_inventory_is_valid_and_complete(area):
