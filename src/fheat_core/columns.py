@@ -32,6 +32,7 @@ AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
 CONSTRUCTION_YEAR = "construction_year"    # year of construction, where the source knows it
 PARCEL_YEAR = "parcel_year"                # NRW: year of the parcel's validFrom (BAK input; a proxy, not the construction year)
+BLOCK_ID = "block_id"                      # building block of the source (NRW: LANUV Block_ID), for XWaermeplan
 XWP_BUILDING_TYPE = "xwp_building_type"    # code of WP_GebaeudeTyp (XWaermeplan), see fheat_core/xwp/mapping/building_type.py
 # Both heat demand values, so FHeatConfig.heat_demand_basis can choose which
 # one becomes HEAT_DEMAND (see steps/adjust.py).
@@ -176,6 +177,7 @@ LABELS_DE: dict[str, str] = {
     CONSTRUCTION_YEAR: "Baujahr",
     PARCEL_YEAR: "Jahr_Flurstueck",
     XWP_BUILDING_TYPE: "Gebaeudetyp_XWP",
+    BLOCK_ID: "Block_ID",
     # same names as the attributes of the former QGIS plugin
     HEAT_DEMAND_DATASET: "RW_WW [kWh/a]",
     HEAT_DEMAND_CALCULATED: "WB [kWh/a]",

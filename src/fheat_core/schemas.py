@@ -87,6 +87,7 @@ BuildingsSchema = FrameSchema(
         cols.CONSTRUCTION_YEAR: "int",
         cols.PARCEL_YEAR: "int",
         cols.XWP_BUILDING_TYPE: "str",
+        cols.BLOCK_ID: "str",
         cols.HEAT_DEMAND_DATASET: "float",
         cols.HEAT_DEMAND_CALCULATED: "float",
     },
