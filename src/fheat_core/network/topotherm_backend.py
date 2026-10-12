@@ -86,6 +86,26 @@ def _require_topotherm():
     return tt
 
 
+def _set_solver_limits(opt, time_limit: float, mip_gap: float) -> None:
+    """Hand the time limit and the relative MIP gap to a Pyomo solver.
+
+    Pyomo's newer interface (``pyomo.contrib.solver``; ``SolverFactory("highs")``
+    since Pyomo 6.9) passes ``options`` to the solver unchanged, and HiGHS
+    rejects the legacy names "timelimit" and "mipgap" without an error in
+    Python: the solver would run without either. That interface has
+    solver-independent settings on ``config`` instead. The legacy plugins
+    (Gurobi, CPLEX) have no ``config`` and translate the legacy names
+    themselves.
+    """
+    config = getattr(opt, "config", None)
+    if config is not None and "time_limit" in config and "rel_gap" in config:
+        config.time_limit = time_limit
+        config.rel_gap = mip_gap
+    else:
+        opt.options["timelimit"] = time_limit
+        opt.options["mipgap"] = mip_gap
+
+
 def _as_2d_float(arr) -> np.ndarray:
     """Coerce topotherm's object-dtype matrices to (rows, timesteps) float."""
     a = np.asarray(arr)
@@ -322,14 +342,16 @@ class TopothermBackend(NetworkBackend):
                 "e.g. `pip install highspy` for the open-source HiGHS solver.",
                 code=SOLVER_UNAVAILABLE,
             )
-        opt.options["mipgap"] = settings.solver.mip_gap
-        opt.options["timelimit"] = settings.solver.time_limit
-        result = opt.solve(model, tee=False)
+        _set_solver_limits(opt, settings.solver.time_limit, settings.solver.mip_gap)
+        # loaded only once it is optimal: Pyomo's newer interface raises when
+        # the time limit ends the run before any feasible solution
+        result = opt.solve(model, tee=False, load_solutions=False)
 
         cond = result.solver.termination_condition
         if cond != pyo.TerminationCondition.optimal:
             code = TIME_LIMIT if cond == pyo.TerminationCondition.maxTimeLimit else NO_OPTIMAL_SOLUTION
             raise NetworkBackendError(f"topotherm optimisation failed: {cond}", code=code)
+        model.solutions.load_from(result)
 
         try:
             opt_mats = tt.postprocessing.sts(model=model, matrices=mat, settings=settings)
