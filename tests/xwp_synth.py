@@ -51,7 +51,7 @@ class Synth:
         self.refs: dict[str, object] = {}
         self.datatypes_seen: set[str] = set()
 
-    def build(self, name: str, maximal: bool) -> XwpObject:
+    def build(self, name: str, maximal: bool, seed: int = 0) -> XwpObject:
         cls = self.m.CLASSES[name]
         info = cls.__xwp__
         if info.stereotype == "DataType":
@@ -61,31 +61,32 @@ class Synth:
             n = a.min if not maximal else (2 if a.max is None else min(a.max, 2))
             if a.kind == REF and a.max is None:
                 continue  # list side of a bidirectional pair, filled by link_reverse()
-            vals = [self.value(a, maximal, i) for i in range(n)]
+            vals = [self.value(a, maximal, i, seed) for i in range(n)]
             vals = [v for v in vals if v is not None]
             if vals:
                 kwargs[a.name] = vals if a.many else vals[0]
         return cls(**kwargs)
 
-    def value(self, a: AttrInfo, maximal: bool, i: int):
+    def value(self, a: AttrInfo, maximal: bool, i: int, seed: int = 0):
+        """The ``i``-th value of ``a``; ``seed`` keeps repeated data types apart (uniqueItems)."""
         k = a.kind
         if k in (STRING,):
-            return f"{a.name} {i + 1}"
+            return f"{a.name} {seed + i + 1}"
         if k == URI:
-            return f"https://example.org/{a.name}/{i + 1}"
+            return f"https://example.org/{a.name}/{seed + i + 1}"
         if k == INTEGER:
-            return 3 + i
+            return 3 + seed + i
         if k == BOOLEAN:
             return i == 0
         if k == DATE:
             return datetime.date(2025, 1, 1 + i)
         if k == MEASURE:
-            return Measure(12.5 + i) if i else 12.5 + i
+            return Measure(12.5 + seed + i) if i else 12.5 + seed + i
         if k == ENUM:
             members = list(self.m.ENUMS[a.type])
             return members[-1 - i] if maximal else members[i]
         if k == DATATYPE:
-            return self.build(self._concrete(a.type), maximal)
+            return self.build(self._concrete(a.type), maximal, seed=10 * (seed + i))
         if k == REF:
             target = next((f for f in self.refs.values() if type(f).__xwp__.is_a(a.type)), None)
             return Ref.to(target) if target is not None else None

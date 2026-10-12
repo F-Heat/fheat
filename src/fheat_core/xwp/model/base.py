@@ -205,7 +205,7 @@ class Issue:
     """A finding of :func:`validate`. ``path`` points to the value, e.g. ``WP_Plan.planungsverantwortlicheStelle.name``."""
 
     path: str
-    code: str  # abstract, missing, multiplicity, type, enum, uom, geometry, ref, id
+    code: str  # abstract, missing, multiplicity, duplicate, type, enum, uom, geometry, ref, id
     message: str  # German, meant for planners
     severity: str = ERROR
 
@@ -250,6 +250,8 @@ def validate(obj: XwpObject, path: str | None = None) -> list[Issue]:
                 issues.append(Issue(p, "multiplicity", f"{attr.name} braucht mindestens {attr.min} Werte, hat {len(vals)}."))
         if attr.max is not None and len(vals) > attr.max:
             issues.append(Issue(p, "multiplicity", f"{attr.name} erlaubt höchstens {attr.max} Werte, hat {len(vals)}."))
+        if _has_duplicates(vals):  # the JSON schema demands uniqueItems
+            issues.append(Issue(p, "duplicate", f"{attr.name} enthält denselben Wert mehrfach."))
         for i, v in enumerate(vals):
             issues.extend(_check_value(obj, attr, v, f"{p}[{i}]" if attr.many else p))
     return issues
@@ -327,6 +329,11 @@ def _check_geometry(attr: AttrInfo, v: Any, p: str) -> list[Issue]:
     if not v.is_valid:
         return [Issue(p, "geometry", f"{attr.name} ist geometrisch ungültig.", WARNING)]
     return []
+
+
+def _has_duplicates(vals: list[Any]) -> bool:
+    keys = [v.id if isinstance(v, (Ref, XwpFeature)) else v for v in vals]
+    return any(keys[i] == keys[j] for i in range(len(keys)) for j in range(i))
 
 
 def _is_uuid(s: Any) -> bool:
