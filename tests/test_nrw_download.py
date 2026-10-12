@@ -435,7 +435,7 @@ class TestGetOsmSurfaceViaOverpass:
             return _FakeResponse(_EMPTY_OVERPASS)
 
         monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-        monkeypatch.setattr(nrw_download.time, "sleep", lambda s: None)
+        monkeypatch.setattr(nrw_download.cancel, "sleep", lambda s: None)
         nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5), retries=3)
         assert len(attempts) == 3
 
@@ -447,10 +447,26 @@ class TestGetOsmSurfaceViaOverpass:
             raise _http_error(504)
 
         monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-        monkeypatch.setattr(nrw_download.time, "sleep", lambda s: None)
+        monkeypatch.setattr(nrw_download.cancel, "sleep", lambda s: None)
         with pytest.raises(RuntimeError, match="Overpass"):
             nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5), retries=2)
         assert len(attempts) == 2
+
+    def test_a_cancel_ends_the_wait_for_a_busy_server(self, monkeypatch):
+        from fheat_core.cancel import CalculationCancelled, cancellable
+
+        attempts = []
+
+        def fake_urlopen(req, timeout=None):
+            attempts.append(1)
+            raise _http_error(504)
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        # stop once the first attempt has failed, i.e. during the first pause
+        with cancellable(lambda: len(attempts) > 0):
+            with pytest.raises(CalculationCancelled):
+                nrw_download.get_osm_surface_via_overpass((52.0, 7.0, 52.5, 7.5), retries=5)
+        assert len(attempts) == 1
 
     def test_unreachable_raises_runtime(self, monkeypatch):
         def fake_urlopen(req, timeout=None):

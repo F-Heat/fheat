@@ -4,7 +4,6 @@ from __future__ import annotations
 import ast
 import json
 import tempfile
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -18,6 +17,7 @@ import pandas as pd
 from owslib.wfs import WebFeatureService
 from shapely.geometry import LineString
 
+from fheat_core import cancel
 from fheat_nrw.area import district_parcels
 
 URL_BUILDINGS = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kwp/"
@@ -166,13 +166,14 @@ def get_osm_surface_via_overpass(
         overpass_url, data=data, headers={"User-Agent": _user_agent()}
     )
     for attempt in range(1, max(1, retries) + 1):
+        cancel.raise_if_cancelled()
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
             break
         except urllib.error.HTTPError as e:
             if e.code in _OSM_RETRY_STATUS and attempt < retries:
-                time.sleep(OSM_RETRY_WAIT * attempt)
+                cancel.sleep(OSM_RETRY_WAIT * attempt)
                 continue
             raise RuntimeError(f"Overpass-Anfrage an '{overpass_url}' fehlgeschlagen: {e}") from e
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:

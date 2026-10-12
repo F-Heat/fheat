@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 
 from fheat_core import columns as cols
+from fheat_core.cancel import raise_if_cancelled
 from fheat_core.errors import NO_BUILDINGS, PipelineInputError
 from fheat_core.network import get_backend
 from fheat_core.network.costs import annotate_network_costs, civil_layers
@@ -54,14 +55,17 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     if state.landuse_gdf is None and state.osm_surface_gdf is None:
         # A state resumed from STATUS (as fheat-web does) has no layers yet.
         state.landuse_gdf = adapter.fetch_landuse()
+        raise_if_cancelled()
         state.osm_surface_gdf = adapter.fetch_osm_surface()
     layers = civil_layers(state)
+    raise_if_cancelled()
 
     backend = get_backend(config.network_mode)
     logger.info("NETWORK phase using backend '%s' for %d building(s)", backend.name, len(buildings))
     net_gdf, buildings_out = backend.build(
         buildings, streets, source, config, adapter, civil_layers=layers
     )
+    raise_if_cancelled()
 
     NetSchema.validate(net_gdf)
     net_gdf = annotate_network_costs(

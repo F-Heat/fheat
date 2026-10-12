@@ -18,6 +18,7 @@ import geopandas as gpd
 
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
+from fheat_core.cancel import ShouldStop, cancellable, raise_if_cancelled
 from fheat_core.config import FHeatConfig
 from fheat_core.errors import PipelineInputError
 from fheat_core.export.plots import render_charts, write_charts
@@ -83,6 +84,11 @@ class FHeatOrchestrator:
     adapter : DataAdapter
     state : PipelineState, optional
         Pre-populated state to resume from a later phase.
+    should_stop : callable, optional
+        Asked before every step and at checkpoints inside; once it returns
+        True the running step ends with
+        :class:`fheat_core.cancel.CalculationCancelled` (see
+        :mod:`fheat_core.cancel`).
     """
 
     def __init__(
@@ -90,10 +96,12 @@ class FHeatOrchestrator:
         config: FHeatConfig,
         adapter: DataAdapter,
         state: Optional[PipelineState] = None,
+        should_stop: Optional[ShouldStop] = None,
     ) -> None:
         self.config = config
         self.adapter = adapter
         self.state = state or PipelineState()
+        self.should_stop = should_stop
         self._out_dir = Path(config.output_dir)
         self._out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -143,7 +151,7 @@ class FHeatOrchestrator:
             raise ValueError(f"Phase {phase!r} has no associated step.")
         _check_inputs(phase, self.state)
         logger.info("Running step: %s", phase.value)
-        self.state = _STEP_FN[phase](self.state, self.config, self.adapter)
+        self.state = self._run(phase)
         return self.state
 
     def save_outputs(
@@ -219,8 +227,14 @@ class FHeatOrchestrator:
                 break
             logger.info("=== Phase: %s ===", phase.value)
             _check_inputs(phase, self.state)
-            self.state = _STEP_FN[phase](self.state, self.config, self.adapter)
+            self.state = self._run(phase)
         return self.state
+
+    def _run(self, phase: Phase) -> PipelineState:
+        """The step from ``phase``, cancellable through ``should_stop``."""
+        with cancellable(self.should_stop):
+            raise_if_cancelled()
+            return _STEP_FN[phase](self.state, self.config, self.adapter)
 
 
 # Frames a step needs on the state before it starts (keyed by its input phase).

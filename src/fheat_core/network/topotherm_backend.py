@@ -19,6 +19,8 @@ layers the model is topotherm's own, unchanged.
 from __future__ import annotations
 
 import logging
+import threading
+import time
 
 import geopandas as gpd
 import networkx as nx
@@ -27,6 +29,7 @@ from shapely.geometry import LineString
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.civil_cost import civil_factors_for_lines, cost_multiplier, usable_layers
+from fheat_core.cancel import CalculationCancelled, current_check, raise_if_cancelled
 from fheat_core.algorithms.network import (
     calculate_diameter_velocity_loss,
     calculate_glf,
@@ -50,6 +53,10 @@ logger = logging.getLogger(__name__)
 
 _MIN_SOURCE_OFFSET = 1e-3  # m — below this a source is treated as "on the road"
 _NODE_TOLERANCE = 1e-3     # m — a candidate line ends at a node closer than this
+_STOP_CHECK_INTERVAL = 0.5  # s — the optimisation asks should_stop at most this often
+# HiGHS callbacks that can interrupt: the LP relaxation (simplex, interior
+# point) and the MIP search
+_HIGHS_INTERRUPTS = ("cbSimplexInterrupt", "cbIpmInterrupt", "cbMipInterrupt")
 
 
 # topotherm is not on PyPI, so the [topotherm] extra deliberately does not name
@@ -104,6 +111,64 @@ def _set_solver_limits(opt, time_limit: float, mip_gap: float) -> None:
     else:
         opt.options["timelimit"] = time_limit
         opt.options["mipgap"] = mip_gap
+
+
+def _interrupt_on_cancel(opt, model):
+    """Let HiGHS stop once the caller's ``should_stop`` is true (:mod:`fheat_core.cancel`).
+
+    Pyomo's interface for HiGHS (``pyomo.contrib.solver``) keeps its
+    ``highspy.Highs`` in the private ``_solver_model``; ``set_instance`` builds
+    it now, so the callbacks sit on the instance ``solve()`` then uses.
+    ``set_instance`` also resets the time limit and MIP gap on ``opt.config``;
+    they are set again afterwards. The callbacks run on HiGHS' thread, so the
+    check is taken from this thread first and asked at most every
+    ``_STOP_CHECK_INTERVAL`` seconds.
+
+    Returns an Event that is set once HiGHS was interrupted, or None without
+    a ``should_stop`` or for other solvers, which stop at the checkpoints
+    around the solve.
+    """
+    should_stop = current_check()
+    if should_stop is None or not hasattr(opt, "set_instance"):
+        return None
+    # set_instance resets opt.config: keep the limits set before
+    config = getattr(opt, "config", None)
+    limits = {key: getattr(config, key) for key in ("time_limit", "rel_gap") if config is not None and key in config}
+    opt.set_instance(model)
+    for key, value in limits.items():
+        setattr(config, key, value)
+    highs = getattr(opt, "_solver_model", None)
+    events = [getattr(highs, name, None) for name in _HIGHS_INTERRUPTS]
+    if not any(events):
+        return None
+
+    stopped = threading.Event()
+    lock = threading.Lock()
+    pending = {"next_check": 0.0, "warned": False}
+
+    def _interrupt(event):
+        if not stopped.is_set():
+            now = time.monotonic()
+            with lock:
+                if now < pending["next_check"]:
+                    return
+                pending["next_check"] = now + _STOP_CHECK_INTERVAL
+            try:
+                if not should_stop():
+                    return
+            except Exception as exc:  # the optimisation goes on, as without a check
+                if not pending["warned"]:
+                    pending["warned"] = True
+                    logger.warning("should_stop failed during the optimisation (%s); it goes on.", exc)
+                return
+            stopped.set()
+        # also later callbacks: an interrupt in the LP relaxation may reach the MIP search
+        event.interrupt()
+
+    for event in events:
+        if event is not None:
+            event.subscribe(_interrupt)
+    return stopped
 
 
 def _as_2d_float(arr) -> np.ndarray:
@@ -164,11 +229,14 @@ class TopothermBackend(NetworkBackend):
         pipe_info = resolve_pipe_info(adapter)
 
         sinks, roads, srcs = self._to_topotherm_inputs(buildings, streets, source)
+        raise_if_cancelled()
         mat, gdf_nodes, gdf_edges = self._build_matrices(tt, sinks, roads, srcs, buildings.crs, tcfg)
+        raise_if_cancelled()
         civil = self._candidate_civil_factors(mat, gdf_edges, civil_layers, buildings.crs, config)
         settings = self._build_settings(tt, config)
         model, opt_mats = self._solve(tt, mat, settings, tcfg)
         nodes_df, edges_df = tt.postprocessing.to_dataframe(opt_mats, mat)
+        raise_if_cancelled()
 
         net_gdf = self._to_net_gdf(
             edges_df, nodes_df, buildings, pipe_info, config,
@@ -239,6 +307,7 @@ class TopothermBackend(NetworkBackend):
                 "street/source input.",
                 code=UNMATCHED_NODES,
             )
+        raise_if_cancelled()
         # topotherm drops duplicate candidate edges here; the gdf_edges it
         # returns stays aligned with the matrices: mat["l_i"][k] and column k
         # of a_i belong to gdf_edges.iloc[k] (topotherm 0.6.0).
@@ -324,6 +393,7 @@ class TopothermBackend(NetworkBackend):
             float(r_cap["r2"]),
             float(r_loss["r2"]),
         )
+        raise_if_cancelled()
 
         model = tt.models.single_timestep.create(
             matrices=mat,
@@ -343,9 +413,16 @@ class TopothermBackend(NetworkBackend):
                 code=SOLVER_UNAVAILABLE,
             )
         _set_solver_limits(opt, settings.solver.time_limit, settings.solver.mip_gap)
+        raise_if_cancelled()
+        stopped = _interrupt_on_cancel(opt, model)
+        raise_if_cancelled()
         # loaded only once it is optimal: Pyomo's newer interface raises when
         # the time limit ends the run before any feasible solution
         result = opt.solve(model, tee=False, load_solutions=False)
+        if stopped is not None and stopped.is_set():
+            # Pyomo reports HiGHS' interrupt only as "unknown"
+            raise CalculationCancelled("The calculation was cancelled during the optimisation.")
+        raise_if_cancelled()
 
         cond = result.solver.termination_condition
         if cond != pyo.TerminationCondition.optimal:

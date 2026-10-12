@@ -18,6 +18,7 @@ from fheat_core.algorithms.network import (
     connect_buildings_to_graph,
     connect_source_to_graph,
 )
+from fheat_core.cancel import raise_if_cancelled
 from fheat_core.network.base import NetworkBackend
 from fheat_core.resources import resolve_pipe_info
 
@@ -41,11 +42,13 @@ class DijkstraBackend(NetworkBackend):
 
         streets = insert_connection_points(streets, buildings)
         streets = insert_connection_points(streets, source)
+        raise_if_cancelled()
 
         G = build_street_graph(streets, buildings.crs)
         G = connect_buildings_to_graph(G, buildings)
         G = connect_source_to_graph(G, source)
         G = add_edge_lengths(G)
+        raise_if_cancelled()
 
         net_gdf = compute_network(
             G,
