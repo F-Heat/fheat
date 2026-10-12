@@ -12,6 +12,7 @@ import pandas as pd
 from shapely.geometry import LineString, MultiLineString
 
 from fheat_core import columns as cols
+from fheat_core.xwp.mapping.building_type import assign_building_types
 
 # BAK-Klassifikation (Baualtersklassen nach DIN/BDEW)
 BAK_BINS = [0, 1918, 1948, 1957, 1968, 1978, 1983, 1994, 2001, 9999]
@@ -214,9 +215,10 @@ def _add_bak(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if "validFrom" not in gdf.columns:
         gdf["BAK"] = pd.NA
         return gdf
-    gdf["_jahr"] = gdf["validFrom"].apply(_extract_year)
-    gdf["BAK"] = pd.cut(gdf["_jahr"], bins=BAK_BINS, labels=BAK_LABELS, right=True).astype(str)
-    return gdf.drop(columns=["_jahr"])
+    # keep the year itself: XWaermeplan needs other age classes than the BAK
+    gdf["Jahr_Flurstueck"] = gdf["validFrom"].apply(_extract_year)
+    gdf["BAK"] = pd.cut(gdf["Jahr_Flurstueck"], bins=BAK_BINS, labels=BAK_LABELS, right=True).astype(str)
+    return gdf
 
 
 def _add_vlh_loadprofile(gdf: gpd.GeoDataFrame, info_db: pd.DataFrame) -> gpd.GeoDataFrame:
@@ -341,7 +343,10 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         out[cols.AGE] = gdf["age_LANUV"]
     if "BAK" in gdf.columns:
         out[cols.CONSTRUCTION_CLASS] = gdf["BAK"]
+    if "Jahr_Flurstueck" in gdf.columns:
+        out[cols.PARCEL_YEAR] = pd.to_numeric(gdf["Jahr_Flurstueck"], errors="coerce").astype("Int64")
 
     out["geometry"] = gdf["geometry"]
     df = pd.DataFrame(out)
+    df[cols.XWP_BUILDING_TYPE] = assign_building_types(df)
     return gpd.GeoDataFrame(df, geometry="geometry", crs=gdf.crs)

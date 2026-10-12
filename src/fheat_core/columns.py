@@ -30,6 +30,9 @@ USAGE = "usage"
 FLOOR_AREA = "floor_area"            # net floor area [m²]
 AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
+CONSTRUCTION_YEAR = "construction_year"    # year of construction, where the source knows it
+PARCEL_YEAR = "parcel_year"                # NRW: year of the parcel's validFrom (BAK input; a proxy, not the construction year)
+XWP_BUILDING_TYPE = "xwp_building_type"    # code of WP_GebaeudeTyp (XWaermeplan), see fheat_core/xwp/mapping/building_type.py
 # Both heat demand values, so FHeatConfig.heat_demand_basis can choose which
 # one becomes HEAT_DEMAND (see steps/adjust.py).
 HEAT_DEMAND_DATASET = "heat_demand_dataset"        # as delivered by the data source [kWh/a]
@@ -170,6 +173,9 @@ LABELS_DE: dict[str, str] = {
     FLOOR_AREA: "NF [m²]",
     AGE: "Alter",
     CONSTRUCTION_CLASS: "BAK",
+    CONSTRUCTION_YEAR: "Baujahr",
+    PARCEL_YEAR: "Jahr_Flurstueck",
+    XWP_BUILDING_TYPE: "Gebaeudetyp_XWP",
     # same names as the attributes of the former QGIS plugin
     HEAT_DEMAND_DATASET: "RW_WW [kWh/a]",
     HEAT_DEMAND_CALCULATED: "WB [kWh/a]",

@@ -1,0 +1,933 @@
+{
+ "_beschreibung": "Zuordnung ALKIS-Gebäudefunktion (letzte vier Ziffern von citygml_fu) zu WP_GebaeudeTyp (XWärmeplan 0.9.6). Wohngebäude nach GEG § 3 einschließlich Wohn-, Alten- und Pflegeheimen -> 1000; gemischt genutzte Gebäude mit Wohnen -> 9999 (nicht eindeutig); Nichtwohngebäude ohne passenden Untertyp -> 2000. Die Untertypen 10001-10004 (EFH, RH, MFH, GMFH) kommen nicht aus dieser Tabelle, sondern aus dem Gebäudetyp der Datenquelle (LANUV GEBAEUDETY). Fachlich prüfen und bei Bedarf einzelne Codes ändern.",
+ "funktionen": {
+  "1000": {
+   "bezeichnung": "Wohngebäude",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1010": {
+   "bezeichnung": "Wohnhaus",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1020": {
+   "bezeichnung": "Wohnheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1021": {
+   "bezeichnung": "Kinderheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1022": {
+   "bezeichnung": "Seniorenheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1023": {
+   "bezeichnung": "Schwesternwohnheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1024": {
+   "bezeichnung": "Studenten-, Schülerwohnheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1025": {
+   "bezeichnung": "Schullandheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1100": {
+   "bezeichnung": "Gemischt genutztes Gebäude mit Wohnen",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1110": {
+   "bezeichnung": "Wohngebäude mit Gemeinbedarf",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1120": {
+   "bezeichnung": "Wohngebäude mit Handel und Dienstleistungen",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1121": {
+   "bezeichnung": "Wohn- und Verwaltungsgebäude",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1122": {
+   "bezeichnung": "Wohn- und Bürogebäude",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1123": {
+   "bezeichnung": "Wohn- und Geschäftsgebäude",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1130": {
+   "bezeichnung": "Wohngebäude mit Gewerbe und Industrie",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1131": {
+   "bezeichnung": "Wohn- und Betriebsgebäude",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1210": {
+   "bezeichnung": "Land- und forstwirtschaftliches Wohngebäude",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1220": {
+   "bezeichnung": "Land- und forstwirtschaftliches Wohn- und Betriebsgebäude",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1221": {
+   "bezeichnung": "Bauernhaus",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1222": {
+   "bezeichnung": "Wohn- und Wirtschaftsgebäude",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "1223": {
+   "bezeichnung": "Forsthaus",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1310": {
+   "bezeichnung": "Gebäude zur Freizeitgestaltung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "1311": {
+   "bezeichnung": "Ferienhaus",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1312": {
+   "bezeichnung": "Wochenendhaus",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "1313": {
+   "bezeichnung": "Gartenhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2000": {
+   "bezeichnung": "Gebäude für Wirtschaft oder Gewerbe",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2010": {
+   "bezeichnung": "Gebäude für Handel und Dienstleistungen",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2020": {
+   "bezeichnung": "Bürogebäude",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "2030": {
+   "bezeichnung": "Kreditinstitut",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "2040": {
+   "bezeichnung": "Versicherung",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "2050": {
+   "bezeichnung": "Geschäftsgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2051": {
+   "bezeichnung": "Kaufhaus",
+   "xwp_gebaeudetyp": "20002"
+  },
+  "2052": {
+   "bezeichnung": "Einkaufszentrum",
+   "xwp_gebaeudetyp": "20002"
+  },
+  "2053": {
+   "bezeichnung": "Markthalle",
+   "xwp_gebaeudetyp": "20002"
+  },
+  "2054": {
+   "bezeichnung": "Laden",
+   "xwp_gebaeudetyp": "20002"
+  },
+  "2055": {
+   "bezeichnung": "Kiosk",
+   "xwp_gebaeudetyp": "20002"
+  },
+  "2056": {
+   "bezeichnung": "Apotheke",
+   "xwp_gebaeudetyp": "20002"
+  },
+  "2060": {
+   "bezeichnung": "Messehalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2070": {
+   "bezeichnung": "Gebäude für Beherbergung",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2071": {
+   "bezeichnung": "Hotel, Motel, Pension",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2072": {
+   "bezeichnung": "Jugendherberge",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2073": {
+   "bezeichnung": "Hütte (mit Übernachtungsmöglichkeit)",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2074": {
+   "bezeichnung": "Campingplatzgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2080": {
+   "bezeichnung": "Gebäude für Bewirtung",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2081": {
+   "bezeichnung": "Gaststätte, Restaurant",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2082": {
+   "bezeichnung": "Hütte (ohne Übernachtungsmöglichkeit)",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2083": {
+   "bezeichnung": "Kantine",
+   "xwp_gebaeudetyp": "20003"
+  },
+  "2090": {
+   "bezeichnung": "Freizeit- und Vergnügungsstätte",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2091": {
+   "bezeichnung": "Festsaal",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2092": {
+   "bezeichnung": "Kino",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "2093": {
+   "bezeichnung": "Kegel-, Bowlinghalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2094": {
+   "bezeichnung": "Spielkasino",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2100": {
+   "bezeichnung": "Gebäude für Gewerbe und Industrie",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2110": {
+   "bezeichnung": "Produktionsgebäude",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2111": {
+   "bezeichnung": "Fabrik",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2112": {
+   "bezeichnung": "Betriebsgebäude",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2113": {
+   "bezeichnung": "Brauerei",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2114": {
+   "bezeichnung": "Brennerei",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2120": {
+   "bezeichnung": "Werkstatt",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2121": {
+   "bezeichnung": "Sägewerk",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2130": {
+   "bezeichnung": "Tankstelle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2131": {
+   "bezeichnung": "Waschstraße, Waschanlage, Waschhalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2140": {
+   "bezeichnung": "Gebäude für Vorratshaltung",
+   "xwp_gebaeudetyp": "20009"
+  },
+  "2141": {
+   "bezeichnung": "Kühlhaus",
+   "xwp_gebaeudetyp": "20009"
+  },
+  "2142": {
+   "bezeichnung": "Speichergebäude",
+   "xwp_gebaeudetyp": "20009"
+  },
+  "2143": {
+   "bezeichnung": "Lagerhalle, Lagerschuppen, Lagerhaus",
+   "xwp_gebaeudetyp": "20009"
+  },
+  "2150": {
+   "bezeichnung": "Speditionsgebäude",
+   "xwp_gebaeudetyp": "20009"
+  },
+  "2160": {
+   "bezeichnung": "Gebäude für Forschungszwecke",
+   "xwp_gebaeudetyp": "20006"
+  },
+  "2170": {
+   "bezeichnung": "Gebäude für Grundstoffgewinnung",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2171": {
+   "bezeichnung": "Bergwerk",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2172": {
+   "bezeichnung": "Saline",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2180": {
+   "bezeichnung": "Gebäude für betriebliche Sozialeinrichtung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2200": {
+   "bezeichnung": "Sonstiges Gebäude für Gewerbe und Industrie",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2210": {
+   "bezeichnung": "Mühle",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2211": {
+   "bezeichnung": "Windmühle",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2212": {
+   "bezeichnung": "Wassermühle",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2213": {
+   "bezeichnung": "Schöpfwerk",
+   "xwp_gebaeudetyp": "20010"
+  },
+  "2220": {
+   "bezeichnung": "Wetterstation",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2310": {
+   "bezeichnung": "Gebäude für Handel und Dienstleistung mit Wohnen",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "2320": {
+   "bezeichnung": "Gebäude für Industrie mit Wohnen",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "2400": {
+   "bezeichnung": "Betriebsgebäude zu Verkehrsanlagen (allgemein)",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2410": {
+   "bezeichnung": "Betriebsgebäude für Straßenverkehr",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2411": {
+   "bezeichnung": "Straßenmeisterei",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2412": {
+   "bezeichnung": "Wartehalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2420": {
+   "bezeichnung": "Betriebsgebäude für Schienenverkehr",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2421": {
+   "bezeichnung": "Bahnwärterhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2422": {
+   "bezeichnung": "Lokschuppen, Wagenhalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2423": {
+   "bezeichnung": "Stellwerk, Blockstelle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2424": {
+   "bezeichnung": "Betriebsgebäude des Güterbahnhofs",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2430": {
+   "bezeichnung": "Betriebsgebäude für Flugverkehr",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2431": {
+   "bezeichnung": "Flugzeughalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2440": {
+   "bezeichnung": "Betriebsgebäude für Schriffsverkehr",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2441": {
+   "bezeichnung": "Werft (Halle)",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2442": {
+   "bezeichnung": "Dock (Halle)",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2443": {
+   "bezeichnung": "Betriebsgebäude zur Schleuse",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2444": {
+   "bezeichnung": "Bootshaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2450": {
+   "bezeichnung": "Betriebsgebäude zur Seilbahn",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2451": {
+   "bezeichnung": "Spannwerk zur Drahtseilbahn",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2460": {
+   "bezeichnung": "Gebäude zum Parken",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2461": {
+   "bezeichnung": "Parkhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2462": {
+   "bezeichnung": "Parkdeck",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2463": {
+   "bezeichnung": "Garage",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2464": {
+   "bezeichnung": "Fahrzeughalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2465": {
+   "bezeichnung": "Tiefgarage",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2500": {
+   "bezeichnung": "Gebäude zur Versorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2501": {
+   "bezeichnung": "Gebäude zur Energieversorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2510": {
+   "bezeichnung": "Gebäude zur Wasserversorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2511": {
+   "bezeichnung": "Wasserwerk",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2512": {
+   "bezeichnung": "Pumpstation",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2513": {
+   "bezeichnung": "Wasserbehälter",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2520": {
+   "bezeichnung": "Gebäude zur Elektrizitätsversorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2521": {
+   "bezeichnung": "Elektrizitätswerk",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2522": {
+   "bezeichnung": "Umspannwerk",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2523": {
+   "bezeichnung": "Umformer",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2527": {
+   "bezeichnung": "Reaktorgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2528": {
+   "bezeichnung": "Turbinenhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2529": {
+   "bezeichnung": "Kesselhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2540": {
+   "bezeichnung": "Gebäude für Fernmeldewesen",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2560": {
+   "bezeichnung": "Gebäude an unterirdischen Leitungen",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2570": {
+   "bezeichnung": "Gebäude zur Gasversorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2571": {
+   "bezeichnung": "Gebäude zur Gasversorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2580": {
+   "bezeichnung": "Gebäude zur Gasversorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2590": {
+   "bezeichnung": "Gebäude zur Versorgungsanlage",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2591": {
+   "bezeichnung": "Pumpwerk (nicht für Wasserversorgung)",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2600": {
+   "bezeichnung": "Gebäude zur Entsorgung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2610": {
+   "bezeichnung": "Gebäude zur Abwasserbeseitigung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2611": {
+   "bezeichnung": "Gebäude der Kläranlage",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2612": {
+   "bezeichnung": "Toilette",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2620": {
+   "bezeichnung": "Gebäude zur Abfallbehandlung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2621": {
+   "bezeichnung": "Müllbunker",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2622": {
+   "bezeichnung": "Gebäude zur Müllverbrennung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2623": {
+   "bezeichnung": "Gebäude der Abfalldeponie",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2700": {
+   "bezeichnung": "Gebäude für Land- und Forstwirtschaft",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2720": {
+   "bezeichnung": "Land- und forstwirtschaftliches Betriebsgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2721": {
+   "bezeichnung": "Scheune",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2723": {
+   "bezeichnung": "Schuppen",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2724": {
+   "bezeichnung": "Stall",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2726": {
+   "bezeichnung": "Scheune und Stall",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2727": {
+   "bezeichnung": "Stall für Tiergroßhaltung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2728": {
+   "bezeichnung": "Reithalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2729": {
+   "bezeichnung": "Wirtschaftsgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2732": {
+   "bezeichnung": "Almhütte",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2735": {
+   "bezeichnung": "Jagdhaus, Jagdhütte",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2740": {
+   "bezeichnung": "Treibhaus, Gewächshaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2741": {
+   "bezeichnung": "Treibhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "2742": {
+   "bezeichnung": "Gewächshaus, verschiebbar",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3000": {
+   "bezeichnung": "Gebäude für öffentliche Zwecke",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3010": {
+   "bezeichnung": "Verwaltungsgebäude",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3011": {
+   "bezeichnung": "Parlament",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3012": {
+   "bezeichnung": "Rathaus",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3013": {
+   "bezeichnung": "Post",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3014": {
+   "bezeichnung": "Zollamt",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3015": {
+   "bezeichnung": "Gericht",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3016": {
+   "bezeichnung": "Botschaft, Konsulat",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3017": {
+   "bezeichnung": "Kreisverwaltung",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3018": {
+   "bezeichnung": "Bezirksregierung",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3019": {
+   "bezeichnung": "Finanzamt",
+   "xwp_gebaeudetyp": "20001"
+  },
+  "3020": {
+   "bezeichnung": "Gebäude für Bildung und Forschung",
+   "xwp_gebaeudetyp": "20006"
+  },
+  "3021": {
+   "bezeichnung": "Allgemein bildende Schule",
+   "xwp_gebaeudetyp": "20006"
+  },
+  "3022": {
+   "bezeichnung": "Berufsbildende Schule",
+   "xwp_gebaeudetyp": "20006"
+  },
+  "3023": {
+   "bezeichnung": "Hochschulgebäude (Fachhochschule, Universität)",
+   "xwp_gebaeudetyp": "20006"
+  },
+  "3024": {
+   "bezeichnung": "Forschungsinstitut",
+   "xwp_gebaeudetyp": "20006"
+  },
+  "3030": {
+   "bezeichnung": "Gebäude für kulturelle Zwecke",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3031": {
+   "bezeichnung": "Schloss",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3032": {
+   "bezeichnung": "Theater, Oper",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3033": {
+   "bezeichnung": "Konzertgebäude",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3034": {
+   "bezeichnung": "Museum",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3035": {
+   "bezeichnung": "Rundfunk, Fernsehen",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3036": {
+   "bezeichnung": "Veranstaltungsgebäude",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3037": {
+   "bezeichnung": "Bibliothek, Bücherei",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3038": {
+   "bezeichnung": "Burg, Festung",
+   "xwp_gebaeudetyp": "20005"
+  },
+  "3040": {
+   "bezeichnung": "Gebäude für religiöse Zwecke",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3041": {
+   "bezeichnung": "Kirche",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3042": {
+   "bezeichnung": "Synagoge",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3043": {
+   "bezeichnung": "Kapelle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3044": {
+   "bezeichnung": "Gemeindehaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3045": {
+   "bezeichnung": "Gotteshaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3046": {
+   "bezeichnung": "Moschee",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3047": {
+   "bezeichnung": "Tempel",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3048": {
+   "bezeichnung": "Kloster",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3050": {
+   "bezeichnung": "Gebäude für Gesundheitwesen",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3051": {
+   "bezeichnung": "Krankenhaus",
+   "xwp_gebaeudetyp": "20004"
+  },
+  "3052": {
+   "bezeichnung": "Heilanstalt, Pflegeanstalt, Pflegestation",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "3053": {
+   "bezeichnung": "Ärztehaus, Poliklinik",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3060": {
+   "bezeichnung": "Gebäude für soziale Zwecke",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3061": {
+   "bezeichnung": "Jugendfreizeitheim",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3062": {
+   "bezeichnung": "Freizeit-, Vereinsheim, Dorfgemeinschafts-, Bürgerhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3063": {
+   "bezeichnung": "Seniorenfreizeitstätte",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3064": {
+   "bezeichnung": "Obdachlosenheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "3065": {
+   "bezeichnung": "Kinderkrippe, Kindergarten, Kindertagesstätte",
+   "xwp_gebaeudetyp": "20006"
+  },
+  "3066": {
+   "bezeichnung": "Asylbewerberheim",
+   "xwp_gebaeudetyp": "1000"
+  },
+  "3070": {
+   "bezeichnung": "Gebäude für Sicherheit und Ordnung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3071": {
+   "bezeichnung": "Polizei",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3072": {
+   "bezeichnung": "Feuerwehr",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3073": {
+   "bezeichnung": "Kaserne",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3074": {
+   "bezeichnung": "Schutzbunker",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3075": {
+   "bezeichnung": "Justizvollzugsanstalt",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3080": {
+   "bezeichnung": "Friedhofsgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3081": {
+   "bezeichnung": "Trauerhalle",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3082": {
+   "bezeichnung": "Krematorium",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3090": {
+   "bezeichnung": "Empfangsgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3091": {
+   "bezeichnung": "Bahnhofsgebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3092": {
+   "bezeichnung": "Flughafengebäude",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3094": {
+   "bezeichnung": "Gebäude zum U-Bahnhof",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3095": {
+   "bezeichnung": "Gebäude zum S-Bahnhof",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3097": {
+   "bezeichnung": "Gebäude zum Busbahnhof",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3098": {
+   "bezeichnung": "Empfangsgebäude Schifffahrt",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3100": {
+   "bezeichnung": "Gebäude für öffentliche Zwecke mit Wohnen",
+   "xwp_gebaeudetyp": "9999"
+  },
+  "3200": {
+   "bezeichnung": "Gebäude für Erholungszwecke",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3210": {
+   "bezeichnung": "Gebäude für Sportzwecke",
+   "xwp_gebaeudetyp": "20007"
+  },
+  "3211": {
+   "bezeichnung": "Sport-, Turnhalle",
+   "xwp_gebaeudetyp": "20007"
+  },
+  "3212": {
+   "bezeichnung": "Gebäude zum Sportplatz",
+   "xwp_gebaeudetyp": "20007"
+  },
+  "3220": {
+   "bezeichnung": "Badegebäude",
+   "xwp_gebaeudetyp": "20008"
+  },
+  "3221": {
+   "bezeichnung": "Hallenbad",
+   "xwp_gebaeudetyp": "20008"
+  },
+  "3222": {
+   "bezeichnung": "Gebäude im Freibad",
+   "xwp_gebaeudetyp": "20008"
+  },
+  "3230": {
+   "bezeichnung": "Gebäude im Stadion",
+   "xwp_gebaeudetyp": "20007"
+  },
+  "3240": {
+   "bezeichnung": "Gebäude für Kurbetrieb",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3241": {
+   "bezeichnung": "Badegebäude für medizinische Zwecke",
+   "xwp_gebaeudetyp": "20008"
+  },
+  "3242": {
+   "bezeichnung": "Sanatorium",
+   "xwp_gebaeudetyp": "20004"
+  },
+  "3260": {
+   "bezeichnung": "Gebäude im Zoo",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3261": {
+   "bezeichnung": "Empfangsgebäude des Zoos",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3262": {
+   "bezeichnung": "Aquarium, Terrarium, Voliere",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3263": {
+   "bezeichnung": "Tierschauhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3264": {
+   "bezeichnung": "Stall im Zoo",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3270": {
+   "bezeichnung": "Gebäude im botanischen Garten",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3271": {
+   "bezeichnung": "Empfangsgebäude des botanischen Gartens",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3272": {
+   "bezeichnung": "Gewächshaus (Botanik)",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3273": {
+   "bezeichnung": "Pflanzenschauhaus",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3280": {
+   "bezeichnung": "Gebäude für andere Erholungseinrichtung",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3281": {
+   "bezeichnung": "Schutzhütte",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "3290": {
+   "bezeichnung": "Touristisches Informationszentrum",
+   "xwp_gebaeudetyp": "2000"
+  },
+  "9998": {
+   "bezeichnung": "Nach Quellenlage nicht zu spezifizieren",
+   "xwp_gebaeudetyp": "9999"
+  }
+ }
+}
