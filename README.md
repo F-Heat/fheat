@@ -166,6 +166,7 @@ pip install -e ".[full]"      # everything: NRW adapter + German holidays
 pip install -e ".[full,dev]"  # everything + pytest, for development
 pip install -e ".[topotherm]" # + expert network mode; topotherm itself needs a second, editable install — see above
 pip install -e ".[excel,plots]" # + Excel export and load profile charts of the results
+pip install -e ".[xwp]"       # + XWärmeplan export (lxml for the GML writer and XSD check)
 ```
 
 All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
@@ -291,7 +292,39 @@ the four load profile charts of the former QGIS plugin (requires
 With `table_format="xlsx"` the charts are embedded in the `Lastprofil` sheet
 as well, next to the data. Chart labels are German.
 
-Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
+### XWärmeplan export
+
+F|Heat writes heat plans in the German standard XWärmeplan 0.9.6
+(`pip install "fheat[xwp]"`). Set the plan metadata F|Heat cannot know and
+call `save_xwp()` after the analysis (and, if there is one, the network):
+
+```python
+import datetime
+from fheat_core.config import XwpConfig, XwpGemeinde, XwpPlanConfig
+
+config.xwp = XwpConfig(plan=XwpPlanConfig(
+    name="Wärmeplan Steinfurt",
+    gemeinde=XwpGemeinde("Steinfurt", "055660032032"),
+    beschluss_datum=datetime.date(2026, 6, 30),
+))
+orch.save_xwp_template()                              # xwp_ergaenzung.gpkg/.xlsx for the planner
+files = orch.save_xwp(supplement=["output/xwp_ergaenzung.gpkg"])
+```
+
+`save_xwp()` writes `xwaermeplan.gml` (normative, checked against the XSD),
+`xwaermeplan.json` (JSON-FG after the official schema), `xwaermeplan.gpkg`
+(F|Heat exchange format, not normative) and `xwaermeplan_pruefbericht.json`
+(validity, findings, coverage per feature type and missing mandatory
+attributes). What F|Heat cannot derive — measures, texts, energy balances,
+potentials, existing networks, the decision on the supply areas — comes from
+the supplement file. The same is available on the command line:
+`python -m fheat_core.xwp template|build|validate`. Details, decisions and the
+mapping attribute by attribute: [`docs/xwaermeplan/`](docs/xwaermeplan/).
+
+Note: `output_format="gml"` of `save_outputs()` writes plain OGR-GML of the
+F|Heat layers, not XWärmeplan.
+
+Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`), [`burgsteinfurt_xwaermeplan.py`](examples/burgsteinfurt_xwaermeplan.py) (the same area as XWärmeplan) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
 
 ## Tests
 

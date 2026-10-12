@@ -4,11 +4,11 @@ Merge rules (apply_supplement):
 
 * an object whose uuid exists in the plan overrides it: every attribute the
   planner filled in replaces F|Heat's value (lists as a whole); empty cells
-  keep F|Heat's value;
+  keep F|Heat's value; it counts as overridden only if a value changed;
 * other objects are added; a missing ``gehoertZuPlan``/``gehoertZuBereich``
   is set to the plan and its area. An added object that still lacks a
-  mandatory attribute is not taken over (e.g. a heat source placeholder
-  without energy carrier) and reported;
+  mandatory attribute is not taken over and reported; a placeholder of the
+  template the planner left incomplete only counts as open;
 * a second WP_Plan is not taken over.
 """
 from __future__ import annotations
@@ -36,6 +36,9 @@ class MergeResult:
     added: int = 0
     skipped: int = 0
     issues: list[Issue] = field(default_factory=list)
+    open_placeholders: int = 0
+    overridden_ids: set[str] = field(default_factory=set)
+    added_ids: set[str] = field(default_factory=set)
 
 
 def read_supplement(gpkg: str | Path | None = None, xlsx: str | Path | None = None, model=None) -> Supplement:
@@ -95,8 +98,11 @@ def read_xlsx_tables(path: str | Path) -> dict[str, list[dict]]:
         wb.close()
 
 
-def apply_supplement(doc: XwpPlanDocument, supplement: Supplement) -> MergeResult:
-    """Merge the supplement into ``doc`` (in place); see the module docstring for the rules."""
+def apply_supplement(doc: XwpPlanDocument, supplement: Supplement, placeholder_ids=frozenset()) -> MergeResult:
+    """Merge the supplement into ``doc`` (in place); see the module docstring for the rules.
+
+    ``placeholder_ids``: ids of the template's placeholders (``build_plan`` passes them).
+    """
     result = MergeResult(issues=list(supplement.issues))
     index = doc.by_id()
     plans = doc.of_type("WP_Plan")
@@ -110,14 +116,19 @@ def apply_supplement(doc: XwpPlanDocument, supplement: Supplement) -> MergeResul
                 result.issues.append(Issue(where, "type", f"{where}: uuid gehört zu {type(target).__name__}, nicht übernommen."))
                 result.skipped += 1
                 continue
+            changed = False
             for attr in type(obj).__xwp__.attrs:
                 value = getattr(obj, attr.name)
                 if value is None or value == []:
                     continue
                 if attr.kind == REF and attr.many and attr.reverse:
                     continue  # reverse lists are rebuilt from the other side
-                setattr(target, attr.name, value)
-            result.overridden += 1
+                if not _same(getattr(target, attr.name), value, attr):
+                    setattr(target, attr.name, value)
+                    changed = True
+            if changed:
+                result.overridden += 1
+                result.overridden_ids.add(obj.id)
             continue
         if name == "WP_Plan":
             result.issues.append(Issue(where, "type", f"{where}: ein zweiter WP_Plan wird nicht übernommen."))
@@ -132,6 +143,9 @@ def apply_supplement(doc: XwpPlanDocument, supplement: Supplement) -> MergeResul
             elif attr.type == "WP_Bereich" and areas:
                 setattr(obj, attr.name, Ref.to(areas[0]))
         missing = [i for i in validate(obj, where) if i.code == "missing"]
+        if missing and obj.id in placeholder_ids:
+            result.open_placeholders += 1
+            continue
         if missing:
             names = ", ".join(sorted({i.path.rsplit(".", 1)[-1] for i in missing}))
             result.issues.append(Issue(where, "missing", f"{where}: unvollständig ({names} fehlt), nicht übernommen."))
@@ -140,5 +154,21 @@ def apply_supplement(doc: XwpPlanDocument, supplement: Supplement) -> MergeResul
         doc.add(obj)
         index[obj.id] = obj
         result.added += 1
+        result.added_ids.add(obj.id)
     doc.link_reverse()
     return result
+
+
+def _same(current, new, attr) -> bool:
+    """Whether a value read back equals the plan's value (references by id, geometry by shape)."""
+    from shapely.geometry.base import BaseGeometry
+
+    if attr.kind == REF:
+        ids = lambda v: [r.id for r in v] if isinstance(v, list) else (v.id if v is not None else None)  # noqa: E731
+        return ids(current) == ids(new)
+    if isinstance(current, BaseGeometry) and isinstance(new, BaseGeometry):
+        return current.equals_exact(new, 1e-3) or current.equals(new)
+    try:
+        return current == new
+    except ValueError:  # e.g. comparing arrays
+        return False

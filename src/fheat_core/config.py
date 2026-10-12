@@ -121,6 +121,9 @@ class FHeatConfig:
     # extra). With table_format="xlsx" they are also embedded in the workbook.
     plot_format: Optional[str] = None
 
+    # XWaermeplan export (FHeatOrchestrator.save_xwp); None = not configured.
+    xwp: Optional["XwpConfig"] = None
+
     _ALLOWED_FORMATS: ClassVar[frozenset] = frozenset({"gpkg", "fgb", "geojson", "gml"})
     _ALLOWED_LANGUAGES: ClassVar[frozenset] = frozenset({"de", "raw"})
     _ALLOWED_TABLE_FORMATS: ClassVar[frozenset] = frozenset({None, "csv", "xlsx"})
@@ -187,6 +190,10 @@ class XwpGemeinde:
     regional_schluessel12: Optional[str] = None  # ARS, 12 digits
     regional_schluessel9: Optional[str] = None   # Verband/Samtgemeinde, 9 digits
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "XwpGemeinde":
+        return cls(**_known(cls, data))
+
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
             raise ValueError("XwpGemeinde.name must not be empty.")
@@ -204,6 +211,10 @@ class XwpExterneReferenz:
     url: str
     art: Optional[str] = None  # code of WP_ExterneReferenzTyp, e.g. "1000" = Wärmeplan als PDF
     beschreibung: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "XwpExterneReferenz":
+        return cls(**_known(cls, data))
 
     def __post_init__(self) -> None:
         if not self.name or not self.url:
@@ -244,6 +255,18 @@ class XwpPlanConfig:
         "beschreibung", "raeumlicherGeltungsbereich", "energiebilanz", "infrastruktur",
         "potenzialanalyse", "massnahme", "text", "bereich",
     })
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "XwpPlanConfig":
+        """From JSON-like data: dates as "JJJJ-MM-TT", nested municipalities and references as dicts."""
+        values = _known(cls, data)
+        values["gemeinde"] = XwpGemeinde.from_dict(values["gemeinde"]) if isinstance(values.get("gemeinde"), dict)             else values.get("gemeinde")
+        values["beteiligte_gemeinden"] = [XwpGemeinde.from_dict(g) for g in values.get("beteiligte_gemeinden", [])]
+        values["externe_referenzen"] = [XwpExterneReferenz.from_dict(r) for r in values.get("externe_referenzen", [])]
+        for key in ("beschluss_datum", "aufstellungsbeschluss_datum"):
+            if isinstance(values.get(key), str):
+                values[key] = date.fromisoformat(values[key])
+        return cls(**values)
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
@@ -316,6 +339,15 @@ class XwpConfig:
     _ALLOWED_FORMATS: ClassVar[frozenset] = frozenset({"gml", "jsonfg", "gpkg"})
     _ALLOWED_YEAR_SOURCES: ClassVar[frozenset] = frozenset({"construction_year", "age", "parcel_year"})
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "XwpConfig":
+        """From JSON-like data (e.g. a plan.json of the command line or the web backend)."""
+        values = _known(cls, data)
+        values["plan"] = XwpPlanConfig.from_dict(values["plan"])
+        if isinstance(values.get("suitability"), dict):
+            values["suitability"] = XwpSuitabilityConfig(**_known(XwpSuitabilityConfig, values["suitability"]))
+        return cls(**values)
+
     def __post_init__(self) -> None:
         self.formats = tuple(self.formats)
         if not self.formats or set(self.formats) - self._ALLOWED_FORMATS:
@@ -332,6 +364,17 @@ class XwpConfig:
                 f"XwpConfig.construction_year_sources must be a non-empty subset of "
                 f"{sorted(self._ALLOWED_YEAR_SOURCES)}."
             )
+
+
+def _known(cls, data: dict) -> dict:
+    """``data`` restricted to the fields of the dataclass ``cls``; unknown keys are an error."""
+    import dataclasses
+
+    names = {f.name for f in dataclasses.fields(cls)}
+    unknown = sorted(set(data) - names)
+    if unknown:
+        raise ValueError(f"{cls.__name__}: unknown keys {unknown}; allowed: {sorted(names)}")
+    return dict(data)
 
 
 def _check_code(enum_name: str, code: str, where: str) -> None:

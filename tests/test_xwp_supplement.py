@@ -241,13 +241,22 @@ def test_supplement_overrides_adds_and_skips(tmp_path):
     assert any(msg.startswith("Ergänzung:") for msg in notes.messages)
 
 
-def test_incomplete_placeholder_is_not_taken_over(tmp_path):
+def test_untouched_template_changes_nothing(tmp_path):
     doc, notes = _plan()
     paths = write_template(doc, tmp_path / "e.gpkg", None, notes.placeholders)
     merged, notes = _plan(supplement=read_supplement(gpkg=paths["gpkg"]))
-    assert merged.of_type("WP_PotenzialWaermenutzung") == []
-    assert notes.supplement_skipped == 1
-    assert any("energietraeger fehlt" in i.message for i in notes.supplement_issues)
+    assert merged.of_type("WP_PotenzialWaermenutzung") == []  # the placeholder is still open
+    assert (notes.supplement_overridden, notes.supplement_added, notes.supplement_skipped) == (0, 0, 0)
+    assert notes.supplement_open_placeholders == 1 and notes.supplement_issues == []
+    assert comparable(merged) == comparable(_plan()[0])
+
+
+def test_incomplete_new_object_is_refused():
+    doc, _ = _plan()
+    source = m.WP_PotenzialWaermenutzung(position=Point(X0, Y0), waermepotenzial=10.0)
+    result = apply_supplement(doc, _supplement([source]))
+    assert result.skipped == 1 and doc.of_type("WP_PotenzialWaermenutzung") == []
+    assert "energietraeger fehlt" in result.issues[0].message
 
 
 def test_a_second_plan_is_refused():

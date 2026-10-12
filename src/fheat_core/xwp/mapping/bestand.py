@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 import geopandas as gpd
 import pandas as pd
+import shapely
 from pyproj import Transformer
 from shapely.geometry import MultiLineString, Polygon, box
 from shapely.geometry.base import BaseGeometry
@@ -68,7 +69,10 @@ class MappingNotes:
     supplement_overridden: int = 0
     supplement_added: int = 0
     supplement_skipped: int = 0
+    supplement_open_placeholders: int = 0
     supplement_issues: list = field(default_factory=list)
+    supplement_ids: set = field(default_factory=set)  # objects added or overridden by the supplement
+    proposal_ids: set = field(default_factory=set)  # proposals of F|Heat (supply areas, suitability checks)
     messages: list[str] = field(default_factory=list)
 
 
@@ -174,7 +178,8 @@ def _boundary(boundary, buildings: gpd.GeoDataFrame) -> BaseGeometry:
     else:
         geom = boundary
     if geom is None or geom.is_empty:
-        geom = unary_union(list(buildings.geometry)).buffer(BOUNDARY_BUFFER_M)
+        # buffer each building, then union: a buffer of the union takes minutes for a town
+        geom = shapely.union_all(shapely.buffer(buildings.geometry.values, BOUNDARY_BUFFER_M, quad_segs=4))
     return polygonal(make_valid(geom) if not geom.is_valid else geom)
 
 

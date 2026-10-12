@@ -84,12 +84,15 @@ def build_plan(
     notes.messages.extend(_messages(notes))
     doc.link_reverse()
     if supplement is not None:
-        merged = apply_supplement(doc, supplement)
+        merged = apply_supplement(doc, supplement, placeholder_ids={p.id for p in notes.placeholders})
         notes.supplement_overridden, notes.supplement_added = merged.overridden, merged.added
         notes.supplement_skipped, notes.supplement_issues = merged.skipped, merged.issues
+        notes.supplement_ids = merged.added_ids | merged.overridden_ids
+        notes.supplement_open_placeholders = merged.open_placeholders
         notes.messages.append(
-            f"Ergänzung: {merged.overridden} Objekte überschrieben, {merged.added} hinzugefügt, "
-            f"{merged.skipped} nicht übernommen, {len(merged.issues)} Befunde."
+            f"Ergänzung: {merged.overridden} Objekte geändert, {merged.added} hinzugefügt, "
+            f"{merged.skipped} nicht übernommen, {merged.open_placeholders} Platzhalter noch offen, "
+            f"{len(merged.issues)} Befunde."
         )
     return doc, notes
 
@@ -230,8 +233,10 @@ def _supply_areas(doc, ctx: InventoryContext, nets: list[_Net], wld, config: Xwp
         line_stage = stage(wld_value, thresholds.heat_line_density) if wld_value is not None else density_stage
         suitability = max(density_stage, line_stage)  # the worse stage: higher code
         in_network = network_area is not None and block.geometry.representative_point().within(network_area)
+        area_id = ctx.ids("WP_WaermeversorgungsgebietZieljahr", block.key)
+        planning.proposal_ids.add(area_id)
         doc.add(m.WP_WaermeversorgungsgebietZieljahr(
-            id=ctx.ids("WP_WaermeversorgungsgebietZieljahr", block.key),
+            id=area_id,
             gehoertZuBereich=ctx.in_bereich,
             position=block.geometry,
             versorgungsart=(m.WP_WaermeversorgungsgebietTyp.Waermenetzgebiet if in_network
@@ -241,8 +246,10 @@ def _supply_areas(doc, ctx: InventoryContext, nets: list[_Net], wld, config: Xwp
         ))
         planning.proposed_supply_areas += 1
         if suitability == "4000":
+            check_id = ctx.ids("WP_Eignungspruefung", block.key)
+            planning.proposal_ids.add(check_id)
             doc.add(m.WP_Eignungspruefung(
-                id=ctx.ids("WP_Eignungspruefung", block.key),
+                id=check_id,
                 gehoertZuBereich=ctx.in_bereich,
                 position=block.geometry,
                 istUngeeignetWaermenetz=True,

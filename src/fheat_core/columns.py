@@ -250,3 +250,14 @@ def to_display(df, mapping: dict[str, str] = LABELS_DE):
     """
     rename = {c: mapping[c] for c in df.columns if c in mapping}
     return df.rename(columns=rename) if rename else df
+
+
+def from_display(df, mapping: dict[str, str] = LABELS_DE):
+    """Inverse of :func:`to_display`: German display labels back to canonical names.
+
+    For files written by ``save_outputs`` with ``output_language="de"``.
+    Columns that are no label stay unchanged. Returns a new object.
+    """
+    inverse = {label: name for name, label in mapping.items()}
+    rename = {c: inverse[c] for c in df.columns if c in inverse}
+    return df.rename(columns=rename) if rename else df

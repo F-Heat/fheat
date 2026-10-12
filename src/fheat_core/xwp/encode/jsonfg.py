@@ -9,6 +9,7 @@ of the model, references are JSON-FG link objects ``{"href": "#<uuid>",
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -87,8 +88,11 @@ def validate_jsonfg(source, version: str = "0.9.6") -> list[str]:
 
     Each feature is checked against the definition of its ``featureType``: the
     FeatureCollection definition alone would only check mixed collections
-    against the generic JSON-FG feature (kodierung.md, 1.).
-    Needs jsonschema >= 4.18.
+    against the generic JSON-FG feature (kodierung.md, 1.). Checking every
+    coordinate through the schema takes minutes for a town, so the schema
+    sees the geometries cut down to their first positions (type and nesting
+    are checked) and all coordinates are checked here to be pairs of finite
+    numbers. Needs jsonschema >= 4.18.
     """
     from jsonschema import Draft202012Validator
 
@@ -103,25 +107,62 @@ def validate_jsonfg(source, version: str = "0.9.6") -> list[str]:
     registry, base = json_registry(version)
     checker = Draft202012Validator.FORMAT_CHECKER
     collection_uri = base.replace("features.json", "featurecollection.json")
+    envelope = {k: v for k, v in data.items() if k != "features"} if isinstance(data, dict) else data
+    if isinstance(data, dict) and "features" in data:
+        envelope["features"] = []
     messages = [
         f"FeatureCollection {_path(e)}: {e.message}"
-        for e in Draft202012Validator({"$ref": collection_uri}, registry=registry, format_checker=checker).iter_errors(data)
+        for e in Draft202012Validator({"$ref": collection_uri}, registry=registry, format_checker=checker).iter_errors(envelope)
     ]
     validators: dict[str, Draft202012Validator] = {}
-    for i, f in enumerate(data.get("features", [])):
-        ft = f.get("featureType")
+    for i, f in enumerate(data.get("features", []) if isinstance(data, dict) else []):
+        ft = f.get("featureType") if isinstance(f, dict) else None
         if not isinstance(ft, str):
             messages.append(f"Feature {i}: featureType fehlt")
             continue
         if ft not in validators:
             validators[ft] = Draft202012Validator({"$ref": f"{base}#{ft}"}, registry=registry, format_checker=checker)
+        slim = dict(f)
+        for member in ("place", "geometry"):
+            geom = f.get(member)
+            if isinstance(geom, dict) and isinstance(geom.get("coordinates"), list):
+                bad = _bad_coordinates(geom["coordinates"])
+                if bad:
+                    messages.append(f"Feature {f.get('id')} ({ft}) {member}: {bad}")
+                slim[member] = dict(geom, coordinates=_first_positions(geom["coordinates"]))
         try:
-            errors = list(validators[ft].iter_errors(f))
+            errors = list(validators[ft].iter_errors(slim))
         except Exception as exc:  # unknown featureType: the anchor does not resolve
             messages.append(f"Feature {f.get('id')} ({ft}): unbekannte Objektart ({exc.__class__.__name__})")
             continue
         messages.extend(f"Feature {f.get('id')} ({ft}) {_path(e)}: {e.message}" for e in errors)
     return messages
+
+
+def _first_positions(coords, keep: int = 4):
+    """The same nesting with only the first part and up to ``keep`` positions (rings need 4)."""
+    if not isinstance(coords, list) or not coords or not isinstance(coords[0], list):
+        return coords
+    if not isinstance(coords[0][0], list):  # a list of positions
+        return coords[:keep]
+    return [_first_positions(coords[0], keep)]
+
+
+def _bad_coordinates(coords) -> str | None:
+    """None when every position is a pair (or triple) of finite numbers, else a message."""
+    stack = [coords]
+    while stack:
+        node = stack.pop()
+        if not isinstance(node, list) or not node:
+            return "Koordinaten müssen verschachtelte, nicht leere Listen sein"
+        if isinstance(node[0], list):
+            stack.extend(node)
+            continue
+        if len(node) not in (2, 3) or not all(
+            isinstance(c, (int, float)) and not isinstance(c, bool) and math.isfinite(c) for c in node
+        ):
+            return f"ungültige Position {node!r}"
+    return None
 
 
 def _path(error) -> str:
