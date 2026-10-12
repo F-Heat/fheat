@@ -23,7 +23,9 @@ import dataclasses
 import datetime
 import enum
 import math
+import sys
 import uuid
+from types import ModuleType
 from dataclasses import dataclass, field
 from typing import Any, Callable, ClassVar
 
@@ -159,6 +161,12 @@ class XwpFeature(XwpObject):
 @dataclass(kw_only=True)
 class XwpDataType(XwpObject):
     """A value object nested in a feature (no identity)."""
+
+
+def model_module(obj: XwpObject | type[XwpObject]) -> ModuleType:
+    """The generated module (``VERSION``, ``NAMESPACE``, ``CLASSES`` …) an object belongs to."""
+    cls = obj if isinstance(obj, type) else type(obj)
+    return sys.modules[cls.__module__]
 
 
 def make_register(

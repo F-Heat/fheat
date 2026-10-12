@@ -18,32 +18,13 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "src" / "fheat_core" / "xwp" / "spec" / "0.9.6"
 FIXTURES = ROOT / "tests" / "fixtures" / "xwp"
 XWP_NS = "http://www.xwaermeplan.de/0/9/6"
-SF_XSD = "http://schemas.opengis.net/ogcapi/features/part1/1.0/xml/core-sf.xsd"
 
 
 @pytest.fixture(scope="module")
 def xsd_schema():
-    xsd_dir = SPEC / "xsd"
-    ns = "{urn:oasis:names:tc:entity:xmlns:xml:catalog}"
-    catalog = etree.parse(str(xsd_dir / "catalog.xml")).getroot()
-    mapping = {u.get("name"): str(xsd_dir / u.get("uri")) for u in catalog.iter(f"{ns}uri")}
+    from fheat_core.xwp.specfiles import xsd_schema
 
-    class CatalogResolver(etree.Resolver):
-        def resolve(self, url, pubid, context):
-            if url in mapping:
-                return self.resolve_filename(mapping[url], context)
-            return None
-
-    parser = etree.XMLParser(no_network=True)
-    parser.resolvers.add(CatalogResolver())
-    # instances have sf:FeatureCollection as root, so import both schemas
-    wrapper = (
-        '<schema xmlns="http://www.w3.org/2001/XMLSchema">'
-        f'<import namespace="{XWP_NS}" schemaLocation="{(xsd_dir / "waermeplan.xsd").as_uri()}"/>'
-        f'<import namespace="http://www.opengis.net/ogcapi-features-1/1.0/sf" schemaLocation="{SF_XSD}"/>'
-        "</schema>"
-    )
-    return etree.XMLSchema(etree.fromstring(wrapper.encode(), parser))
+    return xsd_schema("0.9.6")
 
 
 def test_xsd_is_version_0_9_6():
@@ -73,15 +54,9 @@ def test_gml_and_json_excerpts_hold_the_same_features():
 @pytest.fixture(scope="module")
 def json_registry():
     pytest.importorskip("jsonschema")
-    referencing = pytest.importorskip("referencing")
-    json_dir = SPEC / "json"
-    catalog = json.loads((json_dir / "catalog.json").read_text(encoding="utf-8"))
-    resources = [
-        (uri, referencing.Resource.from_contents(json.loads((json_dir / rel).read_text(encoding="utf-8"))))
-        for uri, rel in catalog.items()
-    ]
-    base = next(uri for uri in catalog if uri.endswith("/features.json"))
-    return referencing.Registry().with_resources(resources), base
+    from fheat_core.xwp.specfiles import json_registry
+
+    return json_registry("0.9.6")
 
 
 def _validator(json_registry, feature_type):
