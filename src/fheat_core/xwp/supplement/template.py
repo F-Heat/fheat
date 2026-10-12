@@ -47,12 +47,18 @@ INSTRUCTIONS = [
 ]
 
 
-def template_document(doc: XwpPlanDocument, placeholders: Iterable[XwpFeature] = ()) -> XwpPlanDocument:
-    """The objects of ``doc`` the planner reviews (computed values removed), plus ``placeholders``."""
+def template_document(
+    doc: XwpPlanDocument, placeholders: Iterable[XwpFeature] = (), include_plan: bool = True
+) -> XwpPlanDocument:
+    """The objects of ``doc`` the planner reviews (computed values removed), plus ``placeholders``.
+
+    ``include_plan=False`` leaves the plan out, for applications that keep the plan
+    metadata in their own form: an old plan row of a template would override it.
+    """
     out = XwpPlanDocument(id=doc.id)
     for f in doc.features:
         name = type(f).__xwp__.name
-        if name not in REVIEW:
+        if name not in REVIEW or (name == "WP_Plan" and not include_plan):
             continue
         c = copy.deepcopy(f)
         for attr in REVIEW[name]:
@@ -67,9 +73,10 @@ def write_template(
     gpkg_path: str | Path,
     xlsx_path: str | Path | None = None,
     placeholders: Iterable[XwpFeature] = (),
+    include_plan: bool = True,
 ) -> dict[str, Path]:
-    """Write the supplement template(s); returns the written paths by format."""
-    template = template_document(doc, placeholders)
+    """Write the supplement template(s); returns the written paths by format (see ``template_document``)."""
+    template = template_document(doc, placeholders, include_plan)
     written = {"gpkg": write_gpkg(template, gpkg_path, include_empty=True, check=False)}
     if xlsx_path is not None:
         written["xlsx"] = write_template_xlsx(template, xlsx_path)

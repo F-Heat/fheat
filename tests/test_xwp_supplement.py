@@ -295,3 +295,14 @@ def test_every_supplement_class_can_be_filled_in(tmp_path):
     assert result.issues == [] and result.added == len(SUPPLEMENT_CLASSES)
     assert target.errors() == []
     assert comparable(target) == comparable(doc)
+
+
+def test_template_without_plan_row(tmp_path):
+    import pyogrio
+
+    doc, notes = _plan()
+    with_plan = write_template(doc, tmp_path / "a.gpkg", None, notes.placeholders)
+    without = write_template(doc, tmp_path / "b.gpkg", None, notes.placeholders, include_plan=False)
+    assert len(pyogrio.read_dataframe(with_plan["gpkg"], layer="wp_plan")) == 1
+    assert len(pyogrio.read_dataframe(without["gpkg"], layer="wp_plan")) == 0
+    assert len(pyogrio.read_dataframe(without["gpkg"], layer="wp_waermeversorgungsgebietzieljahr")) == 2

@@ -99,8 +99,12 @@ def export_template(
     networks: Sequence[NetworkInput] = (),
     supply_decisions: Sequence[SupplyDecision] = (),
     basename: str = TEMPLATE_BASENAME,
+    include_plan: bool = True,
 ) -> dict[str, Path]:
-    """Write the supplement template (GeoPackage, and Excel when openpyxl is installed)."""
+    """Write the supplement template (GeoPackage, and Excel when openpyxl is installed).
+
+    ``include_plan=False``: without the plan row, when the plan metadata come from a form.
+    """
     import importlib.util
 
     out_dir = Path(out_dir)
@@ -108,7 +112,7 @@ def export_template(
     doc, notes = build_plan(buildings, wld, config, networks=networks, parcels=parcels, streets=streets,
                             boundary=boundary, data_year=data_year, supply_decisions=supply_decisions)
     xlsx = out_dir / f"{basename}.xlsx" if importlib.util.find_spec("openpyxl") else None
-    written = write_template(doc, out_dir / f"{basename}.gpkg", xlsx, notes.placeholders)
+    written = write_template(doc, out_dir / f"{basename}.gpkg", xlsx, notes.placeholders, include_plan)
     return {f"xwp_template_{fmt}": path for fmt, path in written.items()}
 
 
