@@ -63,6 +63,7 @@ class MappingNotes:
     networks: int = 0
     networks_skipped: list[str] = field(default_factory=list)
     proposed_supply_areas: int = 0
+    decided_supply_areas: int = 0
     proposed_suitability_checks: int = 0
     # phase 8: placeholders for the supplement template (not part of the plan) and the merge
     placeholders: list = field(default_factory=list)

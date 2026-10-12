@@ -70,6 +70,7 @@ def build_plan(
     boundary=None,
     data_year: int | None = None,
     supplement: Supplement | None = None,
+    supply_decisions: Sequence[SupplyDecision] = (),
 ) -> tuple[XwpPlanDocument, MappingNotes]:
     """The whole plan: inventory (phase 6), networks, supply areas and suitability (phase 7)
     and the planner's supplement (phase 8). ``notes.placeholders`` holds the objects the
@@ -79,7 +80,7 @@ def build_plan(
     nets = _networks(doc, ctx, networks, notes)
     if nets:
         doc.add(_target_year_infrastructure(ctx, nets, config))
-    _supply_areas(doc, ctx, nets, wld, config, notes)
+    _supply_areas(doc, ctx, nets, wld, config, notes, supply_decisions)
     notes.placeholders = _placeholders(ctx, networks, config)
     notes.messages.extend(_messages(notes))
     doc.link_reverse()
@@ -99,6 +100,23 @@ def build_plan(
 
 # --------------------------------------------------------------------------
 # networks
+
+
+@dataclass
+class SupplyDecision:
+    """The planner's decision for an area: every building block whose inner point lies in it
+    gets this supply type (WP_WaermeversorgungsgebietTyp) instead of F|Heat's proposal, and,
+    if given, this suitability for a heat network (WP_Eignungsstufe)."""
+
+    geometry: object  # shapely, EPSG:25832
+    versorgungsart: str
+    eignung_waermenetz: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if str(self.versorgungsart) not in {e.code for e in m.WP_WaermeversorgungsgebietTyp}:
+            raise ValueError(f"SupplyDecision.versorgungsart {self.versorgungsart!r} is not a code of WP_WaermeversorgungsgebietTyp.")
+        if self.eignung_waermenetz is not None and str(self.eignung_waermenetz) not in {e.code for e in m.WP_Eignungsstufe}:
+            raise ValueError(f"SupplyDecision.eignung_waermenetz {self.eignung_waermenetz!r} is not a code of WP_Eignungsstufe.")
 
 
 @dataclass
@@ -222,7 +240,8 @@ def _block_line_density(ctx: InventoryContext, wld: gpd.GeoDataFrame | None) -> 
     return out
 
 
-def _supply_areas(doc, ctx: InventoryContext, nets: list[_Net], wld, config: XwpConfig, planning: MappingNotes):
+def _supply_areas(doc, ctx: InventoryContext, nets: list[_Net], wld, config: XwpConfig, planning: MappingNotes,
+                  decisions: Sequence[SupplyDecision] = ()):
     network_area = unary_union([n.area for n in nets]) if nets else None
     line_density = _block_line_density(ctx, wld)
     thresholds = config.suitability
@@ -232,19 +251,26 @@ def _supply_areas(doc, ctx: InventoryContext, nets: list[_Net], wld, config: Xwp
         wld_value = line_density.get(block.key)
         line_stage = stage(wld_value, thresholds.heat_line_density) if wld_value is not None else density_stage
         suitability = max(density_stage, line_stage)  # the worse stage: higher code
-        in_network = network_area is not None and block.geometry.representative_point().within(network_area)
+        point = block.geometry.representative_point()
+        in_network = network_area is not None and point.within(network_area)
+        supply = "1000" if in_network else "3000"
+        decision = next((d for d in decisions if point.within(d.geometry)), None)
         area_id = ctx.ids("WP_WaermeversorgungsgebietZieljahr", block.key)
-        planning.proposal_ids.add(area_id)
+        if decision is not None:
+            supply = str(decision.versorgungsart)
+            suitability = str(decision.eignung_waermenetz or suitability)
+            planning.decided_supply_areas += 1
+        else:
+            planning.proposal_ids.add(area_id)
+            planning.proposed_supply_areas += 1
         doc.add(m.WP_WaermeversorgungsgebietZieljahr(
             id=area_id,
             gehoertZuBereich=ctx.in_bereich,
             position=block.geometry,
-            versorgungsart=(m.WP_WaermeversorgungsgebietTyp.Waermenetzgebiet if in_network
-                            else m.WP_WaermeversorgungsgebietTyp.GebietDezentrWaerVersorgung),
+            versorgungsart=m.WP_WaermeversorgungsgebietTyp(supply),
             waermeMenge=energie.waermeMenge,
             eignungWaermenetz=m.WP_Eignungsstufe(suitability),
         ))
-        planning.proposed_supply_areas += 1
         if suitability == "4000":
             check_id = ctx.ids("WP_Eignungspruefung", block.key)
             planning.proposal_ids.add(check_id)
@@ -288,6 +314,8 @@ def _placeholders(ctx: InventoryContext, networks: Sequence[NetworkInput], confi
 
 def _messages(planning: MappingNotes) -> list[str]:
     out = [f"Netz übersprungen: {s}" for s in planning.networks_skipped]
+    if planning.decided_supply_areas:
+        out.append(f"{planning.decided_supply_areas} Wärmeversorgungsgebiete (Zieljahr) nach Entscheidung des Planers.")
     if planning.proposed_supply_areas:
         out.append(
             f"{planning.proposed_supply_areas} Wärmeversorgungsgebiete (Zieljahr) sind Vorschläge von F|Heat: "

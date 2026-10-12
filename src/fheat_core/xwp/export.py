@@ -15,7 +15,7 @@ from typing import Iterable, Sequence
 
 from fheat_core.config import XwpConfig
 from fheat_core.xwp.document import XwpPlanDocument
-from fheat_core.xwp.mapping import NetworkInput, build_plan
+from fheat_core.xwp.mapping import NetworkInput, SupplyDecision, build_plan
 from fheat_core.xwp.mapping.bestand import MappingNotes
 from fheat_core.xwp.model.base import ERROR, model_module
 from fheat_core.xwp.supplement import Supplement, read_supplement, write_template
@@ -51,13 +51,15 @@ def export_xwp(
     data_year: int | None = None,
     networks: Sequence[NetworkInput] = (),
     supplement=None,
+    supply_decisions: Sequence[SupplyDecision] = (),
     basename: str = BASENAME,
 ) -> dict[str, Path]:
     """Build the plan and write the formats of ``config.formats`` plus ``<basename>_pruefbericht.json``."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     doc, notes = build_plan(buildings, wld, config, networks=networks, parcels=parcels, streets=streets,
-                            boundary=boundary, data_year=data_year, supplement=load_supplement(supplement))
+                            boundary=boundary, data_year=data_year, supplement=load_supplement(supplement),
+                            supply_decisions=supply_decisions)
     files: dict[str, Path] = {}
     schema_findings: dict[str, list[str]] = {}
     for fmt in config.formats:
@@ -95,6 +97,7 @@ def export_template(
     boundary=None,
     data_year: int | None = None,
     networks: Sequence[NetworkInput] = (),
+    supply_decisions: Sequence[SupplyDecision] = (),
     basename: str = TEMPLATE_BASENAME,
 ) -> dict[str, Path]:
     """Write the supplement template (GeoPackage, and Excel when openpyxl is installed)."""
@@ -103,7 +106,7 @@ def export_template(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     doc, notes = build_plan(buildings, wld, config, networks=networks, parcels=parcels, streets=streets,
-                            boundary=boundary, data_year=data_year)
+                            boundary=boundary, data_year=data_year, supply_decisions=supply_decisions)
     xlsx = out_dir / f"{basename}.xlsx" if importlib.util.find_spec("openpyxl") else None
     written = write_template(doc, out_dir / f"{basename}.gpkg", xlsx, notes.placeholders)
     return {f"xwp_template_{fmt}": path for fmt, path in written.items()}

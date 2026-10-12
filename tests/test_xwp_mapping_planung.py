@@ -138,3 +138,22 @@ def test_plan_writes_valid_gml_and_jsonfg(town):
     doc, _ = _plan(town, [NetworkInput(_network(town[0]), supply_temperature=80.0)], energy_raster=True)
     assert validate_gml(to_gml(doc)) == []
     assert validate_jsonfg(to_jsonfg(doc)) == []
+
+
+def test_planner_decisions_replace_the_proposal(town):
+    from fheat_core.xwp.mapping import SupplyDecision
+
+    east = box(X0 + 100, Y0, X0 + 200, Y0 + 100)
+    decision = SupplyDecision(east, versorgungsart="10003", eignung_waermenetz="2000")
+    buildings, wld, streets, boundary = town
+    doc, notes = build_plan(buildings, wld, _config(), networks=[NetworkInput(_network(town[0]))], streets=streets,
+                            boundary=boundary, data_year=2024, supply_decisions=[decision])
+    areas = doc.of_type("WP_WaermeversorgungsgebietZieljahr")
+    decided = next(a for a in areas if a.position.centroid.x > X0 + 100)
+    proposed = next(a for a in areas if a.position.centroid.x < X0 + 100)
+    assert decided.versorgungsart.code == "10003" and decided.eignungWaermenetz.code == "2000"
+    assert proposed.versorgungsart.code == "1000"  # still the proposal from the network area
+    assert (notes.decided_supply_areas, notes.proposed_supply_areas) == (1, 1)
+    assert decided.id not in notes.proposal_ids and proposed.id in notes.proposal_ids
+    with pytest.raises(ValueError, match="WP_WaermeversorgungsgebietTyp"):
+        SupplyDecision(east, versorgungsart="7")
