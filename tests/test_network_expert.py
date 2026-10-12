@@ -27,14 +27,17 @@ from fheat_core.network.base import (
     NO_ROUTABLE_STREETS,
     SOLVER_UNAVAILABLE,
     SOURCE_ON_STREET,
+    TIME_LIMIT,
     TOPOTHERM_UNAVAILABLE,
     NetworkBackend,
     NetworkBackendError,
 )
+from fheat_core.network import topotherm_backend
 from fheat_core.network.topotherm_backend import (
     TopothermBackend,
     _as_2d_float,
     _require_topotherm,
+    _set_solver_limits,
 )
 from fheat_core.resources import load_pipe_info
 from fheat_core.schemas import NetSchema
@@ -844,6 +847,40 @@ def test_unavailable_solver_names_the_fix(tt, expert_state, expert_adapter):
     with pytest.raises(NetworkBackendError, match="is not available") as excinfo:
         network_step.run(expert_state, config, expert_adapter)
     assert excinfo.value.code == SOLVER_UNAVAILABLE
+
+
+def test_solver_limits_reach_highs_and_the_legacy_plugins():
+    """HiGHS (Pyomo's newer interface) takes them from config, not from options.
+
+    There HiGHS rejects the legacy option names without an error in Python,
+    so the run would have no time limit at all.
+    """
+    pyo = pytest.importorskip("pyomo.environ")
+    highs = pyo.SolverFactory("highs")
+    _set_solver_limits(highs, 300, 0.01)
+    assert (highs.config.time_limit, highs.config.rel_gap) == (300, 0.01)
+    assert "timelimit" not in highs.options and "mipgap" not in highs.options
+
+    # constructing the plugin needs no Gurobi installation
+    gurobi = pyo.SolverFactory("gurobi")
+    _set_solver_limits(gurobi, 300, 0.01)
+    assert (gurobi.options["timelimit"], gurobi.options["mipgap"]) == (300, 0.01)
+
+
+def test_reaching_the_time_limit_is_reported_as_such(tt, expert_state, expert_adapter, monkeypatch):
+    """The solver stops at the limit, also before any feasible solution.
+
+    TopothermConfig takes whole seconds and the fixture solves within one, so
+    the limit handed to the solver is made tiny.
+    """
+    pytest.importorskip("highspy")
+    set_limits = topotherm_backend._set_solver_limits
+    monkeypatch.setattr(
+        topotherm_backend, "_set_solver_limits", lambda opt, time_limit, mip_gap: set_limits(opt, 1e-6, mip_gap)
+    )
+    with pytest.raises(NetworkBackendError, match="maxTimeLimit") as excinfo:
+        network_step.run(expert_state, _forced_config(), expert_adapter)
+    assert excinfo.value.code == TIME_LIMIT
 
 
 def test_expert_mode_uses_the_shipped_catalogue_when_the_adapter_has_none(
