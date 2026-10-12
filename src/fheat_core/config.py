@@ -305,6 +305,9 @@ class XwpConfig:
     suitability: XwpSuitabilityConfig = field(default_factory=XwpSuitabilityConfig)
     precision: int = 3  # decimal places of EPSG:25832 coordinates
     energy_raster: bool = False  # WP_EnergieRaster on the 100 m INSPIRE grid
+    # Buildings with at least this heat demand [MWh/a] become WP_Grossverbraucher
+    # placeholders in the supplement template; None = none.
+    large_consumer_mwh: Optional[float] = None
     # Where the construction year for WP_Baualtersklasse comes from, first hit
     # wins: construction_year (true year, e.g. flex adapter), age (LANUV age
     # class, NRW), parcel_year (validFrom of the parcel, NRW; a weak proxy).
@@ -321,6 +324,8 @@ class XwpConfig:
             raise ValueError("XwpConfig.privacy_min_buildings must be >= 1.")
         if not 0 <= self.precision <= 6:
             raise ValueError("XwpConfig.precision must be between 0 and 6.")
+        if self.large_consumer_mwh is not None and self.large_consumer_mwh <= 0:
+            raise ValueError("XwpConfig.large_consumer_mwh must be > 0 or None.")
         self.construction_year_sources = tuple(self.construction_year_sources)
         if not self.construction_year_sources or set(self.construction_year_sources) - self._ALLOWED_YEAR_SOURCES:
             raise ValueError(

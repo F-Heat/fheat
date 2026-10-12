@@ -148,14 +148,14 @@ def _columns(attrs, table: str, children: list[TableDef], model, skip: AttrInfo 
         if a.many or a.kind == DATATYPE:
             children.extend(_child_tables(a, table, model))
             continue
-        cols.append(_value_column(a))
+        cols.append(value_column(a))
     names = [c.name for c in cols]
     if len(names) != len(set(names)):
         raise ValueError(f"{table}: column names collide after lower-casing: {names}")
     return cols
 
 
-def _value_column(a: AttrInfo) -> Column:
+def value_column(a: AttrInfo) -> Column:
     label = a.name + (f" [{a.uom}]" if a.uom else "")
     if a.kind == ENUM:
         return Column(f"{a.name.lower()}_fkcl", "str", f"{label} ({a.type})", a.doc)
@@ -172,7 +172,7 @@ def _child_tables(a: AttrInfo, parent: str, model) -> list[TableDef]:
     if a.kind == DATATYPE:
         columns += _columns(model.CLASSES[a.type].__xwp__.attrs, name, children, model)
     else:
-        columns.append(_value_column(a))
+        columns.append(value_column(a))
     return [TableDef(name=name, columns=columns, identifier=f"{parent}.{a.name}", description=a.doc,
                      parent=parent, attr=a)] + children
 
@@ -233,10 +233,10 @@ def _fill(row: dict, obj: XwpObject, attrs, table: str, row_id: str, by_name: di
                 if a.kind == DATATYPE:
                     _fill(crow, v, type(v).__xwp__.attrs, child.name, child_id, by_name)
                 else:
-                    crow[_value_column(a).name] = _scalar(a, v)
+                    crow[value_column(a).name] = _scalar(a, v)
                 child.rows.append(crow)
             continue
-        row[_value_column(a).name] = _scalar(a, vals[0]) if vals else None
+        row[value_column(a).name] = _scalar(a, vals[0]) if vals else None
 
 
 def _scalar(a: AttrInfo, v) -> Any:

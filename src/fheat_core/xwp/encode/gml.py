@@ -135,7 +135,8 @@ class _Writer:
     def value(self, el, attr: AttrInfo, v, feature_uuid: uuid.UUID, path: str) -> None:
         kind = attr.kind
         if kind == MEASURE:
-            el.set("uom", attr.uom)
+            # a value read with another unit keeps it (validate() reports the deviation)
+            el.set("uom", (v.uom if isinstance(v, Measure) else None) or attr.uom)
             el.text = repr(float(v.value if isinstance(v, Measure) else v))
         elif kind == ENUM:
             el.text = v.code

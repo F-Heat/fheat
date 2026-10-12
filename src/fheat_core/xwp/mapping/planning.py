@@ -36,6 +36,7 @@ from fheat_core.xwp.mapping.bestand import InventoryContext, MappingNotes, inven
 from fheat_core.xwp.mapping.blocks import polygonal
 from fheat_core.xwp.model import Ref
 from fheat_core.xwp.model import current as m
+from fheat_core.xwp.supplement.reader import Supplement, apply_supplement
 
 ROUTE_BUFFER_M = 10.0  # network area around the route when the network has no planning area
 DEFAULT_STATUS = "3000"  # potenziell: a calculation result is no decided network
@@ -68,16 +69,28 @@ def build_plan(
     streets: gpd.GeoDataFrame | None = None,
     boundary=None,
     data_year: int | None = None,
+    supplement: Supplement | None = None,
 ) -> tuple[XwpPlanDocument, MappingNotes]:
-    """The whole plan: inventory (phase 6) plus networks, supply areas and suitability."""
+    """The whole plan: inventory (phase 6), networks, supply areas and suitability (phase 7)
+    and the planner's supplement (phase 8). ``notes.placeholders`` holds the objects the
+    supplement template offers for completion."""
     doc, notes, ctx = inventory(buildings, wld, config, parcels=parcels, streets=streets,
                                 boundary=boundary, data_year=data_year, link=False)
     nets = _networks(doc, ctx, networks, notes)
     if nets:
         doc.add(_target_year_infrastructure(ctx, nets, config))
     _supply_areas(doc, ctx, nets, wld, config, notes)
+    notes.placeholders = _placeholders(ctx, networks, config)
     notes.messages.extend(_messages(notes))
     doc.link_reverse()
+    if supplement is not None:
+        merged = apply_supplement(doc, supplement)
+        notes.supplement_overridden, notes.supplement_added = merged.overridden, merged.added
+        notes.supplement_skipped, notes.supplement_issues = merged.skipped, merged.issues
+        notes.messages.append(
+            f"Ergänzung: {merged.overridden} Objekte überschrieben, {merged.added} hinzugefügt, "
+            f"{merged.skipped} nicht übernommen, {len(merged.issues)} Befunde."
+        )
     return doc, notes
 
 
@@ -235,6 +248,35 @@ def _supply_areas(doc, ctx: InventoryContext, nets: list[_Net], wld, config: Xwp
                 istUngeeignetWaermenetz=True,
             ))
             planning.proposed_suitability_checks += 1
+
+
+def _placeholders(ctx: InventoryContext, networks: Sequence[NetworkInput], config: XwpConfig) -> list:
+    """Objects the planner completes in the supplement template; not valid on their own."""
+    out = []
+    for i, net in enumerate(networks, start=1):
+        source = net.state.source_gdf
+        if source is None or source.empty:
+            continue
+        crs = net.state.buildings_gdf.crs if net.state.buildings_gdf is not None else source.crs
+        geom = unary_union(list(source.to_crs(crs).geometry))
+        out.append(m.WP_PotenzialWaermenutzung(
+            id=ctx.ids("WP_PotenzialWaermenutzung", f"N{i:02d}"),
+            gehoertZuBereich=ctx.in_bereich,
+            position=geom,
+            hinweis=f"Wärmequelle von {net.name or f'Wärmenetz N{i:02d}'}: Energieträger und Wärmepotenzial bitte eintragen.",
+        ))
+    if config.large_consumer_mwh is not None:
+        big = ctx.heated[ctx.heated[cols.HEAT_DEMAND] >= config.large_consumer_mwh * units.KWH_PER_MWH]
+        for label, row in big.iterrows():
+            key = int(row[cols.BUILDING_ID]) if cols.BUILDING_ID in big.columns else label
+            out.append(m.WP_Grossverbraucher(
+                id=ctx.ids("WP_Grossverbraucher", key),
+                gehoertZuBereich=ctx.in_bereich,
+                position=row.geometry.representative_point(),
+                status=m.WP_Status.Bestehend,
+                energiebedarf=m.WP_EnergiebedarfArt.Waerme,
+            ))
+    return out
 
 
 def _messages(planning: MappingNotes) -> list[str]:
