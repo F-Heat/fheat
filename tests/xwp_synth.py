@@ -118,3 +118,21 @@ def document(model, feature_type: str, maximal: bool, variable_as: str = "surfac
     obj = doc.of_type(feature_type)[0] if feature_type in s.refs else make(feature_type)
     doc.link_reverse()
     return doc, obj, s
+
+
+def document_all(model, maximal: bool, variable_as: str = "surface") -> tuple[XwpPlanDocument, dict[str, XwpObject]]:
+    """One valid document with an object of every concrete feature type; returns it and the objects by type."""
+    s = Synth(model, variable_as)
+    doc = XwpPlanDocument()
+    objects: dict[str, XwpObject] = {}
+    for name in ("WP_Plan", "WP_Bereich", *PLAN_PARTS):
+        obj = s.build(name, maximal)
+        s.refs[name] = obj
+        objects[name] = obj
+        doc.add(obj)
+    for name in model.FEATURE_TYPES:
+        if name not in objects:
+            objects[name] = s.build(name, maximal)
+            doc.add(objects[name])
+    doc.link_reverse()
+    return doc, objects

@@ -181,18 +181,23 @@ Die Gegenprobe aus `abgleich.md` (J1) zeigt, dass genau diese Form für alle Fea
 
 ## 5. GeoPackage
 
-Es gibt kein offizielles GeoPackage-Schema (`abgleich.md`, Abschnitt 4). Phase 4 schreibt ein nicht normatives F|Heat-Austauschformat und lehnt sich dabei an die relationale DDL `implementierung/postgres/relational/XWärmeplan.sql` an:
+Es gibt kein offizielles GeoPackage-Schema (`abgleich.md`, Abschnitt 4). `fheat_core.xwp.encode.gpkg` schreibt ein **nicht normatives F|Heat-Austauschformat**, das sich an die relationale DDL `implementierung/postgres/relational/XWärmeplan.sql` anlehnt:
 
-| DDL-Muster | Beispiel |
-|---|---|
-| Tabelle je konkreter Objektart, Name klein | `wp_waermelinie` |
-| Spalten klein | `waermemenge`, `waermeliniendichte` |
-| Verweis als `<rolle>_fk` | `gehoertzubereich_fk` |
-| Aufzählung als `<attribut>_fkcl` (Code) + Codelisten-Tabelle (`code`, `model`, `documentation`, `description`) | `status_fkcl` → `wp_status` |
-| mehrwertiger Datentyp als Kindtabelle `<klasse>_<attribut>` | `wp_energiebaublock_eenachenergietraeger` |
-| Geometrie `position` mit festem Typ und EPSG:25832, variable Geometrie als `GEOMETRY` | `position geometry(MULTILINESTRING,25832)` |
+| Regel | Beispiel | Abweichung von der DDL |
+|---|---|---|
+| Tabelle je konkreter Objektart, Name klein | `wp_waermelinie` | – |
+| variable Geometrie (Punkt oder Fläche) auf zwei Tabellen verteilt | `wp_grossverbraucher_punkt`, `wp_grossverbraucher_flaeche` | DDL: eine Tabelle mit `GEOMETRY`; QGIS kommt mit gemischten Geometrietabellen schlecht zurecht |
+| Spalte `uuid` = Objekt-ID, Attributspalten klein | `uuid`, `waermemenge` | DDL: `_id bigserial` |
+| Geometriespalte heißt wie das Attribut, Multi-Typ, EPSG:25832 | `position`, `raeumlichergeltungsbereich` | – |
+| Aufzählung als `<attribut>_fkcl` (Code) + Codelisten-Tabelle `code`, `name`, `label` | `status_fkcl` → `wp_status` | DDL-Codelisten: `code`, `model`, `documentation`, `description` |
+| Verweis als `<rolle>_fk` mit der **UUID** des Ziels | `gehoertzubereich_fk` | DDL: Ganzzahl-ID |
+| Listen-Verweise mit Gegenrichtung werden nicht gespeichert | `WP_Plan.bereich` (steht als `gehoertzuplan_fk` in `wp_bereich`) | – |
+| Datentyp und Mehrfachwert als Kindtabelle `<tabelle>_<attribut>` mit `_id` und `<tabelle>_id` (UUIDs) | `wp_plan_planungsverantwortlichestelle` | DDL: Ganzzahl-IDs |
+| Messwerte als Zahl in der Modelleinheit, Datum als ISO-Text | `waermemenge` = 22.23 | DDL: `date` |
+| Feldaliase (Attributname mit Einheit) und Beschreibungen in `gpkg_data_columns`, Layertitel in `gpkg_contents.identifier` | Alias `waermeMenge [MWh/a]` | – |
+| Tabelle `xwp_metadaten` (`schluessel`, `wert`): Version, Namespace, Dokument-ID, Koordinatensystem, Hinweis „nicht normativ“ | – | – |
 
-Abweichung von der DDL: Eine GeoPackage-Tabelle mit gemischtem Geometrietyp (`GEOMETRY`) lässt sich in QGIS schlecht darstellen. Objektarten mit variabler Geometrie werden deshalb, wie im Umsetzungsplan (Phase 4) beschrieben, auf `_flaeche`- und `_punkt`-Tabellen aufgeteilt.
+Ohne `include_empty` enthält die Datei nur Tabellen mit Zeilen (Codelisten und Metadaten immer); mit `include_empty=True` alle 92 Tabellen, etwa als Vorlage.
 
 ## 6. Testdaten
 
