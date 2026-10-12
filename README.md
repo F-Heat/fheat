@@ -65,6 +65,22 @@ orch.save_outputs(clip_to_planning_area=True)
 - `run_until(phase)` runs the missing steps up to any phase; `run_all()` still runs the whole pipeline.
 - `save_outputs(layers=[...])` writes only some layers (e.g. `["wld", "eignungspolygone"]` after the analysis), `clip_to_planning_area=True` only the features in the planning area (network and source stay complete).
 
+### Cancelling a calculation
+
+`FHeatOrchestrator(..., should_stop=fn)` makes a running step cancellable ([`fheat_core/cancel.py`](src/fheat_core/cancel.py)). F|Heat asks `fn()` before every step and at checkpoints of the network step: before and after its backend, between the backends' parts and in the pauses before an Overpass request is retried. While HiGHS optimises in the expert mode, a solver callback asks `fn()` at most twice a second. Once it returns `True`, the step ends with `fheat_core.cancel.CalculationCancelled`, usually within a second. Gurobi and CPLEX stop at the checkpoints around the optimisation only.
+
+```python
+orch = FHeatOrchestrator(config=config, adapter=adapter, should_stop=lambda: stop_requested.is_set())
+try:
+    orch.run_planning()
+except CalculationCancelled:
+    ...  # the state of the step is undefined, as after any failure
+```
+
+- `CalculationCancelled` is a `BaseException`, like `KeyboardInterrupt`, so the pipeline's `except Exception` blocks (retried downloads, optional layers) do not swallow it. Catch it explicitly.
+- `fn` should be cheap and thread-safe: the solver callback runs on HiGHS' thread. If it raises during the optimisation, the optimisation goes on.
+- `with fheat_core.cancel.cancellable(fn): ...` makes code cancellable without the orchestrator, e.g. a single step function.
+
 ### Network modes
 
 The `NETWORK` phase dispatches to an interchangeable backend, selected by `FHeatConfig.network_mode`. The step itself contains no algorithm; both backends live in [`fheat_core/network/`](src/fheat_core/network/) behind the `NetworkBackend` contract and return the same `NetSchema`-compliant `net_gdf`, so everything downstream (load profile, summary, export labels) is identical.

@@ -10,6 +10,7 @@ from __future__ import annotations
 import builtins
 import subprocess
 import sys
+import time
 import warnings
 
 import geopandas as gpd
@@ -20,6 +21,7 @@ from shapely.geometry import Point
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
+from fheat_core.cancel import CalculationCancelled, cancellable
 from fheat_core.config import FHeatConfig, NetworkMode, TopothermConfig
 from fheat_core.network import DijkstraBackend, get_backend
 from fheat_core.network.base import (
@@ -36,6 +38,7 @@ from fheat_core.network import topotherm_backend
 from fheat_core.network.topotherm_backend import (
     TopothermBackend,
     _as_2d_float,
+    _interrupt_on_cancel,
     _require_topotherm,
     _set_solver_limits,
 )
@@ -867,20 +870,150 @@ def test_solver_limits_reach_highs_and_the_legacy_plugins():
     assert (gurobi.options["timelimit"], gurobi.options["mipgap"]) == (300, 0.01)
 
 
-def test_reaching_the_time_limit_is_reported_as_such(tt, expert_state, expert_adapter, monkeypatch):
+@pytest.mark.parametrize("should_stop", [None, lambda: False], ids=["without_check", "with_check"])
+def test_reaching_the_time_limit_is_reported_as_such(tt, expert_state, expert_adapter, monkeypatch, should_stop):
     """The solver stops at the limit, also before any feasible solution.
 
     TopothermConfig takes whole seconds and the fixture solves within one, so
-    the limit handed to the solver is made tiny.
+    the limit handed to the solver is made tiny. With a stop check the
+    callbacks are set on the solver, which must keep the limit.
     """
     pytest.importorskip("highspy")
     set_limits = topotherm_backend._set_solver_limits
     monkeypatch.setattr(
         topotherm_backend, "_set_solver_limits", lambda opt, time_limit, mip_gap: set_limits(opt, 1e-6, mip_gap)
     )
-    with pytest.raises(NetworkBackendError, match="maxTimeLimit") as excinfo:
-        network_step.run(expert_state, _forced_config(), expert_adapter)
+    with cancellable(should_stop):
+        with pytest.raises(NetworkBackendError, match="maxTimeLimit") as excinfo:
+            network_step.run(expert_state, _forced_config(), expert_adapter)
     assert excinfo.value.code == TIME_LIMIT
+
+
+def _hard_milp():
+    """A multi-dimensional knapsack HiGHS needs well over a second for."""
+    import random
+
+    import pyomo.environ as pyo
+
+    rnd = random.Random(1)
+    n, k = 250, 10
+    weights = [[rnd.randint(20, 1000) for _ in range(n)] for _ in range(k)]
+    value = [sum(w[i] for w in weights) / k + rnd.randint(0, 50) for i in range(n)]
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var(range(n), domain=pyo.Binary)
+    model.obj = pyo.Objective(expr=sum(value[i] * model.x[i] for i in range(n)), sense=pyo.maximize)
+    model.cap = pyo.ConstraintList()
+    for w in weights:
+        model.cap.add(sum(w[i] * model.x[i] for i in range(n)) <= sum(w) // 4)
+    return model
+
+
+def test_a_cancel_interrupts_highs_during_the_optimisation():
+    pyo = pytest.importorskip("pyomo.environ")
+    pytest.importorskip("highspy")
+    model = _hard_milp()
+    opt = pyo.SolverFactory("highs")
+    _set_solver_limits(opt, 60, 0.0)
+    stop_at = time.monotonic() + 0.5
+
+    start = time.monotonic()
+    with cancellable(lambda: time.monotonic() >= stop_at):
+        stopped = _interrupt_on_cancel(opt, model)
+        opt.solve(model, tee=False, load_solutions=False)
+
+    assert stopped is not None and stopped.is_set()
+    assert time.monotonic() - start < 5   # instead of the 60 s limit
+
+
+def test_without_a_check_highs_gets_no_callback():
+    pyo = pytest.importorskip("pyomo.environ")
+    pytest.importorskip("highspy")
+    assert _interrupt_on_cancel(pyo.SolverFactory("highs"), _hard_milp()) is None
+
+
+def test_the_callbacks_keep_the_solver_limits():
+    """set_instance resets Pyomo's config; the run would have no time limit and the default gap."""
+    pyo = pytest.importorskip("pyomo.environ")
+    pytest.importorskip("highspy")
+    opt = pyo.SolverFactory("highs")
+    _set_solver_limits(opt, 300, 0.01)
+    with cancellable(lambda: False):
+        assert _interrupt_on_cancel(opt, _hard_milp()) is not None
+    assert (opt.config.time_limit, opt.config.rel_gap) == (300, 0.01)
+
+
+def test_a_cancel_stops_the_expert_mode_before_the_optimisation(tt, expert_state, expert_adapter):
+    with cancellable(lambda: True):
+        with pytest.raises(CalculationCancelled):
+            network_step.run(expert_state, _forced_config(), expert_adapter)
+    assert expert_state.net_gdf is None
+
+
+# The network step asks twice before the backend (after each civil works
+# layer); the backend then after its inputs (3), between topotherm's two
+# matrix steps (4) and after the matrices (5).
+@pytest.mark.parametrize("stop_at_call", [3, 4, 5])
+def test_a_cancel_inside_the_expert_backend_stops_before_the_optimisation(
+    tt, expert_state, expert_adapter, monkeypatch, stop_at_call
+):
+    calls = []
+
+    def should_stop():
+        calls.append(1)
+        return len(calls) >= stop_at_call
+
+    def solve(*args, **kwargs):
+        pytest.fail("the optimisation started after the cancel")
+
+    monkeypatch.setattr(TopothermBackend, "_solve", staticmethod(solve))
+    with cancellable(should_stop):
+        with pytest.raises(CalculationCancelled):
+            network_step.run(expert_state, _forced_config(), expert_adapter)
+    assert len(calls) == stop_at_call
+    assert expert_state.net_gdf is None
+
+
+def test_a_failing_check_does_not_stop_the_optimisation(caplog):
+    """should_stop raising inside the solver callback: HiGHS goes on, one warning."""
+    pyo = pytest.importorskip("pyomo.environ")
+    pytest.importorskip("highspy")
+    model = _hard_milp()
+    opt = pyo.SolverFactory("highs")
+    _set_solver_limits(opt, 1, 0.0)
+
+    def should_stop():
+        raise RuntimeError("database unreachable")
+
+    with caplog.at_level("WARNING", logger=topotherm_backend.__name__):
+        with cancellable(should_stop):
+            stopped = _interrupt_on_cancel(opt, model)
+            result = opt.solve(model, tee=False, load_solutions=False)
+
+    assert not stopped.is_set()
+    assert result.solver.termination_condition == pyo.TerminationCondition.maxTimeLimit
+    warnings_logged = [r for r in caplog.records if "should_stop failed" in r.getMessage()]
+    assert len(warnings_logged) == 1
+    assert "database unreachable" in warnings_logged[0].getMessage()
+
+
+def test_an_interrupted_optimisation_is_reported_as_cancelled(tt, expert_state, expert_adapter, monkeypatch):
+    """Pyomo reports HiGHS' interrupt only as "unknown": the backend must know it stopped it.
+
+    The fixture solves too fast to interrupt it for real, so the interrupt is
+    recorded as if the callback had fired.
+    """
+    pytest.importorskip("highspy")
+    interrupt_on_cancel = topotherm_backend._interrupt_on_cancel
+
+    def interrupted(opt, model):
+        stopped = interrupt_on_cancel(opt, model)
+        stopped.set()
+        return stopped
+
+    monkeypatch.setattr(topotherm_backend, "_interrupt_on_cancel", interrupted)
+    with cancellable(lambda: False):
+        with pytest.raises(CalculationCancelled, match="during the optimisation"):
+            network_step.run(expert_state, _forced_config(), expert_adapter)
 
 
 def test_expert_mode_uses_the_shipped_catalogue_when_the_adapter_has_none(
