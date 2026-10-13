@@ -889,6 +889,41 @@ def test_reaching_the_time_limit_is_reported_as_such(tt, expert_state, expert_ad
     assert excinfo.value.code == TIME_LIMIT
 
 
+def test_at_the_time_limit_the_best_solution_is_used(tt, expert_state, expert_adapter, monkeypatch):
+    """The solver stopped at the limit with a solution: the net is that solution, marked as such.
+
+    The fixture solves within a second, so the result is changed to what
+    HiGHS reports at the limit: aborted, maxTimeLimit, with a solution.
+    """
+    pyo = pytest.importorskip("pyomo.environ")
+    pytest.importorskip("highspy")
+    factory = pyo.SolverFactory
+
+    def stopping_at_the_limit(name):
+        opt = factory(name)
+        solve = opt.solve
+
+        def solve_until_the_limit(*args, **kwargs):
+            result = solve(*args, **kwargs)
+            result.solver.termination_condition = pyo.TerminationCondition.maxTimeLimit
+            result.solver.status = pyo.SolverStatus.aborted
+            return result
+
+        opt.solve = solve_until_the_limit
+        return opt
+
+    monkeypatch.setattr(pyo, "SolverFactory", stopping_at_the_limit)
+    state = network_step.run(expert_state, _forced_config(), expert_adapter)
+    assert state.net_gdf is not None and not state.net_gdf.empty
+    assert state.time_limit_solution is not None
+    assert 0 <= state.time_limit_solution["gap"] <= 1e-3  # in fact optimal
+
+
+def test_an_optimal_net_has_no_time_limit_mark(tt, expert_state, expert_adapter):
+    state = network_step.run(expert_state, _forced_config(), expert_adapter)
+    assert state.time_limit_solution is None
+
+
 def _hard_milp():
     """A multi-dimensional knapsack HiGHS needs well over a second for."""
     import random

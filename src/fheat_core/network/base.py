@@ -18,6 +18,10 @@ class NetworkBackend(ABC):
     #: registry key, must match a NetworkMode value
     name: str = ""
 
+    #: set by ``build`` when the solver stopped at its time limit and the net is
+    #: its best solution so far: ``{"gap": relative gap to the best bound, or None}``
+    time_limit_solution: Optional[dict] = None
+
     @abstractmethod
     def build(
         self,

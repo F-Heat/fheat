@@ -93,6 +93,14 @@ def _require_topotherm():
     return tt
 
 
+def _relative_gap(result) -> float | None:
+    """Relative gap between the best solution and the best bound (as the MIP-Gap option), None when unknown."""
+    lower, upper = result.problem.lower_bound, result.problem.upper_bound
+    if lower is None or upper is None or not np.isfinite([lower, upper]).all():
+        return None
+    return float(abs(upper - lower) / max(abs(upper), abs(lower), 1e-10))
+
+
 def _set_solver_limits(opt, time_limit: float, mip_gap: float) -> None:
     """Hand the time limit and the relative MIP gap to a Pyomo solver.
 
@@ -234,7 +242,7 @@ class TopothermBackend(NetworkBackend):
         raise_if_cancelled()
         civil = self._candidate_civil_factors(mat, gdf_edges, civil_layers, buildings.crs, config)
         settings = self._build_settings(tt, config)
-        model, opt_mats = self._solve(tt, mat, settings, tcfg)
+        model, opt_mats, self.time_limit_solution = self._solve(tt, mat, settings, tcfg)
         nodes_df, edges_df = tt.postprocessing.to_dataframe(opt_mats, mat)
         raise_if_cancelled()
 
@@ -425,7 +433,13 @@ class TopothermBackend(NetworkBackend):
         raise_if_cancelled()
 
         cond = result.solver.termination_condition
-        if cond != pyo.TerminationCondition.optimal:
+        time_limit_solution = None
+        if cond == pyo.TerminationCondition.maxTimeLimit and len(result.solution):
+            # the best solution found until the time limit, not proven optimal
+            time_limit_solution = {"gap": _relative_gap(result)}
+            logger.warning("topotherm reached the time limit; using its best solution (gap %s).", time_limit_solution["gap"])
+            result.solver.status = pyo.SolverStatus.ok  # Pyomo warns when loading an "aborted" result
+        elif cond != pyo.TerminationCondition.optimal:
             code = TIME_LIMIT if cond == pyo.TerminationCondition.maxTimeLimit else NO_OPTIMAL_SOLUTION
             raise NetworkBackendError(f"topotherm optimisation failed: {cond}", code=code)
         model.solutions.load_from(result)
@@ -446,7 +460,7 @@ class TopothermBackend(NetworkBackend):
                 "`source_price`/`pipes_c_irr`, or use optimization_mode='forced'.",
                 code=EMPTY_NETWORK,
             )
-        return model, opt_mats
+        return model, opt_mats, time_limit_solution
 
     # -- step 5: topotherm result -> NetSchema ------------------------------
 
