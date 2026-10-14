@@ -43,6 +43,9 @@ class FlexDataAdapter(DataAdapter):
           - ``full_load_hours`` (optional, sonst default_vlh)
           - ``load_profile`` (optional, sonst default_lastprofil)
           - ``building_id``, ``connect`` (optional, sonst automatisch)
+          - für XWärmeplan (optional): ``construction_year`` (Baujahr),
+            ``xwp_building_type`` (Code aus WP_GebaeudeTyp), ``function``
+            (ALKIS-Gebäudefunktion), ``building_type`` (EFH, RH, MFH, GMFH)
     default_vlh : float
         Volllaststunden, wenn die Spalte fehlt. Standard: 1600.
     default_lastprofil : str
@@ -140,6 +143,9 @@ class FlexDataAdapter(DataAdapter):
             gdf[cols.CONNECT] = 1
         else:
             gdf[cols.CONNECT] = gdf[cols.CONNECT].fillna(1).astype("int32")
+
+        if cols.CONSTRUCTION_YEAR in gdf.columns:
+            gdf[cols.CONSTRUCTION_YEAR] = pd.to_numeric(gdf[cols.CONSTRUCTION_YEAR], errors="coerce").astype("Int64")
 
         # Geometry repair
         gdf["geometry"] = gdf["geometry"].buffer(0)

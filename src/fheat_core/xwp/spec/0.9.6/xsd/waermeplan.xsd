@@ -1,0 +1,3408 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:gml="http://www.opengis.net/gml/3.2"
+        xmlns:xwp="http://www.xwaermeplan.de/0/9/6"
+        elementFormDefault="qualified"
+        targetNamespace="http://www.xwaermeplan.de/0/9/6"
+        version="0.9.6">
+   <annotation>
+      <documentation>Anwendungsschema XWärmeplan</documentation>
+   </annotation>
+   <import namespace="http://www.opengis.net/gml/3.2"
+           schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd"/>
+   <!--XML Schema document created by ShapeChange - http://shapechange.net/-->
+   <simpleType name="WP_AltersklasseType">
+      <annotation>
+         <documentation>Aufzählung von Alterklassen</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>vor 1990</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>1990 bis 1999</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>2000 bis 2009</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>2010 bis 2019</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>2020 bis 2029</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="6000">
+            <annotation>
+               <documentation>ab 2030</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_AnschlussGruenesMethan"
+            substitutionGroup="xwp:WP_Geometrieobjekt"
+            type="xwp:WP_AnschlussGruenesMethanType">
+      <annotation>
+         <documentation>Grundstück, das an einem bestehenden oder in Planung befindlichem Gasverteilernetz mit grünem Methan anliegt (WPG § 28 Abs. 1)</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_AnschlussGruenesMethanType">
+      <complexContent>
+         <extension base="xwp:WP_GeometrieobjektType">
+            <sequence/>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Anschlusszwang"
+            substitutionGroup="xwp:WP_Geometrieobjekt"
+            type="xwp:WP_AnschlusszwangType">
+      <annotation>
+         <documentation>Gebiet oder Straßenabschnitt mit Anschluss- und Benutzungszwang aufgrund eines Satzungsbeschlusses entsprechend WPG Anlage 2 IV.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_AnschlusszwangType">
+      <complexContent>
+         <extension base="xwp:WP_GeometrieobjektType">
+            <sequence>
+               <element minOccurs="0" name="satzungsbeschluss" type="date">
+                  <annotation>
+                     <documentation>Datum des Satzungsbeschlusses</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Ausschlussgebiet"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_AusschlussgebietType">
+      <annotation>
+         <documentation>Ausschlussgebiete entsprechend WPG Anlage 2 II</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_AusschlussgebietType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence>
+               <element minOccurs="0"
+                        name="artSchutzgebiet"
+                        type="xwp:WP_SchutzgebietTypType">
+                  <annotation>
+                     <documentation>Art des Ausschlussgebiets</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="sonstigerAusschluss" type="string">
+                  <annotation>
+                     <documentation>Art des Ausschlussgebiets, wenn kein Schutzgebiet</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_BaualtersklasseType">
+      <annotation>
+         <documentation>Aufzählung von Baualtersklassen</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>bis 1949 (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10001">
+            <annotation>
+               <documentation>vor 1919</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10002">
+            <annotation>
+               <documentation>1919 bis 1949</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>1950 bis 1969 (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20001">
+            <annotation>
+               <documentation>1950 bis 1959</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20002">
+            <annotation>
+               <documentation>1960 bis 1969</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>1970 bis 1989 (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="30001">
+            <annotation>
+               <documentation>1970 bis 1979</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="30002">
+            <annotation>
+               <documentation>1980 bis 1989</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>1990 bis 2015 (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40001">
+            <annotation>
+               <documentation>1990 bis 1999</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40002">
+            <annotation>
+               <documentation>2000 bis 2009</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40003">
+            <annotation>
+               <documentation>2010 bis 2015</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>ab 2016</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>unbekannt</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element abstract="true"
+            name="WP_Baublock"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_BaublockType">
+      <annotation>
+         <documentation>Abstrakte Oberklasse für alle baublockbezogene WP-Fachobjekte. Gemäß WPG § 3 ist "Baublock" ein Gebäude oder mehrere Gebäude oder Liegenschaften, das oder die von mehreren oder sämtlichen Seiten von Straßen, Schienen oder sonstigen natürlichen oder baulichen Grenzen umschlossen und für die Zwecke der Wärmeplanung als zusammengehörig zu betrachten ist oder sind.</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_BaublockType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence>
+               <element minOccurs="0" name="baublockId" type="string">
+                  <annotation>
+                     <documentation>ID des Baublocks</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_BaujahrAngaben"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_BaujahrAngabenType">
+      <annotation>
+         <documentation>Datentyp zur Erfassung von Baujahren über Baualtersklassen</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_BaujahrAngabenType">
+      <sequence>
+         <element name="baualtersklasse" type="xwp:WP_BaualtersklasseType">
+            <annotation>
+               <documentation>Baualtersklasse der Gebäude</documentation>
+            </annotation>
+         </element>
+         <element name="anteil" type="gml:MeasureType">
+            <annotation>
+               <documentation>Anteil der dieser Baualtersklasse zugeordneten Gebäude am Gebäudebestand im Baublock</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_BaujahrAngabenPropertyType">
+      <sequence>
+         <element ref="xwp:WP_BaujahrAngaben"/>
+      </sequence>
+   </complexType>
+   <element abstract="true"
+            name="WP_BeplantesTeilgebiet"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_BeplantesTeilgebietType">
+      <annotation>
+         <documentation>Abstrakte Oberklasse für beplante Teilgebiete. Gemäß § 3 WPG ist  "beplantes Teilgebiet" ein Teil des beplanten Gebiets, das aus mehreren Grundstücken oder aus Teilen von, aus einzelnen oder mehreren Baublöcken besteht und von der planungsverantwortlichen Stelle für die Untersuchung der möglichen Wärmeversorgungsarten sowie für die entsprechende Einteilung in voraussichtliche Wärmeversorgungsgebiete zusammengefasst wird.</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_BeplantesTeilgebietType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence>
+               <element minOccurs="0" name="istVerkuerzteWaermeplanung" type="boolean">
+                  <annotation>
+                     <documentation>Teilgebiet, für das eine verkürzte Wärmeplanung gemäß § 14 Abs. 4 WPG durchgeführt wurde = true</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Bereich"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_BereichType">
+      <annotation>
+         <documentation>Diese Klasse modelliert einen Bereich eines Wärmeplans, z.B. einen räumlichen oder sachlichen Teilbereich. Im Fall eines gemeinsamen Wärmeplans dienen Bereiche der gesonderten Darstellung der Ergebnisse für jede Gemeinde. Bei einer getrennten Darstellung einer gemeinsam durchgeführten Planung können die Gemeindeflächen der Partner als Bereiche vermerkt werden.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_BereichType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element name="nummer" type="integer">
+                  <annotation>
+                     <documentation>Nummer des Bereichs. Bereichsnummern beginnen standardmäßig mit 0 und sollten, wenn einem Planobjekt mehrere Bereichsobjekte zugeordnet sind, eindeutig sein.</documentation>
+                  </annotation>
+               </element>
+               <element name="name" type="string">
+                  <annotation>
+                     <documentation>Bezeichnung des Bereiches (kann für Kodierung von Links in GML, HTML, JSON verwendet werden)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="bedeutung" type="string">
+                  <annotation>
+                     <documentation>Detaillierte Erklärung der semantischen Bedeutung eines Bereiches</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="geltungsbereich"
+                        type="gml:MultiSurfacePropertyType">
+                  <annotation>
+                     <documentation>Räumliche Abgrenzung des Bereiches</documentation>
+                  </annotation>
+               </element>
+               <element name="gehoertZuPlan" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz eines Bereichs auf den zugehörigen Plan</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Plan</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:bereich</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Betrachtungszeitpunkt"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_BetrachtungszeitpunktType">
+      <annotation>
+         <documentation>Datentyp zur Erfassung Betrachtungszeipunktes</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_BetrachtungszeitpunktType">
+      <sequence>
+         <element name="art" type="xwp:WP_ZeitpunktArtType">
+            <annotation>
+               <documentation>Art des Zeitpunktes</documentation>
+            </annotation>
+         </element>
+         <element name="jahr" type="string">
+            <annotation>
+               <documentation>Jahr</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_BetrachtungszeitpunktPropertyType">
+      <sequence>
+         <element ref="xwp:WP_Betrachtungszeitpunkt"/>
+      </sequence>
+   </complexType>
+   <element name="WP_Eignungspruefung"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_EignungspruefungType">
+      <annotation>
+         <documentation>Ergebnisdarstellung der Eignungprüfung und zur Durchführung einer verkürzten Wärmeplanung nach § 14 WPG. WP_Eignungsprüfung dient der eigenständigen Ergebnisdarstellung der Wärmeplanung bevor das Zielszenario entwickelt ist.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EignungspruefungType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence>
+               <element minOccurs="0" name="istUngeeignetWaermenetz" type="boolean">
+                  <annotation>
+                     <documentation>Das  beplante Gebiet oder Teilgebiet eignet sich mit hoher Wahrscheinlichkeit nicht für eine Versorgung durch ein Wärmenetz = true</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="istUngeeignetWasserstoffnetz" type="boolean">
+                  <annotation>
+                     <documentation>Das beplante Gebiet oder Teilgebiet eignet sich mit hoher Wahrscheinlichkeit nicht für eine Versorgung durch ein Wasserstoffnetz = true</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="istVerkuerzteWaermeplanung" type="boolean">
+                  <annotation>
+                     <documentation>Für das Gebiet oder Teilgebiet, das sich mit hoher Wahrscheinlichkeit nicht für eine Versorgung durch ein Wärmenetz oder ein Wasserstoffnetz eignet, wird eine verkürzte Wärmeplanung durchgeführt = true. &#xD;
+In WP_Waermeversorgungsgebiet wird Attribut "istVerkuerzteWaermeplanung" auf "true" gesetzt und in "versorgungsart" als voraussichtliches Gebiet für die dezentrale Wärmeversorgung definiert.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="istVerzichtWaermeplanung" type="boolean">
+                  <annotation>
+                     <documentation>Für das beplante Gebiet oder Teilgebiet, dessen Wärmeversorgung vollständig oder nahezu vollständig auf erneuerbaren Energien, unvermeidbarer Abwärme oder einer Kombination hieraus beruht, wird auf die Durchführung einer Wärmeplanung verzichtet = true</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_EignungsstufeType">
+      <annotation>
+         <documentation>Liste der Eingungsstufen</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>sehr wahrscheinlich geeignet</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>wahrscheinlich geeignet</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>wahrscheinlich ungeeignet</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>sehr wahrscheinlich ungeeignet</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>Keine Aussage notwendig oder möglich (entweder vereinfachtes Verfahren durchgeführt oder Vesorgungsart Prüfgebiet)</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_EndenergieAngaben"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_EndenergieAngabenType">
+      <annotation>
+         <documentation>Datentyp für die Erfassung der jährlichen Endenergie der gesamten Wärmeversorgung nach Energieträgern und Sektoren</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EndenergieAngabenType">
+      <sequence>
+         <element name="energietraeger" type="xwp:WP_EnergietraegerType">
+            <annotation>
+               <documentation>Energieträger</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="eeSektorIndustrie" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie für den jeweiligen Energieträger im Sektor Industrie</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="eeSektorGHD" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie für den jeweiligen Energieträger im Sektor Gewerbe, Handel, Dienstleistungen</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="eeSektorHaushalte" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie für den jeweiligen Energieträger im Sektor private Haushalte</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="eeSektorLiegenschaften" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie für den jeweiligen Energieträger im Sektor öffentliche Liegenschaften</documentation>
+            </annotation>
+         </element>
+         <element name="endenergieEnTrGesamt" type="gml:MeasureType">
+            <annotation>
+               <documentation>Gesamte jährliche Endenergie für den jeweiligen Energieträger</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_EndenergieAngabenPropertyType">
+      <sequence>
+         <element ref="xwp:WP_EndenergieAngaben"/>
+      </sequence>
+   </complexType>
+   <element name="WP_EndenergieEnergietraeger"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_EndenergieEnergietraegerType">
+      <annotation>
+         <documentation>Datentyp zur Erfassung der jährlichen Endenergie einzelner Energieträger</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EndenergieEnergietraegerType">
+      <sequence>
+         <element name="energietraeger" type="xwp:WP_EnergietraegerType">
+            <annotation>
+               <documentation>Energieträger</documentation>
+            </annotation>
+         </element>
+         <element name="endenergie" type="gml:MeasureType">
+            <annotation>
+               <documentation>Endenergieverbrauch/-bedarf Innerhalb eines Jahres</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_EndenergieEnergietraegerPropertyType">
+      <sequence>
+         <element ref="xwp:WP_EndenergieEnergietraeger"/>
+      </sequence>
+   </complexType>
+   <element name="WP_EndenergieSektor"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_EndenergieSektorType">
+      <annotation>
+         <documentation>Datentyp zur Erfassung Erfassung der jährlichen Endenergie der Wärmeversorgung nach Sektoren</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EndenergieSektorType">
+      <sequence>
+         <element name="eeSektorIndustrie" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie im Sektor Industrie</documentation>
+            </annotation>
+         </element>
+         <element name="eeSektorGHD" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie im Sektor Gewerbe, Handel, Dienstleistungen</documentation>
+            </annotation>
+         </element>
+         <element name="eeSektorHaushalte" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie im Sektor private Haushalte</documentation>
+            </annotation>
+         </element>
+         <element name="eeSektorLiegenschaften" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie im Sektor öffentliche Liegenschaften</documentation>
+            </annotation>
+         </element>
+         <element name="endenergieGesamt" type="gml:MeasureType">
+            <annotation>
+               <documentation>Gesamte jährliche Endenergie</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_EndenergieSektorPropertyType">
+      <sequence>
+         <element ref="xwp:WP_EndenergieSektor"/>
+      </sequence>
+   </complexType>
+   <element name="WP_EnergieBaublock"
+            substitutionGroup="xwp:WP_Baublock"
+            type="xwp:WP_EnergieBaublockType">
+      <annotation>
+         <documentation>Baublockbezogene Informationen zum Wärmeverbrauch und zur dezentralen Wärmeerzeugung entsprechend WPG Anlage  2 I.2.1, I.2.3 und 2 I.2.4 sowie darüber hinausgehende optionale Informationen</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EnergieBaublockType">
+      <complexContent>
+         <extension base="xwp:WP_BaublockType">
+            <sequence>
+               <element minOccurs="0" name="waermeMenge" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Jährlicher Wärmebedarf oder Wärmeverbrauch  aller Objekte, die einem Baublock zugeordnet sind (Erzeugernutzwärme)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="waermeDichte" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Wärmeverbrauch oder Wärmebedarf pro Hektar und Jahr (Erzeugernutzwärme)</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="eeNachEnergietraeger"
+                        type="xwp:WP_EndenergieEnergietraegerPropertyType">
+                  <annotation>
+                     <documentation>Jährlicher Endenergieverbrauch oder -bedarf für Wärme je Energieträger</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeNachEnTrEnthaeltLeitungsgebWaerme"
+                        type="boolean">
+                  <annotation>
+                     <documentation>Im Attribut eeNachEnergietraeger ist leitungsgebundene Wärme erfasst = true. Leitungsgebunde Wärme ist auf Baublockebene nicht in Energieträger aufgeschlüsselt = false.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeNachVersorgungsart"
+                        type="xwp:WP_WaermeversorgungArtPropertyType">
+                  <annotation>
+                     <documentation>Jährlicher Endenergieverbrauch/-bedarf für Wärme nach Versorgungsart dezentral und leitungsgebunden</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="enthaeltProzesswaermeGHD" type="boolean">
+                  <annotation>
+                     <documentation>Daten zur Wärme und Endenergie enthalten die Prozesswärme aus dem Gebäudesektor GHD = true.&#xD;
+Annahme: Prozesswärme der Industrie wird über WP_Grossverbraucher erfasst.</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="waermeErzeuger"
+                        type="xwp:WP_WaermeerzeugerAngabenPropertyType">
+                  <annotation>
+                     <documentation>Angaben zu dezentralen Wärmeerzeugern</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="anzahlAnschluesseWaermenetz" type="integer">
+                  <annotation>
+                     <documentation>Anzahl der Hausanschlüsse an ein Wärmenetz</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="refWaermeNetzID" type="string">
+                  <annotation>
+                     <documentation>ID des Wärmenetzes, zum dem der Baublock gehört, siehe WP_Waermenetz</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_EnergieRaster"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_EnergieRasterType">
+      <annotation>
+         <documentation>Informationen zum Wärmebedarf in einer 100 mal 100 Meter Rasterdarstellung</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EnergieRasterType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence>
+               <element minOccurs="0" name="rasterID" type="string">
+                  <annotation>
+                     <documentation>ID der Rasterzelle</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="waermeMenge" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Jährlicher Wärmeverbrauch oder Wärmebedarf aller Objekte, die der Rasterzelle zugeordnet sind (Erzeugernutzwärme)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="waermeDichte" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Wärmedichte pro Rasterzelle und Jahr (Erzeugernutzwärme)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeNachEnergietraeger"
+                        type="xwp:WP_EndenergieEnergietraegerPropertyType">
+                  <annotation>
+                     <documentation>"Anteile der Energieträger an der Wärmeversorgung von Wohngebäuden oder von Wohngebäuden und Nichtwohngebäuden pro Rasterzelle und Jahr"&#xD;
+Jährlicher Endenergieverbrauch oder -bedarf für Wärme je Energieträger</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_EnergiebedarfArtType">
+      <annotation>
+         <documentation>Arten von Energieverbrauch durch große Abnehmer</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Wärme</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Kälte</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Wärme und Kälte</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_Energiebilanz"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_EnergiebilanzType">
+      <annotation>
+         <documentation>Indikatoren der Energiebilanz für das beplante Gebiet als Ganzes und für verschiedene Betrachtungszeitpunkte. Betrifft Zielszenario und Bestandsanalye  entsprechend WPG Anlage 2 I und III.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EnergiebilanzType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element name="name" type="string">
+                  <annotation>
+                     <documentation>Name der Tabelle (kann für Kodierung von Links in GML, HTML, JSON verwendet werden)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="regionalSchluessel" type="string">
+                  <annotation>
+                     <documentation>Amtlicher Regionalschlüssel der betreffenden Gemeinde (Attribut istGemeinsamerWaermeplan = true)</documentation>
+                  </annotation>
+               </element>
+               <element name="betrachtungszeitpunkt"
+                        type="xwp:WP_BetrachtungszeitpunktPropertyType">
+                  <annotation>
+                     <documentation>Betrachtungszeitpunkt für die Daten der Energiebilanz</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        name="eeGesamtNachEnergietraeger"
+                        type="xwp:WP_EndenergieAngabenPropertyType">
+                  <annotation>
+                     <documentation>Jährliche Endenergie der gesamten Wärmeversorgung nach Energieträgern</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeGesamtNachEnergiesektor"
+                        type="xwp:WP_EndenergieSektorPropertyType">
+                  <annotation>
+                     <documentation>Jährliche Endenergie der gesamten Wärmeversorgung nach Energiesektoren</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="eeLeitungsgebWaermeNachEnergietraeger"
+                        type="xwp:WP_EndenergieEnergietraegerPropertyType">
+                  <annotation>
+                     <documentation>Jährliche Endenergie der leitungsgebundenen Wärmeversorgung nach Energieträgern</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="eeGasnetzNachEnergietraeger"
+                        type="xwp:WP_EndenergieEnergietraegerPropertyType">
+                  <annotation>
+                     <documentation>Jährliche Endenergie aus Gasnetzen nach Energieträgern</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="eeGesamtGebaeude" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Endenergie der Wärmeversorgung von Gebäuden gesamt</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="eeGesamtProzesse" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Endenergie gesamt für Prozesswärme aus den Sektoren GHD und Industrie. &#xD;
+Hinweis: Der Wert kann u.U. auch Endenergieverbrauch für stoffliche Zwecke enthalten.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="anteilLeitungsgebWaermeversorgung"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Anteil der leitungsgebundenen Wärmeversorgung an der Endenergie der Wärmeversorgung</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="thgEmissionenGesamt" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Jährliche Emission von Treibhausgasen im Sinne von § 2 Nummer 1 des Bundes-Klimaschutzgesetzes der gesamten Wärmeversorgung des beplanten Gebiets in Tonnen Kohlendioxid-Äquivalent</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="thgEmissionenNachEnergietraeger"
+                        type="xwp:WP_TreibhausgasemissionenPropertyType">
+                  <annotation>
+                     <documentation>Jährliche Emission von Treibhausgasen im Sinne von § 2 Nummer 1 des Bundes-Klimaschutzgesetzes der gesamten Wärmeversorgung des beplanten Gebiets in Tonnen Kohlendioxid-Äquivalent</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="thgEmissionenNachEnergiesektor"
+                        type="xwp:WP_TreibhausgasemissionenSektorPropertyType">
+                  <annotation>
+                     <documentation>Jährliche Emission von Treibhausgasen im Sinne von § 2 Nummer 1 des Bundes-Klimaschutzgesetzes der gesamten Wärmeversorgung des beplanten Gebiets in Tonnen Kohlendioxid-Äquivalent</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="territorialerEmissionsfaktorStrom"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Territorialer Emissionsfaktor der lokalen Stromerzeugung, der anstelle des Bundesstrommix in die THG-Bilanz eingehen kann.</documentation>
+                  </annotation>
+               </element>
+               <element name="gehoertZuPlan" type="gml:ReferenceType">
+                  <annotation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Plan</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:energiebilanz</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_EnergieeinsatzArtType">
+      <annotation>
+         <documentation>Arten von Energieeinsatzes durch große Abnehmer</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Großverbrauch von Wärme und/oder Kälte</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Großverbrauch Gas für stoffliche Zwecke</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Großverbrauch von Wärme/Kälte und Gas für stoffliche Zwecke</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Unbekannt</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_Energieeinsparpotenzialgebiet"
+            substitutionGroup="xwp:WP_BeplantesTeilgebiet"
+            type="xwp:WP_EnergieeinsparpotenzialgebietType">
+      <annotation>
+         <documentation>Gebiet, für das ein erhöhtes Energieeinsparpotenzial nach § 18 Absatz 5 vorliegt, entsprechend WPG Anlage 2 IV.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EnergieeinsparpotenzialgebietType">
+      <complexContent>
+         <extension base="xwp:WP_BeplantesTeilgebietType">
+            <sequence>
+               <element minOccurs="0" name="eignungSanierungsgebiet" type="boolean">
+                  <annotation>
+                     <documentation>Gebiet erscheint geeignet, zukünftig in einer gesonderten städtebaulichen Entscheidung als Sanierungsgebiet (im Sinne des Ersten Abschnitts des Ersten Teils des Zweiten Kapitels des Baugesetzbuchs) festgelegt zu werden = true</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="massnahmenReduktionEeBedarf" type="boolean">
+                  <annotation>
+                     <documentation>Gebiet mit einem hohen Anteil an Gebäuden mit einem hohen spezifischen Endenergiekennwert für Raumwärme, in denen Maßnahmen zur Reduktion des Endenergiebedarfs besonders geeignet sind, die Transformation zu einer treibhausgasneutralen Wärmeversorgung zu unterstützen = true</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="anteilGebHoherEeKennwert"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Anteil an Gebäuden mit einem hohen spezifischen Endenergiekennwert für Raumwärme</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="erhoehteHitzebelastung" type="boolean">
+                  <annotation>
+                     <documentation>Gebiet, für das eine erhöhte Hitzebelastung bekannt ist = true</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_EnergieeinsparungGebaeude"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_EnergieeinsparungGebaeudeType">
+      <annotation>
+         <documentation>Raumbezogenes Potenzial zur Energieeinsparung durch Wärmebedarfsreduktion in Gebäuden entsprechend WPG Anlage 2 II.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_EnergieeinsparungGebaeudeType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence>
+               <element minOccurs="0" name="waermebedarfsreduktion" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Absolute Reduktion des Wärmebedarfs (Erzeugernutzwärme) im Betrachtungsgebiet zwischen Basisjahr und Zieljahr, resultierend aus Effizienzmaßnahmen an Gebäudehülle und Anlagentechnik/Verteilung), unabhängig von einem Wechsel des Wärmeerzeugers.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="waermebedarfsreduktionRelativ"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Relative Reduktion des Wärmebedarfs (Erzeugernutzwärme) im Betrachtungsgebiet zwischen Basisjahr und Zieljahr, resultierend aus Effizienzmaßnahmen an Gebäudehülle und Anlagentechnik/Verteilung), unabhängig von einem Wechsel des Wärmeerzeugers.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="neWaermebedarfsreduktion"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Absolute Reduktion der Nutzenergie für Raumwärme und Trinkwarmwasser im Betrachtungsgebiet zwischen Basisjahr und Zieljahr, resultierend aus energetischer Sanierung der Gebäudehülle, unabhängig von Anlagentechnik und Wärmeerzeuger.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="neWaermebedarfsreduktionRelativ"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Relative Reduktion des Nutzenergie für Raumwärme und Trinkwarmwasser im Betrachtungsgebiet zwischen Basisjahr und Zieljahr, resultierend aus energetischer Sanierung der Gebäudehülle, unabhängig von Anlagentechnik und Wärmeerzeuger.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeWaermebedarfsreduktion"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Absolute Reduktion es Endenergiebedarfs im Betrachtungsgebiet zwischen Basisjahr und Zieljahr. Enthält zusätzlich zur Wärmebedarfsreduktion den Effekt aus einem Wechsel des Wärmeerzeugers.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeWaermebedarfsreduktionRelativ"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Absolute Reduktion es Endenergiebedarfs im Betrachtungsgebiet zwischen Basisjahr und Zieljahr. Enthält zusätzlich zur Wärmebedarfsreduktion den Effekt aus einem Wechsel des Wärmeerzeugers.</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_EnergietraegerType">
+      <annotation>
+         <documentation>Aufzählung der Energieträger gemäß § 3 WPG sowie weitere Ausdifferenzierung</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1100">
+            <annotation>
+               <documentation>Kohle (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="11001">
+            <annotation>
+               <documentation>Braunkohle</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="11002">
+            <annotation>
+               <documentation>Steinkohle</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1200">
+            <annotation>
+               <documentation>Fossiles Gas (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="12001">
+            <annotation>
+               <documentation>Erdgas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="12002">
+            <annotation>
+               <documentation>Flüssiggas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="12003">
+            <annotation>
+               <documentation>Grubengas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1300">
+            <annotation>
+               <documentation>Mineralölprodukte (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="13001">
+            <annotation>
+               <documentation>Heizöl</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="13002">
+            <annotation>
+               <documentation>Dieselkraftstoff</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Abfall (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20001">
+            <annotation>
+               <documentation>Nicht biogener Abfall</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20002">
+            <annotation>
+               <documentation>Biogener Abfall</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3100">
+            <annotation>
+               <documentation>Biomasse (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="31001">
+            <annotation>
+               <documentation>Feste Biomasse ohne Altholz</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="31002">
+            <annotation>
+               <documentation>Altholz</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="31003">
+            <annotation>
+               <documentation>Flüssige Biomasse</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3200">
+            <annotation>
+               <documentation>Gasförmige Biomasse (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="32001">
+            <annotation>
+               <documentation>Biogas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="32002">
+            <annotation>
+               <documentation>Biomethan</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="32003">
+            <annotation>
+               <documentation>Klärgas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="32004">
+            <annotation>
+               <documentation>Deponiegas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Wasserstoff (H2) (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40001">
+            <annotation>
+               <documentation>Durch die Elektrolyse von Wasser hergestellter Wasserstoff unter Verwendung von Strom aus erneuerbaren Energiequellen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40002">
+            <annotation>
+               <documentation>Wasserstoff aus der Reformierung von Erdgas, dessen Erzeugung mit einem Kohlenstoffdioxid-Abscheidungsverfahren und Kohlenstoffdioxid-Speicherungsverfahren gekoppelt wird</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40003">
+            <annotation>
+               <documentation>Wasserstoff, der aus Biomasse oder unter Verwendung von Strom aus Anlagen der Abfallwirtschaft hergestellt wird</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40004">
+            <annotation>
+               <documentation>Wasserstoff, der über die Pyrolyse von Erdgas hergestellt wird</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>Wasserstoffderivate (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="50001">
+            <annotation>
+               <documentation>Synthetisches (grünes) Methan: der aus Ökostrom erzeugte (grüne) Wasserstoff wird mit CO2 zu Methan gewandelt</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="6000">
+            <annotation>
+               <documentation>Strom (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="60001">
+            <annotation>
+               <documentation>Strom zum Betrieb von Wärmepumpen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="60002">
+            <annotation>
+               <documentation>Strom für Betrieb von Direktheizungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="7100">
+            <annotation>
+               <documentation>Solarthermie (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="71001">
+            <annotation>
+               <documentation>Solarthermie über Dachflächenanlagen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="71002">
+            <annotation>
+               <documentation>Solarthermie über Freiflächenanlagen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="7200">
+            <annotation>
+               <documentation>Dem Erdboden entnommene Wärme (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="72001">
+            <annotation>
+               <documentation>Oberflächennahe Geothermie nutzt den Untergrund bis zu einer Tiefe von ca. 400 m</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="72002">
+            <annotation>
+               <documentation>Tiefe Geothermie nutzt Lagerstätten, die in größeren Tiefen als 400 m unter Geländeoberkante erschlossen werden</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="7300">
+            <annotation>
+               <documentation>Umweltwärme (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="73001">
+            <annotation>
+               <documentation>Umweltwärme aus Grundwasser</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="73002">
+            <annotation>
+               <documentation>Umweltwärme aus Oberflächengewässern</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="73003">
+            <annotation>
+               <documentation>Umweltwärme aus Grubenwasser</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="73004">
+            <annotation>
+               <documentation>Umweltwärme aus Luft</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="73005">
+            <annotation>
+               <documentation>Umweltwärme aus Abwasser</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="8000">
+            <annotation>
+               <documentation>Unvermeidbare Abwärme (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="80001">
+            <annotation>
+               <documentation>Abwärme unter 60 °C</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="80002">
+            <annotation>
+               <documentation>Abwärme 60 bis 110 °C</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="80003">
+            <annotation>
+               <documentation>Abwärme ab 110 °C</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9990">
+            <annotation>
+               <documentation>Sonstige Energieträger (Oberkategorie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="99901">
+            <annotation>
+               <documentation>Sonstige fossile Brennstoffe</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="99902">
+            <annotation>
+               <documentation>Sonstige erneuerbare Energien</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_ExterneReferenz"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_ExterneReferenzType">
+      <annotation>
+         <documentation>Spezifikation einer externen, digital verfügbaren Ressource</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_ExterneReferenzType">
+      <sequence>
+         <element minOccurs="0" name="art" type="xwp:WP_ExterneReferenzTypType">
+            <annotation>
+               <documentation>Typ / Inhalt des referierten Dokuments oder der Internetressource</documentation>
+            </annotation>
+         </element>
+         <element name="referenzName" type="string">
+            <annotation>
+               <documentation>Name bzw. Titel der externen Referenz</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="nummer" type="string">
+            <annotation>
+               <documentation>Dokumentennummer</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="seitenangabe" type="string">
+            <annotation>
+               <documentation>Seitenangabe, wenn ein umfangreiches Dokument referenziert wird</documentation>
+            </annotation>
+         </element>
+         <element name="referenzURL" type="anyURI">
+            <annotation>
+               <documentation>URL der referierten Ressource</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="beschreibung" type="string">
+            <annotation>
+               <documentation>Beschreibung des referierten Ressource</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="datum" type="date">
+            <annotation>
+               <documentation>Datum des referierten Dokuments oder des letzten Zugriffs auf eine Webseite</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_ExterneReferenzPropertyType">
+      <sequence>
+         <element ref="xwp:WP_ExterneReferenz"/>
+      </sequence>
+   </complexType>
+   <simpleType name="WP_ExterneReferenzTypType">
+      <annotation>
+         <documentation>Liste der externen Dokumente und Internetressourcen</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Fachgutachten zur kommunalen Wärmeplanung  als vollständiges PDF-Dokument</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1100">
+            <annotation>
+               <documentation>Auszug oder Kapitel des Wärmeplandokuments (als PDF)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1200">
+            <annotation>
+               <documentation>Diagramm zur Wärmeplanung, evtl. mit Erläuterungstext</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1300">
+            <annotation>
+               <documentation>Karte/Plandarstellung der Wärmeplanung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1400">
+            <annotation>
+               <documentation>Maßnahmensteckbrief der  Wärmeplanung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Dokument zum Beschluss des Wärmeplans</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3100">
+            <annotation>
+               <documentation>Geoportal</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3200">
+            <annotation>
+               <documentation>Webseite</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3300">
+            <annotation>
+               <documentation>Datenbank</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Webdienst (WMS, WFS, OGC API Features)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Sonstiges</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <simpleType name="WP_FinanzierungsmechanismusType">
+      <annotation>
+         <documentation>Betrachtungszeitpunkte der Wärmeplanung</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Private Investitionen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Private Investitionen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Förderprogramme</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Sonstige Finanzierung</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element abstract="true"
+            name="WP_Flaechenobjekt"
+            substitutionGroup="xwp:WP_Objekt"
+            type="xwp:WP_FlaechenobjektType">
+      <annotation>
+         <documentation>Abstrakte Oberklasse für alle WP-Fachobjekte mit (Multi-)Flächengeometrie</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_FlaechenobjektType">
+      <complexContent>
+         <extension base="xwp:WP_ObjektType">
+            <sequence>
+               <element name="position" type="gml:MultiSurfacePropertyType">
+                  <annotation>
+                     <documentation>Flächengeometrie</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_GebaeudeAnzahl"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_GebaeudeAnzahlType">
+      <annotation>
+         <documentation>Datentyp zur Erfassung von Gebäuden</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_GebaeudeAnzahlType">
+      <sequence>
+         <element name="gebaeude" type="integer">
+            <annotation>
+               <documentation>Anzahl Gebäude im beplanten Gebiet (ALKIS)</documentation>
+            </annotation>
+         </element>
+         <element name="beheizteWohngebaeude" type="integer">
+            <annotation>
+               <documentation>Errechnete Anzahl der beheizten Gebäude im beplanten Gebiet, die zumindest in Teilen zum Wohnen genutzt werden oder eine wohnähnliche Nutzung haben</documentation>
+            </annotation>
+         </element>
+         <element name="beheizteNichtwohngebaeude" type="integer">
+            <annotation>
+               <documentation>Errechnete Anzahl der beheizten Gebäude, die nicht unter "beheizteWohngebaeude" fallen</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_GebaeudeAnzahlPropertyType">
+      <sequence>
+         <element ref="xwp:WP_GebaeudeAnzahl"/>
+      </sequence>
+   </complexType>
+   <element name="WP_GebaeudeBaublock"
+            substitutionGroup="xwp:WP_Baublock"
+            type="xwp:WP_GebaeudeBaublockType">
+      <annotation>
+         <documentation>Baublockbezogene Informationen zu Gebäudedaten entsprechend WPG Anlage 2 I.2.5 und I.2.6 sowie darüber hinausgehende optionale Informationen</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_GebaeudeBaublockType">
+      <complexContent>
+         <extension base="xwp:WP_BaublockType">
+            <sequence>
+               <element name="gebaeudetyp" type="xwp:WP_GebaeudeTypType">
+                  <annotation>
+                     <documentation>Überwiegender Gebäudetyp im Baublock</documentation>
+                  </annotation>
+               </element>
+               <element name="ueberwiegendBaujahr" type="xwp:WP_BaualtersklasseType">
+                  <annotation>
+                     <documentation>Überwiegendes Baujahr der Gebäude über Zuordnung in Baualtersklassen</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="verteilungBaujahr"
+                        type="xwp:WP_BaujahrAngabenPropertyType">
+                  <annotation>
+                     <documentation>Anteilige Erfassung der Baujahre der Gebäude über Baualtersklassen</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="nutzflaeche" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Gesamtnutzfläche der Gebäude im Baublock in Hektar</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_GebaeudeNetzanschluss"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_GebaeudeNetzanschlussType">
+      <annotation>
+         <documentation>Datentyp mit Angaben zu beheizten Gebäuden, die an ein Gas- oder Wärmenetz angeschlossen sind</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_GebaeudeNetzanschlussType">
+      <sequence>
+         <element name="anzahl" type="integer">
+            <annotation>
+               <documentation>Anzahl der Gebäude mit Netzanschluss im beplanten Gebiet</documentation>
+            </annotation>
+         </element>
+         <element name="anteil" type="gml:MeasureType">
+            <annotation>
+               <documentation>Anteil der Gebäude (mit Netzanschluss) an Gesamtheit der beheizten Gebäude im beplanten Gebiet in Prozent</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_GebaeudeNetzanschlussPropertyType">
+      <sequence>
+         <element ref="xwp:WP_GebaeudeNetzanschluss"/>
+      </sequence>
+   </complexType>
+   <simpleType name="WP_GebaeudeTypType">
+      <annotation>
+         <documentation>Aufzählung von Gebäudetypen</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Gebäude, das nach seiner Zweckbestimmung überwiegend dem Wohnen dient, einschließlich von Wohn-, Alten- oder Pflegeheimen sowie ähnlicher Einrichtungen (GEG § 3)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10001">
+            <annotation>
+               <documentation>Freistehendes Wohngebäude mit 1-2 Wohnungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10002">
+            <annotation>
+               <documentation>Wohngebäude mit 1 bis 2 Wohnungen als Doppelhaus, gereihtes Haus oder sonstiger Gebäudetyp</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10003">
+            <annotation>
+               <documentation>Wohngebäude mit 3 bis 12 Wohnungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10004">
+            <annotation>
+               <documentation>Wohngebäude mit 13 oder mehr Wohnungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Gebäude, das nach seiner Zweckbestimmung NICHT überwiegend dem Wohnen dient</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20001">
+            <annotation>
+               <documentation>Büro-, Verwaltungs-, Amtsgebäude</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20002">
+            <annotation>
+               <documentation>Gebäude des Groß- und Einzelhandels</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20003">
+            <annotation>
+               <documentation>Gebäude für Beherbergung und Gastronomie</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20004">
+            <annotation>
+               <documentation>Krankenhäuser</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20005">
+            <annotation>
+               <documentation>Kultureinrichtungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20006">
+            <annotation>
+               <documentation>Bildungseinrichtungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20007">
+            <annotation>
+               <documentation>Sporteinrichtungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20008">
+            <annotation>
+               <documentation>Schwimmbäder</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20009">
+            <annotation>
+               <documentation>Lagergebäude</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20010">
+            <annotation>
+               <documentation>Industrie und Gewerbe</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>unbekannt</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_Gemeinde"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_GemeindeType">
+      <annotation>
+         <documentation>Spezifikation einer für die Aufstellung des Plans zuständigen Gemeinde</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_GemeindeType">
+      <sequence>
+         <element name="name" type="string">
+            <annotation>
+               <documentation>Name der Gemeinde.</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="regionalSchluessel12" type="string">
+            <annotation>
+               <documentation>12-stelliger Regionalschlüssel für Gemeinde bzw. Stadt</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="regionalSchluessel9" type="string">
+            <annotation>
+               <documentation>Verkürzter Regionalschlüssel mit 9 Stellen für Verband- oder Samtgemeinde</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_GemeindePropertyType">
+      <sequence>
+         <element ref="xwp:WP_Gemeinde"/>
+      </sequence>
+   </complexType>
+   <element abstract="true"
+            name="WP_Geometrieobjekt"
+            substitutionGroup="xwp:WP_Objekt"
+            type="xwp:WP_GeometrieobjektType">
+      <annotation>
+         <documentation>Abstrakte Oberklasse für alle WP-Fachobjekte mit variabler Geometrie</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_GeometrieobjektType">
+      <complexContent>
+         <extension base="xwp:WP_ObjektType">
+            <sequence>
+               <element name="position" type="gml:GeometryPropertyType">
+                  <annotation>
+                     <documentation>Punkt- oder Flächengeometrie</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_GesetzlicheGrundlageType">
+      <annotation>
+         <documentation>Statusformen</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Wärmeplan auf Basis des Wärmeplanungsgesetz und der Umsetzungsrichtlinen der Länder</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Landesgesetz, z.B. Klimaschutz- und Klimawandelanpassungsgesetz Baden-Württemberg (KlimaG BW) vom 7.2.23</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Über die Kommunalrichtlinie (KRL) der NKI geförderter Wärmeplan</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_Grossverbraucher"
+            substitutionGroup="xwp:WP_Geometrieobjekt"
+            type="xwp:WP_GrossverbraucherType">
+      <annotation>
+         <documentation>Kunden oder Letztverbraucher entsprechend WPG Anlage 2 I.2.7 (bestehende sowie bekannte potenzielle Großverbraucher von Wärme oder Gas sowie bekannte potenzielle Großverbraucher, die gasförmige Energieträger nach § 3 Absatz 1 Nummer 4, 8, 12 oder Nummer 15 Buchstabe e, f, j oder Absatz 2 WPG zu stofflichen Zwecken einsetzen)</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_GrossverbraucherType">
+      <complexContent>
+         <extension base="xwp:WP_GeometrieobjektType">
+            <sequence>
+               <element minOccurs="0" name="name" type="string">
+                  <annotation>
+                     <documentation>Name des Großverbrauchers</documentation>
+                  </annotation>
+               </element>
+               <element name="status" type="xwp:WP_StatusType">
+                  <annotation>
+                     <documentation>Statusangabe: "bestehend" oder "potenziell"</documentation>
+                  </annotation>
+               </element>
+               <element name="energiebedarf" type="xwp:WP_EnergiebedarfArtType">
+                  <annotation>
+                     <documentation>Art des Energiebedarfs (Wärme und Kälte)</documentation>
+                  </annotation>
+               </element>
+               <element name="energieeinsatz" type="xwp:WP_EnergieeinsatzArtType">
+                  <annotation>
+                     <documentation>Einsatzart der Energie (thermisch und stofflich)</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        name="versorgungsmedium"
+                        type="xwp:WP_VersorgungsmediumType">
+                  <annotation>
+                     <documentation>Medium der leitungsgebundenen Versorgung</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="eeProzesswaerme" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Endenergie Prozesswärme</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="bedarfTemperaturniveau" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Das Temperaturniveau ist die am Übergabepunkt erforderliche Grenztemperatur des Energieträgers – bei Wärme die minimal notwendige, bei Kälte die maximal zulässige Vorlauftemperatur – zur Deckung des spezifischen Bedarfs unter den gegebenen Systembedingungen.</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Kaeltelinie"
+            substitutionGroup="xwp:WP_Linienobjekt"
+            type="xwp:WP_KaeltelinieType">
+      <annotation>
+         <documentation>Wärmeliniendichten in Megawattstunden pro Meter und Jahr in Form einer straßenabschnittbezogenen Darstellung entsprechend  WPG Anlage 2 I.2.2</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_KaeltelinieType">
+      <complexContent>
+         <extension base="xwp:WP_LinienobjektType">
+            <sequence>
+               <element minOccurs="0" name="kaeltelinienDichte" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Kälteliniendichte</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="laenge" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Länge des Abschnitts der Wärmelinie</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Kaeltenetz"
+            substitutionGroup="xwp:WP_ThermischeNetze"
+            type="xwp:WP_KaeltenetzType">
+      <annotation>
+         <documentation>Informationen zum Kältenetz entsprechend WPG Anlage 2 I.2.8.a).</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_KaeltenetzType">
+      <complexContent>
+         <extension base="xwp:WP_ThermischeNetzeType">
+            <sequence>
+               <element name="inbetriebnahmeJahr" type="integer">
+                  <annotation>
+                     <documentation>Jahr der Inbetriebnahme</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="energietraeger"
+                        type="xwp:WP_EnergietraegerType">
+                  <annotation>
+                     <documentation>Art der Energieträger der Kälteerzeugung</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Kaelteversorgungsgebiet"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_KaelteversorgungsgebietType">
+      <annotation>
+         <documentation>Baublockbezogenes Gebiet mit Bedarf an aktiver Kälteerzeugung und Kühlung, der über ein Kälte- oder ein integriertes Wärme- und Kältenetz gedeckt werden könnte</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_KaelteversorgungsgebietType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence/>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_KategorieMassnahmeType">
+      <annotation>
+         <documentation>Aufzählung von Kategorien, denen Maßnahmen zugeordnet werden</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Potenzialerschließung, Flächensicherung und Ausbau erneuerbarer Energien</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Wärmenetzausbau und -transformation</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Sanierung/Modernisierung und Effizienzsteigerung in Industrie und Gebäuden</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Heizungsumstellung und Transformation der Wärmeversorgung in Gebäuden und Quartieren</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>Stromnetz- und Wasserstoffnetzausbau</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="6000">
+            <annotation>
+               <documentation>Verbraucherverhalten und Suffizienz</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Sonstige Kategorie</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <simpleType name="WP_KostentraegerType">
+      <annotation>
+         <documentation>Sektoren, denen Kosten von Maßnahmen zugeordnet werden</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Gemeinde</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Sektor der privaten Haushalte</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Sektor Industrie</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Sektor Gewerbe, Handel, Dienstleistungen</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>Sektor Energiewirtschaft</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element abstract="true"
+            name="WP_Linienobjekt"
+            substitutionGroup="xwp:WP_Objekt"
+            type="xwp:WP_LinienobjektType">
+      <annotation>
+         <documentation>Abstrakte Oberklasse für alle WP-Fachobjekte mit (Multi-)Liniengeometrie</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_LinienobjektType">
+      <complexContent>
+         <extension base="xwp:WP_ObjektType">
+            <sequence>
+               <element name="position" type="gml:MultiCurvePropertyType">
+                  <annotation>
+                     <documentation>Liniengeometrie</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Massnahme"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_MassnahmeType">
+      <annotation>
+         <documentation>Maßnahmen der Umsetzungsstrategie entsprechend WPG Anlage 2 VI</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_MassnahmeType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element minOccurs="0" name="regionalSchluessel" type="string">
+                  <annotation>
+                     <documentation>Amtlicher Regionalschlüssel der betreffenden Gemeinde (Attribut istGemeinsamerWaermeplan = true)</documentation>
+                  </annotation>
+               </element>
+               <element name="kategorie" type="xwp:WP_KategorieMassnahmeType">
+                  <annotation>
+                     <documentation>Kategorie, der die Maßnahme zugeordnet werden kann</documentation>
+                  </annotation>
+               </element>
+               <element name="bezeichnung" type="string">
+                  <annotation>
+                     <documentation>Bezeichnung der Maßnahme</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="beginnUmsetzung" type="date">
+                  <annotation>
+                     <documentation>Zeitpunkt, an dem dem die Maßnahme beginnen soll</documentation>
+                  </annotation>
+               </element>
+               <element name="abschlussUmsetzung" type="date">
+                  <annotation>
+                     <documentation>Zeitpunkt, an dem dem die Maßnahme abgeschlossen sein soll</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="kosten" type="integer">
+                  <annotation>
+                     <documentation>Erwartete Kosten für Planung und Umsetzung der Maßnahme in Euro</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="2"
+                        minOccurs="0"
+                        name="kostentragenderSektor"
+                        type="xwp:WP_KostentraegerType">
+                  <annotation>
+                     <documentation>Kostentragender Sektor</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="endenergieEinsparung" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Erwartete Einsparung von Endenergie</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="treibausgaseEinsparung" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Erwartete Einsparung von Treibhausgasen</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="2"
+                        minOccurs="0"
+                        name="finanzierung"
+                        type="xwp:WP_FinanzierungsmechanismusType">
+                  <annotation>
+                     <documentation>Ermittelter Finanzierungsmechanismus zur Umsetzung (mandatorisch für Gebiete mit mehr als 45.000 Einwohnern)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="begruendung" type="string">
+                  <annotation>
+                     <documentation>Begründung bzw. Erläuterung der Maßnahme</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="refDokument"
+                        type="xwp:WP_ExterneReferenzPropertyType">
+                  <annotation>
+                     <documentation>Referenz auf ein externes Dokument zu der Maßnahme</documentation>
+                  </annotation>
+               </element>
+               <element name="gehoertZuPlan" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Relation der Maßnahme  auf den zugehörigen Plan</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Plan</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:massnahme</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_NichtBeplantesTeilgebiet"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_NichtBeplantesTeilgebietType">
+      <annotation>
+         <documentation>Gebiet, das nicht als voraussichtliches Wärmeversorgungsgebiete überplant ist.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_NichtBeplantesTeilgebietType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence/>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element abstract="true"
+            name="WP_Objekt"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_ObjektType">
+      <annotation>
+         <documentation>Abstrakte Oberklasse für alle XWärmeplan-Fachobjekte. Die Attribute dieser Klasse werden über den Vererbungs-Mechanismus an alle Fachobjekte weitergegeben.</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_ObjektType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element minOccurs="0" name="aufschrift" type="string">
+                  <annotation>
+                     <documentation>Spezifischer Text zur Beschriftung von Planinhalten</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="refTextInhalt" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz eines raumbezogenen Fachobjektes auf einen textuell formulierten Planinhalt</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_TextAbschnitt</targetElement>
+                     </appinfo>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="refMassnahme" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz eines raumbezogenen Fachobjektes auf eine Maßnahme zur Umsetzung des Wärmeplans</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Massnahme</targetElement>
+                     </appinfo>
+                  </annotation>
+               </element>
+               <element name="gehoertZuBereich" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Verweis auf den Bereich, zu dem der Planinhalt gehört</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Bereich</targetElement>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Plan"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_PlanType">
+      <annotation>
+         <documentation>Die Klasse modelliert einen Wärmeplan gemäß § 23 Wärmeplanungsgesetz (WPG). Sie umfasst die in der Anlage 2 aufgeführte kartografische Darstellung der Bestands- und Potenzialanalyse, die Einteilung in Wärmeversorgungsgebiete, die Indikatoren des Zielszenarios, die Darstellung der Wärmeversorgungsarten für das Zieljahr sowie Maßnahmen der Umsetzungsstrategie. Die textlichen und grafischen Erläuterungen der Eignungsprüfung, Bestandsanalyse, des Zielszenarios und der Umsetzungsstrategie können dem Wärmeplan als externe Referenzen beigefügt werden.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_PlanType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element name="name" type="string">
+                  <annotation>
+                     <documentation>Name des Wärmeplans. Das Attribut name setzt sich aus den Attributen nameBasis, nummer und fassungsbezeichnung zusammen.&#xD;
+(kann für Kodierung von Links in GML, HTML, JSON verwendet werden)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="nameBasis" type="string">
+                  <annotation>
+                     <documentation>Unveränderlicher Basisname des Plans</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="fassungsbezeichnung" type="string">
+                  <annotation>
+                     <documentation>Bezeichnung einer fortlaufenden Fassung des Plans</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="nummer" type="string">
+                  <annotation>
+                     <documentation>Nummer des Plans</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="internalId" type="string">
+                  <annotation>
+                     <documentation>Interner Identifikator des Plans</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="beschreibung" type="string">
+                  <annotation>
+                     <documentation>Kommentierende Beschreibung des Plans</documentation>
+                  </annotation>
+               </element>
+               <element name="planungsverantwortlicheStelle" type="xwp:WP_GemeindePropertyType">
+                  <annotation>
+                     <documentation>Planungsverantwortliche Stelle bzw. planungsverantwortliche Stelle, die in der interkommunalen Kooperation  den Wärmeplan hauptverantwortlich erstellt</documentation>
+                  </annotation>
+               </element>
+               <element name="verfahrensart" type="xwp:WP_VerfahrenArtType">
+                  <annotation>
+                     <documentation>Verfahrensart</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="istPlanungGemeindeverband" type="boolean">
+                  <annotation>
+                     <documentation>Wärmeplanung wurde in landesrechtlich verankertem Gemeindeverband durchgeführt = true. Default = false.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="istPlanungKonvoi" type="boolean">
+                  <annotation>
+                     <documentation>Wärmeplanung wurde in freiwilliger Kooperation benachbarter Gemeinden (im Konvoi) durchgeführt = true. Default = false.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="istGemeinsamerWaermeplan" type="boolean">
+                  <annotation>
+                     <documentation>Dieser Wärmeplan ist ein gemeinsamer Wärmeplan von mindestens zwei planungsverantwortlichen Stellen = true. Default = false.</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="beteiligteGemeinden"
+                        type="xwp:WP_GemeindePropertyType">
+                  <annotation>
+                     <documentation>Weitere beteiligte Gemeinden bei einer interkommunalen Zusammenarbeit in der Wärmeplanung und/oder bei der gemeinsamen Erstellung dieses Wärmeplans</documentation>
+                  </annotation>
+               </element>
+               <element name="gesetzlicheGrundlage" type="xwp:WP_GesetzlicheGrundlageType">
+                  <annotation>
+                     <documentation>Gesetzliche Grundlage des Wärmeplans</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="foerderkennzeichen" type="string">
+                  <annotation>
+                     <documentation>Förderkennzeichen bei einer Förderung durch die Kommunalrichtlinie</documentation>
+                  </annotation>
+               </element>
+               <element name="zieljahr" type="string">
+                  <annotation>
+                     <documentation>Das Jahr, in dem spätestens die Umstellung auf eine treibhausgasneutrale Wärmeversorgung abgeschlossen sein soll.</documentation>
+                  </annotation>
+               </element>
+               <element name="basisJahrDatenerfassung" type="string">
+                  <annotation>
+                     <documentation>Basisjahr der Datenerfassung</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="hatEnergieeinsparpotenzialgebiete"
+                        type="boolean">
+                  <annotation>
+                     <documentation>Es sind Teilgebiete mit erhöhtem Energieeinsparpotenzial (§ 18 Abs. 5 WPG) ausgewiesen  = true. Default = false.&#xD;
+Siehe:  WP_Energieeinsparpotenzialgebiet</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="hatKlimaneutraleWaermeversGeb" type="boolean">
+                  <annotation>
+                     <documentation>Es sind Teilgebiete ausgewiesen, in denen die Wärmeversorgung (nahezu) vollständig auf erneuerbaren Energien, unvermeidbarer Abwärme oder einer Kombination hieraus beruht (§ 14 Abs. 6 WPG) = true. Default = false.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="istFortschreibung" type="boolean">
+                  <annotation>
+                     <documentation>Der Plan ist eine Forschreibung (§ 25 WPG) = true. Default = false.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="ersetztPlan"
+                        type="xwp:WP_VerbundenerPlanPropertyType">
+                  <annotation>
+                     <documentation>Verweis auf vorherigen Wärmeplan, der durch den vorliegenden Plan ersetzt wird.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="aufstellungsbeschlussDatum" type="date">
+                  <annotation>
+                     <documentation>Beschluss oder die Entscheidung der planungsverantwortlichen Stelle über die Durchführung der Wärmeplanung gemäß § 13 WPG</documentation>
+                  </annotation>
+               </element>
+               <element name="beschlussDatum" type="date">
+                  <annotation>
+                     <documentation>WPG § 13: Der Wärmeplan wird durch das nach Maßgabe des Landesrechts zuständige Gremium oder die zuständige Stelle beschlossen</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="technHerstellDatum" type="date">
+                  <annotation>
+                     <documentation>Datum der letzten technischen oder fachlichen Änderung an diesem Plan im datenhaltenden System</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="technischePlanerstellung"
+                        type="string">
+                  <annotation>
+                     <documentation>Bezeichnung der Institution oder Firma, die den Plan technisch erstellt hat.</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="externeReferenz"
+                        type="xwp:WP_ExterneReferenzPropertyType">
+                  <annotation>
+                     <documentation>Referenz auf eine digital verfügbare Ressource</documentation>
+                  </annotation>
+               </element>
+               <element name="raeumlicherGeltungsbereich" type="gml:MultiSurfacePropertyType">
+                  <annotation>
+                     <documentation>Grenze des räumlichen Geltungsbereiches des Plans</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="energiebilanz"
+                        type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz auf Energiebilanzen</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Energiebilanz</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:gehoertZuPlan</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="infrastruktur"
+                        type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz auf aggregierte Daten der Gebäude und Netzinfrastruktur</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_WaermeinfrastrukturAggregiert</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:gehoertZuPlan</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="potenzialanalyse"
+                        type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz auf Daten der Potenzialanalyse</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_PotenzialanalyseAggregiert</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:gehoertZuPlan</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="massnahme"
+                        type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz auf eine Maßnahme zur Umsetzung des Wärmeplans</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Massnahme</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:gehoertZuPlan</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="text"
+                        type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz des Plans auf einen Text</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_TextAbschnitt</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:gehoertZuPlan</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="bereich"
+                        type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz des Plans auf einen Bereich</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Bereich</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:gehoertZuPlan</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_PotenzialWaermenutzung"
+            substitutionGroup="xwp:WP_Geometrieobjekt"
+            type="xwp:WP_PotenzialWaermenutzungType">
+      <annotation>
+         <documentation>Raumbezogenes Potenzial zur Nutzung/Erzeugung von Wärme aus erneuerbaren Energien und zur Nutzung von unvermeidbarer Abwärme entsprechend WPG Anlage 2 II.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_PotenzialWaermenutzungType">
+      <complexContent>
+         <extension base="xwp:WP_GeometrieobjektType">
+            <sequence>
+               <element minOccurs="0" name="verzeichnisID" type="string">
+                  <annotation>
+                     <documentation>Vollständige ID eines landesspezifischen Verzeichnis, z.B. "See-ID:  6884 (AWGN)"</documentation>
+                  </annotation>
+               </element>
+               <element name="energietraeger" type="xwp:WP_EnergietraegerType">
+                  <annotation>
+                     <documentation>Potenzieller Energieträger</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="waermepotenzial" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Jährliche potenziell nutzbare/erzeugbare Wärmemenge (Erzeugernutzwärme)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="durchfluss" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Durchfluss eines Fließgewässers</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="volumen" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Volumen eines stehenden Gewässers</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="deltaT" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>ΔT: Bei der Berechnung angenommene Temperaturauskühlung eines Gewässers durch Wärmeentzug</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="hinweis" type="string">
+                  <annotation>
+                     <documentation>Textlicher Hinweis, Erläuterung</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_PotenzialWaermespeicherung"
+            substitutionGroup="xwp:WP_Geometrieobjekt"
+            type="xwp:WP_PotenzialWaermespeicherungType">
+      <annotation>
+         <documentation>Raumbezogenes Potenzial zur Wärmespeicherung entsprechend WPG Anlage 2 II.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_PotenzialWaermespeicherungType">
+      <complexContent>
+         <extension base="xwp:WP_GeometrieobjektType">
+            <sequence>
+               <element name="potenzielleKapazitaet" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Potenzielle maximal speicherbare Wärmemenge (Erzeugernutzwärme)</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_PotenzialanalyseAggregiert"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_PotenzialanalyseAggregiertType">
+      <annotation>
+         <documentation>Zusammenfassende aggregierte Daten der Potenzialanalyse für das Planungsgebiet entsprechend WPG Anlage 2 II</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_PotenzialanalyseAggregiertType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element name="name" type="string">
+                  <annotation>
+                     <documentation>Name der Tabelle (kann für Kodierung von Links in GML, HTML, JSON verwendet werden)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="regionalSchluessel" type="string">
+                  <annotation>
+                     <documentation>Amtlicher Regionalschlüssel der betreffenden Gemeinde (Attribut istGemeinsamerWaermeplan = true)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="waermebedarfsreduktionGebaeude"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Potenziale zur Energieeinsparung durch Wärmebedarfsreduktion von Gebäuden (Erzeugernutzwärme) nach Anlage 2 Abschnitt II und § 16 Abs. 2 WPG (Zieljahr gegenüber Basisjahr).</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="neWaermebedarfsreduktionGebaeude"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Potenziale zur Energieeinsparung durch Wärmebedarfsreduktion von Gebäuden (Nutzenergie) nach Anlage 2 Abschnitt II und § 16 Abs. 2 WPG (Zieljahr gegenüber Basisjahr).</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeWaermebedarfsreduktionGebaeude"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Potenziale zur Energieeinsparung durch Wärmebedarfsreduktion von Gebäuden (Endenergie) nach Anlage 2 Abschnitt II und § 16 Abs. 2 WPG (Zieljahr gegenüber Basisjahr).</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        name="erneuerbareEnergienAbwaerme"
+                        type="xwp:WP_EndenergieEnergietraegerPropertyType">
+                  <annotation>
+                     <documentation>Potenziale erneuerbarer Energien (EE) und unvermeidbarer Abwärme zur Wärmeversorgung nach Energieträgern nach Anlage 2 Abschnitt II und § 16 Abs. 1 WPG&#xD;
+Konformitätsbedingungen: zulässige Enumerationswerte 12003, 2000 bis 32004, 40001, 4100, ab 5000</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="technischeSynergieeffekte" type="boolean">
+                  <annotation>
+                     <documentation>Es wurden technische Synergieeffekte identfiziet = true. &#xD;
+Technische Synergieeffekte entstehen durch die gemeinsame Nutzung oder Integration von Infrastrukturen und Technologien, die Effizienzsteigerungen und Kosteneinsparungen bei der Wärmeversorgung ermöglichen. Dazu zählen bspw. die Nutzung lokaler Erneuerbarer Energiequellen zur Wärmeerzeugung oder die Nutzung der Vorteile der Sektorkopplung. (Anforderung gilt für Gemeindegebiet mit mehr als 45.000 Einwohnern, WPG § 21)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="organisatorischeSynergieeffekte" type="boolean">
+                  <annotation>
+                     <documentation>Es wurden organisatorische Synergieeffekte identfiziet = true. &#xD;
+Organisatorische Synergieeffekte beziehen sich auf die Zusammenarbeit und Koordination zwischen verschiedenen Akteuren und Institutionen, die zu einer besseren Planung, Steuerung und Umsetzung von Wärmeprojekten führt. Beispiele können die Bündelung von Ressourcen oder die gemeinsame Durchführung der Bürgerbeteiligung und -information sein. (Anforderung gilt für Gemeindegebiet mit mehr als 45.000 Einwohnern, WPG § 21)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="finanzielleSynergieeffekte" type="boolean">
+                  <annotation>
+                     <documentation>Es wurden finanzielle Synergieeffekte identfiziet = true. &#xD;
+Finanzielle Synergieeffekte resultieren aus der Bündelung von Ressourcen und Investitionen, die zu einer Reduzierung der Kosten und einer verbesserten Wirtschaftlichkeit der Wärmeversorgung führen. Dazu zählen u.a. die gemeinsame Fördermittelakquise oder Förderung und Umsetzung von Energieeffizienzmaßnahmen in privaten und gewerblichen Gebäuden. (Anforderung gilt für Gemeindegebiet mit mehr als 45.000 Einwohnern, WPG § 21)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="beruecksichtigungEEGemeinschaften"
+                        type="boolean">
+                  <annotation>
+                     <documentation>Es wurden Erneuerbare-Energie-Gemeinschaften berücksichtigt  = true. &#xD;
+Gemäß WPG §21 (2) soll eine Bewertung der Rolle von Erneuerbare-Energie-Gemeinschaften oder anderer von den Verbrauchern ausgehender Initiativen enthalten, die aktiv zur Umsetzung lokaler Projekte im Bereich Wärmeversorgung beitragen können (Anforderung gilt für Gemeindegebiet mit mehr als 45.000 Einwohnern)</documentation>
+                  </annotation>
+               </element>
+               <element name="gehoertZuPlan" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Relation der Potenzialanalyse auf den zugehörigen Plan</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Plan</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:potenzialanalyse</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_SchutzgebietTypType">
+      <annotation>
+         <documentation>Liste von Schutzgebietstypen mit zentraler gesetzlicher Grundlage</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1100">
+            <annotation>
+               <documentation>Wasserschutzgebiet (Wasserhaushaltsgesetz - WHG)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1200">
+            <annotation>
+               <documentation>Heilquellenschutzgebiet (Wasserhaushaltsgesetz - WHG)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="1300">
+            <annotation>
+               <documentation>Festgesetztes Überschwemmungsgebiet (Wasserhaushaltsgesetz - WHG)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Flora-Fauna-Habitat (FFH-Richtlinie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Vogelschutzgebiet (EU-Vogelschutzrichtlinie)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Feuchtgebiet internationaler Bedeutung (Ramasar-Konvention)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5100">
+            <annotation>
+               <documentation>Naturschutzgebiet (Bundesnaturschutzgesetz - BNatSchG)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5200">
+            <annotation>
+               <documentation>Landschaftsschutzgebiet (Bundesnaturschutzgesetz - BNatSchG)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5300">
+            <annotation>
+               <documentation>Nationalpark (Bundesnaturschutzgesetz - BNatSchG)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5400">
+            <annotation>
+               <documentation>Gesetzlich geschütztes Biotop (Bundesnaturschutzgesetz - BNatSchG)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Sonstiges Schutzgebiet</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <simpleType name="WP_StatusType">
+      <annotation>
+         <documentation>Statusformen für Infrastruktur und Großverbraucher</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Wärmenetz in Betrieb oder bestehender Großverbraucher</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>in Planung befindliches oder genehmigtes Wärmenetz</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>potenzieller Großverbraucher oder potenzielles Wärmenetz</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <simpleType name="WP_StuetzjahrType">
+      <annotation>
+         <documentation>Stützjahre der Wärmeplanung</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>2030</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>2035</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>2040</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_TextAbschnitt"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_TextAbschnittType">
+      <annotation>
+         <documentation>Ein Abschnitt der textlich formulierten Inhalte  des Plans</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_TextAbschnittType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element name="title" type="string">
+                  <annotation>
+                     <documentation>Titel des Abschnitts (kann für Kodierung von Links in GML, HTML, JSON verwendet werden)</documentation>
+                  </annotation>
+               </element>
+               <element name="text" type="string">
+                  <annotation>
+                     <documentation>Inhalt eines Abschnitts der textlichen Planinhalte</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="refText"
+                        type="xwp:WP_ExterneReferenzPropertyType">
+                  <annotation>
+                     <documentation>Referenz auf ein externes Dokument, das den zugehörigen Textabschnitt enthält.</documentation>
+                  </annotation>
+               </element>
+               <element name="gehoertZuPlan" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Referenz eines Textes auf den zugehörigen Plan</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Plan</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:text</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element abstract="true"
+            name="WP_ThermischeNetze"
+            substitutionGroup="xwp:WP_Flaechenobjekt"
+            type="xwp:WP_ThermischeNetzeType">
+      <annotation>
+         <documentation>Oberklasse für Wärme- und Kältenetze</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_ThermischeNetzeType">
+      <complexContent>
+         <extension base="xwp:WP_FlaechenobjektType">
+            <sequence>
+               <element minOccurs="0" name="netzID" type="string">
+                  <annotation>
+                     <documentation>ID des Netzes (kann in WP_EnergieBaublock referenziert werden)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="name" type="string">
+                  <annotation>
+                     <documentation>Natürliche oder juristische Person, die die tatsächliche Herrschaft über das Wärme-/Kältenetz ausübt, seine Arbeitsweise eigenverantwortlich bestimmt und es auf eigene Rechnung nutzt, ohne notwendigerweise Eigentümer zu sein.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="betreiber" type="string">
+                  <annotation>
+                     <documentation>Natürliche oder juristische Person, die die tatsächliche Herrschaft über das Wärme-/Kältenetz ausübt, seine Arbeitsweise eigenverantwortlich bestimmt und es auf eigene Rechnung nutzt, ohne notwendigerweise Eigentümer zu sein.</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="medium" type="xwp:WP_TransportmediumType">
+                  <annotation>
+                     <documentation>Medium des Waerme- und Kältenetzes&#xD;
+Konformitätsbedingung: Mandatorisch bei Bestandsnetzen</documentation>
+                  </annotation>
+               </element>
+               <element name="laenge" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Gesamtlänge des Netzes</documentation>
+                  </annotation>
+               </element>
+               <element name="anzahlGebaeudeAnschluss" type="integer">
+                  <annotation>
+                     <documentation>Anzahl der Gebäude mit Anschluss an das Netz</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_TransportmediumType">
+      <annotation>
+         <documentation>Liste der Medien in Wärme und Kältenetzen</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Wasser</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Dampf</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Sole</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Kältemittel</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Sonstiges Medium</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_Treibhausgasemissionen"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_TreibhausgasemissionenType">
+      <annotation>
+         <documentation>Datentyp für die Erfassung der jährlichen Treibhausgasemissionen der gesamten Wärmeversorgung nach Energieträgern und Sektoren</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_TreibhausgasemissionenType">
+      <sequence>
+         <element name="energietraeger" type="xwp:WP_EnergietraegerType">
+            <annotation>
+               <documentation>Energieträger</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="thgSektorIndustrie" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen für den jeweiligen Energieträger im Sektor Industrie</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="thgSektorGHD" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen für den jeweiligen Energieträger im Sektor Gewerbe, Handel, Dienstleistungen</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="thgSektorHaushalte" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen für den jeweiligen Energieträger im Sektor private Haushalte</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="thgSektorLiegenschaften" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen für den jeweiligen Energieträger im Sektor öffentliche Liegenschaften</documentation>
+            </annotation>
+         </element>
+         <element name="thgEmissionenEnTrGesamt" type="gml:MeasureType">
+            <annotation>
+               <documentation>Gesamte jährliche Treibhausgasemissionen für den jeweiligen Energieträger</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_TreibhausgasemissionenPropertyType">
+      <sequence>
+         <element ref="xwp:WP_Treibhausgasemissionen"/>
+      </sequence>
+   </complexType>
+   <element name="WP_TreibhausgasemissionenSektor"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_TreibhausgasemissionenSektorType">
+      <annotation>
+         <documentation>Datentyp zur Erfassung Erfassung der jährlichen Treibhausgasemissionen der Wärmeversorgung nach Sektoren</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_TreibhausgasemissionenSektorType">
+      <sequence>
+         <element name="thgSektorIndustrie" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen im Sektor Industrie</documentation>
+            </annotation>
+         </element>
+         <element name="thgSektorGHD" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen im Sektor Gewerbe, Handel, Dienstleistungen</documentation>
+            </annotation>
+         </element>
+         <element name="thgSektorHaushalte" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen im Sektor private Haushalte</documentation>
+            </annotation>
+         </element>
+         <element name="thgSektorLiegenschaften" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Treibhausgasemissionen im Sektor öffentliche Liegenschaften</documentation>
+            </annotation>
+         </element>
+         <element name="thgEmissionenGesamt" type="gml:MeasureType">
+            <annotation>
+               <documentation>Gesamte jährliche Treibhausgasemissionen</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_TreibhausgasemissionenSektorPropertyType">
+      <sequence>
+         <element ref="xwp:WP_TreibhausgasemissionenSektor"/>
+      </sequence>
+   </complexType>
+   <element name="WP_VerbundenerPlan"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_VerbundenerPlanType">
+      <annotation>
+         <documentation>Spezifikation eines anderen Wärmeplans, der mit dem Ausgangsplan verbunden ist und von diesem geändert wird.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_VerbundenerPlanType">
+      <sequence>
+         <element minOccurs="0" name="planName" type="string">
+            <annotation>
+               <documentation>Name (Attribut "name" von "WP_Plan") des verbundenen Plans.</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="nummer" type="string">
+            <annotation>
+               <documentation>Nummer (Attribut "nummer" von "WP_Plan") des verbundenen Plans</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_VerbundenerPlanPropertyType">
+      <sequence>
+         <element ref="xwp:WP_VerbundenerPlan"/>
+      </sequence>
+   </complexType>
+   <simpleType name="WP_VerfahrenArtType">
+      <annotation>
+         <documentation>Verfahrensarten der Wärmeplanung</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Regelverfahren</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Kleine Wärmeplanung gemäß § 22 a WPG</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Vereinfachtes Verfahren gemäß § 22 WPG</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Für das beplante Gebiet oder ein Teilgebiet wurde eine verkürzte Wärmeplanung  gemäß § 14 Abs. 4 WPG</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_VersorgungsgebieteAggregiert"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_VersorgungsgebieteAggregiertType">
+      <annotation>
+         <documentation>Datentyp für die Erfassung der Wärmeversorgungsgebiete für das Zieljahr</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_VersorgungsgebieteAggregiertType">
+      <sequence>
+         <element name="versorgungsart" type="xwp:WP_WaermeversorgungsgebietTypType">
+            <annotation>
+               <documentation>Auswahl der Art des Wärmeversorgungsgebiets</documentation>
+            </annotation>
+         </element>
+         <element name="eignungsstufe" type="xwp:WP_EignungsstufeType">
+            <annotation>
+               <documentation>Auswahl der Eignungsstufe</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="anzahlGebiete" type="integer">
+            <annotation>
+               <documentation>Anzahl der Gebiete (bzw. Baublöcke)</documentation>
+            </annotation>
+         </element>
+         <element name="flaeche" type="gml:MeasureType">
+            <annotation>
+               <documentation>Gesamtfläche der Gebiete</documentation>
+            </annotation>
+         </element>
+         <element name="endenergieverbrauch" type="gml:MeasureType">
+            <annotation>
+               <documentation>Endenergieverbrauch der Gebiete</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_VersorgungsgebieteAggregiertPropertyType">
+      <sequence>
+         <element ref="xwp:WP_VersorgungsgebieteAggregiert"/>
+      </sequence>
+   </complexType>
+   <simpleType name="WP_VersorgungsmediumType">
+      <annotation>
+         <documentation>Liste der Versorgungsmedien von Großverbrauchern</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Versorgung durch Erdgas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Versorgung durch Biogas</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Versorgung durch Wasserstoff</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Versorgung durch Wasserstoffderivate</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>Leitungsgebundene Wärme</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="6000">
+            <annotation>
+               <documentation>Leitungsgebundene Kälte</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Sonstige Versorgung</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_WaermeKaelteNetz"
+            substitutionGroup="xwp:WP_ThermischeNetze"
+            type="xwp:WP_WaermeKaelteNetzType">
+      <annotation>
+         <documentation>Informationen zum integrierten Wärme- und Kältenetz entsprechend WPG Anlage 2 I.2.8.a).</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeKaelteNetzType">
+      <complexContent>
+         <extension base="xwp:WP_ThermischeNetzeType">
+            <sequence>
+               <element name="inbetriebnahmeJahr" type="integer">
+                  <annotation>
+                     <documentation>Jahr der Inbetriebnahme</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="energietraeger"
+                        type="xwp:WP_EnergietraegerType">
+                  <annotation>
+                     <documentation>Art der Energieträger der Kälteerzeugung</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_WaermeerzeugerAngaben"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_WaermeerzeugerAngabenType">
+      <annotation>
+         <documentation>Datentyp für die Erfassung von Informationen zu dezentralen Wärmeerzeugern</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeerzeugerAngabenType">
+      <sequence>
+         <element name="art" type="xwp:WP_WaermeerzeugerTypType">
+            <annotation>
+               <documentation>Art der Wärmeerzeugungsanlage</documentation>
+            </annotation>
+         </element>
+         <element name="anzahl" type="integer">
+            <annotation>
+               <documentation>Anzahl der Wärmeerzeugungsanlagen</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="altersklasse" type="xwp:WP_AltersklasseType">
+            <annotation>
+               <documentation>Überwiegende Baualtersklasse der Wärmeerzeugungsanlagen</documentation>
+            </annotation>
+         </element>
+         <element minOccurs="0" name="feuerungsleistung" type="gml:MeasureType">
+            <annotation>
+               <documentation>Gesamtfeuerungsleistung der Wärmeerzeugungsanlagen in Megawatt</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_WaermeerzeugerAngabenPropertyType">
+      <sequence>
+         <element ref="xwp:WP_WaermeerzeugerAngaben"/>
+      </sequence>
+   </complexType>
+   <element name="WP_WaermeerzeugerAnzahl"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_WaermeerzeugerAnzahlType">
+      <annotation>
+         <documentation>Datentyp  der dezentralen Wärmeerzeuger ( einschließlich Hausübergabestationen) und der eingesetzten Energieträger</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeerzeugerAnzahlType">
+      <sequence>
+         <element name="art" type="xwp:WP_WaermeerzeugerTypType">
+            <annotation>
+               <documentation>Art der Heizung bzw. dezentralen Wärmeerzeugung</documentation>
+            </annotation>
+         </element>
+         <element name="anzahl" type="integer">
+            <annotation>
+               <documentation>Anteil des jährlichen Energieverbrauchs in Prozent</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_WaermeerzeugerAnzahlPropertyType">
+      <sequence>
+         <element ref="xwp:WP_WaermeerzeugerAnzahl"/>
+      </sequence>
+   </complexType>
+   <simpleType name="WP_WaermeerzeugerTypType">
+      <annotation>
+         <documentation>Aufzählung von dezentralen Wärmeerzeugern</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Stromdirektheizungen wandeln durch elektrischen Widerstand Strom in Wärme um. Bauformen sind Fußbodenheizungen, Wärmestrahler oder Nachtspeicherheizungen.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Oberkategorie der Heizkessel zur Wärmeerzeugung durch Verbrennung fossiler Brennstoffe</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20001">
+            <annotation>
+               <documentation>Kohleheizung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20002">
+            <annotation>
+               <documentation>Erdgasheizung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20003">
+            <annotation>
+               <documentation>Flüssiggasheizung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="20004">
+            <annotation>
+               <documentation>Ölheizung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>leitungsgebundene Wärme, Hausübergabestation</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Solarthermische Anlage</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="5000">
+            <annotation>
+               <documentation>Blockheizkraftwerk, das das Prinzip der Kraft-Wärme-Kopplung nutzt (Oberkategorie).</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="50001">
+            <annotation>
+               <documentation>Mit Erdgas betriebenes Blockheizkraftwerk (BHKW)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="50002">
+            <annotation>
+               <documentation>Mit Biomasse betriebenes Blockheizkraftwerk (BHKW)</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="6000">
+            <annotation>
+               <documentation>Oberkategrie von Heizungen, die mit Biomasse befeuert werden.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="60001">
+            <annotation>
+               <documentation>Scheitholzheizung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="60002">
+            <annotation>
+               <documentation>Hackschnitzelheizung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="60003">
+            <annotation>
+               <documentation>Pelettheizung</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="7000">
+            <annotation>
+               <documentation>Eine Wärmepumpenheizung ist die Anwendung der Wärmepumpe für Heizzwecke. Sie entzieht der Umwelt thermische Energie und bringt diese unter Aufwendung technischer Arbeit mit einem Verdichter über einen thermodynamischen Kreisprozess auf ein höheres, für Heizzwecke nutzbares Temperaturniveau.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="70001">
+            <annotation>
+               <documentation>Wärmeerzeugung mit Umgebungsluft</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="70002">
+            <annotation>
+               <documentation>Wärmeerzeugung über das Erdreich</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="70003">
+            <annotation>
+               <documentation>Wärmeerzeugung mit Grundwasser</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="9999">
+            <annotation>
+               <documentation>Sonstige dezentrale Wärmeerzeungsanlage</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_WaermeinfrastrukturAggregiert"
+            substitutionGroup="gml:AbstractFeature"
+            type="xwp:WP_WaermeinfrastrukturAggregiertType">
+      <annotation>
+         <documentation>Zusammenfassende aggregierte Daten zu Gebäuden und Netzinfrastrukturen für das Planungsgebiet und für verschiedene Betrachtungszeitpunkte. Betrifft Zielszenario und Betandsanalye entsprechend WPG Anlage 2 I und III.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeinfrastrukturAggregiertType">
+      <complexContent>
+         <extension base="gml:AbstractFeatureType">
+            <sequence>
+               <element name="name" type="string">
+                  <annotation>
+                     <documentation>Name der Tabelle (kann für Kodierung von Links in GML, HTML, JSON verwendet werden)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="regionalSchluessel" type="string">
+                  <annotation>
+                     <documentation>Amtlicher Regionalschlüssel der betreffenden Gemeinde (Attribut istGemeinsamerWaermeplan = true)</documentation>
+                  </annotation>
+               </element>
+               <element name="betrachtungszeitpunkt"
+                        type="xwp:WP_BetrachtungszeitpunktPropertyType">
+                  <annotation>
+                     <documentation>Betrachtungszeitpunkt für die Daten der Wärmeinfrastruktur</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="waermerzeugerMitEnergietraeger"
+                        type="xwp:WP_WaermeerzeugerAnzahlPropertyType">
+                  <annotation>
+                     <documentation>Anzahl dezentraler Wärmeerzeuger, einschließlich Hausübergabestationen, nach Art der Wärmeerzeuger einschließlich des eingesetzten Energieträgers</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="waermenetzeBestand"
+                        type="xwp:WP_WaermenetzeGesamtPropertyType">
+                  <annotation>
+                     <documentation>Wärmenetze im Bestand</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="waermenetzePlanung"
+                        type="xwp:WP_WaermenetzeGesamtPropertyType">
+                  <annotation>
+                     <documentation>Wärmenetze in Planung oder genehmigt</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="speicherkapazitaetWaermespeicher"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Speicherkapazität der Wärmespeicher</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="gebaeudeAnschlussGasnetz"
+                        type="xwp:WP_GebaeudeNetzanschlussPropertyType">
+                  <annotation>
+                     <documentation>Gebäude mit Anschluss an ein Gasnetz</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="gebaeudeAnschlussWaermenetzBestand"
+                        type="xwp:WP_GebaeudeNetzanschlussPropertyType">
+                  <annotation>
+                     <documentation>Bestand der Gebäude mit Anschluss an Wärmenetze</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="gebaeudeAnschlussWaermenetzPlanung"
+                        type="xwp:WP_GebaeudeNetzanschlussPropertyType">
+                  <annotation>
+                     <documentation>Gebäude mit Anschluss an geplante Wärmenetze</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="anzahlGebaeude"
+                        type="xwp:WP_GebaeudeAnzahlPropertyType">
+                  <annotation>
+                     <documentation>Informationen zum Gebäudebestand</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="sanierungsrate" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Informationen zum Gebäudebestand</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="bedarfGruenesMethanZieljahr"
+                        type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Bedarf an grünem Methan für das Zieljahr nach § 28 Abs. 5 WPG</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="waermeversorgungsgebieteZieljahr"
+                        type="xwp:WP_VersorgungsgebieteAggregiertPropertyType">
+                  <annotation>
+                     <documentation>Aggregiere Angaben zu den Wärmeversorgungsgebiete für das Zieljahr. Die Angaben erfolgen für die geplante Versorgungsart, nacheinander kombiniert mit den Eignungsstufen.</documentation>
+                  </annotation>
+               </element>
+               <element name="gehoertZuPlan" type="gml:ReferenceType">
+                  <annotation>
+                     <documentation>Relation der Bestandsanalyse auf den zugehörigen Plan</documentation>
+                     <appinfo>
+                        <targetElement xmlns="http://www.opengis.net/gml/3.2">xwp:WP_Plan</targetElement>
+                        <reversePropertyName xmlns="http://www.opengis.net/gml/3.2">xwp:infrastruktur</reversePropertyName>
+                     </appinfo>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Waermelinie"
+            substitutionGroup="xwp:WP_Linienobjekt"
+            type="xwp:WP_WaermelinieType">
+      <annotation>
+         <documentation>Wärmeliniendichten in Megawattstunden pro Meter und Jahr in Form einer straßenabschnittbezogenen Darstellung entsprechend  WPG Anlage 2 I.2.2</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermelinieType">
+      <complexContent>
+         <extension base="xwp:WP_LinienobjektType">
+            <sequence>
+               <element minOccurs="0" name="waermeMenge" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Jährlicher Wärmeverbrauch oder Wärmebedarf aller Objekte innerhalb eines Leitungsabschnitts</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="waermelinienDichte" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Quotient aus Wärmeverbrauch/-bedarf der Objekte  innerhalb eines Leitungsabschnitts und der Länge dieses Leitungsabschnitts</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="laenge" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Länge des Abschnitts der Wärmelinie</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_Waermenetz"
+            substitutionGroup="xwp:WP_ThermischeNetze"
+            type="xwp:WP_WaermenetzType">
+      <annotation>
+         <documentation>Informationen zum Wärmenetz entsprechend WPG Anlage 2 I.2.8.a).</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermenetzType">
+      <complexContent>
+         <extension base="xwp:WP_ThermischeNetzeType">
+            <sequence>
+               <element name="status" type="xwp:WP_StatusType">
+                  <annotation>
+                     <documentation>Errichtungsstatus des Wärmenetzes</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="temperatur" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Temperatur (Mandatorisch bei Bestandsnetzen)</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="geplanteInbetriebZeit" type="string">
+                  <annotation>
+                     <documentation>Jahr oder Zeitraum einer geplanten Inbetriebnahme</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eeNachEnergietraeger"
+                        type="xwp:WP_EndenergieEnergietraegerPropertyType">
+                  <annotation>
+                     <documentation>Jährlicher Endenergieverbrauch oder Bedarf nach Energieträgern (für Status "Bestehend")</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_WaermenetzeGesamt"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_WaermenetzeGesamtType">
+      <annotation>
+         <documentation>Datentyp mit Informationen zu den Wärmenetzen</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermenetzeGesamtType">
+      <sequence>
+         <element name="anzahlNetze" type="integer">
+            <annotation>
+               <documentation>Anzahl der Wärmenetze</documentation>
+            </annotation>
+         </element>
+         <element name="trassenlaenge" type="gml:MeasureType">
+            <annotation>
+               <documentation>Gesamte Trassenlänge</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_WaermenetzeGesamtPropertyType">
+      <sequence>
+         <element ref="xwp:WP_WaermenetzeGesamt"/>
+      </sequence>
+   </complexType>
+   <element name="WP_WaermeversorgungArt"
+            substitutionGroup="gml:AbstractObject"
+            type="xwp:WP_WaermeversorgungArtType">
+      <annotation>
+         <documentation>Datentyp zur Erfassung der Endenergie über die Wärmeversorgungsart</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeversorgungArtType">
+      <sequence>
+         <element name="eeWaermenetzVersorgung" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie der leitungsgebundenen Wärme</documentation>
+            </annotation>
+         </element>
+         <element name="eeDezentraleVersorgung" type="gml:MeasureType">
+            <annotation>
+               <documentation>Jährliche Endenergie der dezentralen Wärmeversorgung</documentation>
+            </annotation>
+         </element>
+      </sequence>
+   </complexType>
+   <complexType name="WP_WaermeversorgungArtPropertyType">
+      <sequence>
+         <element ref="xwp:WP_WaermeversorgungArt"/>
+      </sequence>
+   </complexType>
+   <element name="WP_WaermeversorgungsgebietStuetzjahr"
+            substitutionGroup="xwp:WP_Waermversorgungsgebiet"
+            type="xwp:WP_WaermeversorgungsgebietStuetzjahrType">
+      <annotation>
+         <documentation>Einteilung des beplanten Gebiets in voraussichtliche Wärmeversorgungsgebiete in den Stüztjahren entsprechend WPG Anlage 2 IV.</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeversorgungsgebietStuetzjahrType">
+      <complexContent>
+         <extension base="xwp:WP_WaermversorgungsgebietType">
+            <sequence>
+               <element name="stuetzjahr" type="xwp:WP_StuetzjahrType">
+                  <annotation>
+                     <documentation>Stützjahr</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_WaermeversorgungsgebietTypType">
+      <annotation>
+         <documentation>Aufzählung der Wärmeversorgungsgebiete</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Beplantes Teilgebiet, in dem ein Wärmenetz besteht oder geplant ist und ein erheblicher Anteil der ansässigen Letztverbraucher über das Wärmenetz versorgt werden soll.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10001">
+            <annotation>
+               <documentation>Beplantes Teilgebiet, in dem Letztverbraucher, die sich in unmittelbarer Nähe zu einem bestehenden Wärmenetz befinden, mit diesem verbunden werden sollen, ohne dass hierfür der Ausbau des Wärmenetzes erforderlich würde.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10002">
+            <annotation>
+               <documentation>Beplantes Teilgebiet, in dem es bislang kein Wärmenetz gibt und das durch den Neubau von Wärmeleitungen erstmals an ein bestehendes Wärmenetz angeschlossen werden soll.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="10003">
+            <annotation>
+               <documentation>Beplantes Teilgebiet, das an ein neues Wärmenetz angeschlossen werden soll.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Beplantes Teilgebiet, in dem ein Wasserstoffnetz besteht oder geplant ist und ein erheblicher Anteil der ansässigen Letztverbraucher über das Wasserstoffnetz zum Zweck der Wärmeerzeugung versorgt werden soll.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Beplantes Teilgebiet, das überwiegend nicht über ein Wärme- oder ein Gasnetz versorgt werden soll.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>Beplantes Teilgebiet, das nicht in ein voraussichtliches Wärmeversorgungsgebiet eingeteilt werden soll, weil die für eine Einteilung erforderlichen Umstände noch nicht ausreichend bekannt sind oder weil ein erheblicher Anteil der ansässigen Letztverbraucher auf andere Art mit Wärme versorgt werden soll.</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40001">
+            <annotation>
+               <documentation>Prüfgebiet Wärmenetz</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40002">
+            <annotation>
+               <documentation>Prüfgebiet Wasserstoffnetzgebiet</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="40003">
+            <annotation>
+               <documentation>Prüfgebiet für die leitungsgebundene Versorgung mit grünem Methan</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+   <element name="WP_WaermeversorgungsgebietUmsetzung"
+            substitutionGroup="xwp:WP_Waermversorgungsgebiet"
+            type="xwp:WP_WaermeversorgungsgebietUmsetzungType">
+      <annotation>
+         <documentation>Einteilung des beplanten Gebiets in voraussichtliche Wärmeversorgungsgebiete zu einem frei wählbaren Zeitpunkt, passend zu Ausbaumaßnahmen der Wärmeversorgung</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeversorgungsgebietUmsetzungType">
+      <complexContent>
+         <extension base="xwp:WP_WaermversorgungsgebietType">
+            <sequence>
+               <element name="jahr" type="string">
+                  <annotation>
+                     <documentation>Jahr, auf das sich die Einteilgung bezieht</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element name="WP_WaermeversorgungsgebietZieljahr"
+            substitutionGroup="xwp:WP_Waermversorgungsgebiet"
+            type="xwp:WP_WaermeversorgungsgebietZieljahrType">
+      <annotation>
+         <documentation>Einteilung des beplanten Gebiets in voraussichtliche Wärmeversorgungsgebiete und Zuordnung der Eignungsstufen für die Wärmeversorgungsarten, jeweils für das Zieljahr entsprechend WPG Anlage 2 IV und V (sowie  WPG  § 28  Abs. 2)</documentation>
+      </annotation>
+   </element>
+   <complexType name="WP_WaermeversorgungsgebietZieljahrType">
+      <complexContent>
+         <extension base="xwp:WP_WaermversorgungsgebietType">
+            <sequence>
+               <element minOccurs="0"
+                        name="eignungDezentraleVersorgung"
+                        type="xwp:WP_EignungsstufeType">
+                  <annotation>
+                     <documentation>Eignungsstufen für die dezentrale Versorgung&#xD;
+Konformitätsbedingung: nur optional in der kleinen Wärmeplanung</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eignungWaermenetz"
+                        type="xwp:WP_EignungsstufeType">
+                  <annotation>
+                     <documentation>Eignungsstufen für Versorgung über ein Wärmenetz&#xD;
+Konformitätsbedingung: nur optional in der kleinen Wärmeplanung</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eignungWasserstoffnetz"
+                        type="xwp:WP_EignungsstufeType">
+                  <annotation>
+                     <documentation>Eignungsstufen für Versorgung über ein Wasserstoffnetz&#xD;
+Konformitätsbedingung: nur optional in der kleinen Wärmeplanung</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0"
+                        name="eignungGruenesMethan"
+                        type="xwp:WP_EignungsstufeType">
+                  <annotation>
+                     <documentation>Eignungsstufen für Versorgung mit grünem Methan</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <element abstract="true"
+            name="WP_Waermversorgungsgebiet"
+            substitutionGroup="xwp:WP_BeplantesTeilgebiet"
+            type="xwp:WP_WaermversorgungsgebietType">
+      <annotation>
+         <documentation>Abstrakte Oberklasse für Wärmeversorgungsgebiete. Die räumliche Einteilung in konkrete Wärmeversorgungsgebiete für die Betrachtungszeitpunkte ist variabel.</documentation>
+      </annotation>
+   </element>
+   <complexType abstract="true" name="WP_WaermversorgungsgebietType">
+      <complexContent>
+         <extension base="xwp:WP_BeplantesTeilgebietType">
+            <sequence>
+               <element name="versorgungsart" type="xwp:WP_WaermeversorgungsgebietTypType">
+                  <annotation>
+                     <documentation>Geplante Art der Wärmeversorgung für das betrachtete Gebiet</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="waermeMenge" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Jährlicher Wärmebedarf aller Objekte, die dem Wärmeversorgungsgebiet zugeordnet sind</documentation>
+                  </annotation>
+               </element>
+               <element maxOccurs="unbounded"
+                        minOccurs="0"
+                        name="eeNachEnergietraeger"
+                        type="xwp:WP_EndenergieEnergietraegerPropertyType">
+                  <annotation>
+                     <documentation>Jährlicher Endenergiebedarf für Wärme je Energieträger</documentation>
+                  </annotation>
+               </element>
+               <element minOccurs="0" name="sanierungsrate" type="gml:MeasureType">
+                  <annotation>
+                     <documentation>Jährliche Sanierungsrate der Gebäude</documentation>
+                  </annotation>
+               </element>
+            </sequence>
+         </extension>
+      </complexContent>
+   </complexType>
+   <simpleType name="WP_ZeitpunktArtType">
+      <annotation>
+         <documentation>Bilanzart</documentation>
+      </annotation>
+      <restriction base="string">
+         <enumeration value="1000">
+            <annotation>
+               <documentation>Basisjahr der Bestandsanalyse</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="2000">
+            <annotation>
+               <documentation>Stützjahr des WPG</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="3000">
+            <annotation>
+               <documentation>Zieljahr</documentation>
+            </annotation>
+         </enumeration>
+         <enumeration value="4000">
+            <annotation>
+               <documentation>frei wählbares Jahr, passend zu Ausbaumaßnahmen der Wärmeversorgung</documentation>
+            </annotation>
+         </enumeration>
+      </restriction>
+   </simpleType>
+</schema>
