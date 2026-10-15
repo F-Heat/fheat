@@ -53,6 +53,12 @@ logger = logging.getLogger(__name__)
 
 _MIN_SOURCE_OFFSET = 1e-3  # m — below this a source is treated as "on the road"
 _NODE_TOLERANCE = 1e-3     # m — a candidate line ends at a node closer than this
+# m — topotherm merges connection points closer than twice this buffer and
+# links each building to the nearest remaining node. A larger buffer pulls the
+# house connections to a shared node at an angle; this one keeps every
+# building's own foot point, so it is connected at right angles to the street
+# like in the Phase-0 backend.
+_CONNECTION_BUFFER = 1e-3
 _STOP_CHECK_INTERVAL = 0.5  # s — the optimisation asks should_stop at most this often
 # HiGHS callbacks that can interrupt: the LP relaxation (simplex, interior
 # point) and the MIP search
@@ -238,7 +244,7 @@ class TopothermBackend(NetworkBackend):
 
         sinks, roads, srcs = self._to_topotherm_inputs(buildings, streets, source)
         raise_if_cancelled()
-        mat, gdf_nodes, gdf_edges = self._build_matrices(tt, sinks, roads, srcs, buildings.crs, tcfg)
+        mat, gdf_nodes, gdf_edges = self._build_matrices(tt, sinks, roads, srcs, buildings.crs)
         raise_if_cancelled()
         civil = self._candidate_civil_factors(mat, gdf_edges, civil_layers, buildings.crs, config)
         settings = self._build_settings(tt, config)
@@ -278,8 +284,11 @@ class TopothermBackend(NetworkBackend):
             geometry=buildings.geometry.values,
             crs=buildings.crs,
         )
-        roads = streets[["geometry"]].copy()
-        srcs = source[["geometry"]].copy()
+        # topotherm finds the nearest road by index label (idxmin) but reads it by
+        # position (iloc). Filtered-out streets leave gaps in the index, and the
+        # buildings are then connected to the wrong road.
+        roads = streets[["geometry"]].reset_index(drop=True)
+        srcs = source[["geometry"]].reset_index(drop=True)
         if srcs.crs != buildings.crs:
             srcs = srcs.to_crs(buildings.crs)
 
@@ -299,12 +308,12 @@ class TopothermBackend(NetworkBackend):
     # -- step 2: incidence matrices ---------------------------------------
 
     @staticmethod
-    def _build_matrices(tt, sinks, roads, srcs, crs, tcfg):
+    def _build_matrices(tt, sinks, roads, srcs, crs):
         gdf_nodes, gdf_edges = tt.create_matrices.connect_sinks_from_gdfs(
             sinks=sinks,
             roads=roads,
             sources=srcs,
-            buffer=tcfg.connection_buffer,
+            buffer=_CONNECTION_BUFFER,
             crs=crs,
         )
         unmatched = int((gdf_edges["u"] == "").sum() + (gdf_edges["v"] == "").sum())

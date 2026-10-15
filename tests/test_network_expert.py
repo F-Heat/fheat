@@ -17,7 +17,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-from shapely.geometry import Point
+from shapely.geometry import LineString, Point, box
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
@@ -100,12 +100,19 @@ def test_invalid_optimization_mode_raises():
     [
         ({"mip_gap": -1e-3}, "mip_gap"),
         ({"time_limit": 0}, "time_limit"),
-        ({"connection_buffer": 0.0}, "connection_buffer"),
     ],
 )
 def test_topotherm_config_rejects_invalid_numbers(kwargs, match):
     with pytest.raises(ValueError, match=match):
         TopothermConfig(**kwargs)
+
+
+def test_connection_buffer_is_deprecated_and_ignored():
+    with pytest.warns(DeprecationWarning, match="connection_buffer"):
+        TopothermConfig(connection_buffer=2.5)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        TopothermConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +269,59 @@ def test_glf_is_applied_after_optimisation(solved_expert_net):
 def test_forced_mode_connects_all_buildings(solved_expert_net, buildings_gdf):
     connected = solved_expert_net.buildings_gdf[cols.CONNECT]
     assert int(connected.sum()) == len(buildings_gdf)
+
+
+def test_house_connections_meet_the_street_at_right_angles(
+    tt, buildings_gdf, streets_gdf, parcels_gdf, source_off_street, pipe_info_df,
+    temperature_series,
+):
+    """Every building gets its own foot point on the street, as in Phase 0.
+
+    The buildings stand 4 m apart on both sides of the street: topotherm's
+    former 2.5 m connection buffer merged all their foot points into one node
+    and connected them at an angle. A switched-off street in front of the real
+    one leaves a gap in the street index, which made topotherm pick the wrong
+    road.
+    """
+    polys = [box(x, y, x + 3, y + 3) for x in (0, 4, 8, 12) for y in (1, -14)]
+    switched_off = gpd.GeoDataFrame(
+        {cols.ROUTABLE: [0], "geometry": [LineString([(0, 60), (30, 60)])]}, crs=CRS
+    )
+    streets_gdf = pd.concat([switched_off, streets_gdf], ignore_index=True)
+    buildings = gpd.GeoDataFrame(
+        {
+            cols.BUILDING_ID: range(len(polys)),
+            cols.CONNECT: 1,
+            cols.HEAT_DEMAND: 20000.0,
+            cols.THERMAL_POWER: 12.0,
+            cols.FULL_LOAD_HOURS: 1600.0,
+            cols.LOAD_PROFILE: "EFH",
+            "geometry": polys,
+        },
+        crs=CRS,
+        geometry="geometry",
+    )
+    adapter = StubAdapter(
+        buildings, streets_gdf, parcels_gdf, source_off_street,
+        pipe_info=pipe_info_df, temperature=temperature_series, holidays={},
+    )
+    state = PipelineState(
+        phase=Phase.STATUS,
+        buildings_gdf=buildings,
+        streets_gdf=streets_gdf,
+        parcels_gdf=parcels_gdf,
+        source_gdf=source_off_street,
+    )
+    net = network_step.run(state, _forced_config(), adapter).net_gdf
+
+    houses = net[net[cols.TYPE] == cols.EDGE_TYPE_HOUSE_CONNECTION]
+    assert len(houses) == len(buildings)
+    street = streets_gdf[streets_gdf[cols.ROUTABLE] == 1].geometry.union_all()
+    for line in houses.geometry:
+        on_street, at_building = sorted(street.distance(Point(c)) for c in line.boundary.geoms)
+        assert on_street == pytest.approx(0.0, abs=1e-6)
+        # straight to the nearest street point: as long as the building's distance
+        assert line.length == pytest.approx(at_building, abs=1e-6)
 
 
 def test_source_on_street_raises_actionable_error(

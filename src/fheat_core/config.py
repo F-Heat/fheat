@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
@@ -38,7 +39,10 @@ class TopothermConfig:
     pipe_roughness: float = 1e-5              # m
 
     # --- geometry preprocessing ------------------------------------------
-    connection_buffer: float = 2.5            # m, merges nearby connection nodes
+    connection_buffer: Optional[float] = None
+    """Deprecated and ignored. It merged nearby connection nodes, which pulled
+    the house connections to a shared node at an angle; buildings are now
+    always connected at right angles to the street."""
 
     # --- economics --------------------------------------------------------
     heat_price: float = 120e-3      # €/kW  (revenue)
@@ -67,8 +71,13 @@ class TopothermConfig:
             raise ValueError("mip_gap must be >= 0.")
         if self.time_limit <= 0:
             raise ValueError("time_limit must be > 0.")
-        if self.connection_buffer <= 0:
-            raise ValueError("connection_buffer must be > 0.")
+        if self.connection_buffer is not None:
+            warnings.warn(
+                "TopothermConfig.connection_buffer is ignored: buildings are always "
+                "connected at right angles to the street.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
 
 
 @dataclass
