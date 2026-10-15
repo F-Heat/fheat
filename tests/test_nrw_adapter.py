@@ -702,3 +702,32 @@ class TestCivilLayers:
             lambda *a, **kw: gpd.GeoDataFrame({"highway": [], "surface": []}, geometry=[], crs="EPSG:4326"),
         )
         assert _loaded_adapter().fetch_osm_surface() is None
+
+
+# ---------------------------------------------------------------------------
+# _merge_buildings — only touching parts become one building
+# ---------------------------------------------------------------------------
+
+
+def test_merge_joins_touching_parts_but_keeps_separate_buildings_apart():
+    from fheat_nrw.processing import _merge_buildings
+
+    bld = gpd.GeoDataFrame(
+        {
+            "Flurstueck": ["1", "1", "1", "2"],
+            "citygml_fu": ["31001_1000"] * 4,
+            "Fortschrei": ["2020"] * 4,
+            "type": ["a"] * 4,
+            "NF": [100.0, 50.0, 80.0, 40.0],
+            "RW_WW": [1000.0, 500.0, 800.0, 400.0],
+        },
+        geometry=[box(0, 0, 10, 10), box(10, 0, 15, 10), box(40, 0, 50, 10), box(15, 0, 20, 10)],
+        crs=CRS,
+    )
+    out = _merge_buildings(bld, "RW_WW").sort_values("RW_WW").reset_index(drop=True)
+
+    # parcel 1: the touching main building and annex are one, the building 25 m away stays apart;
+    # parcel 2 touches the annex but is another parcel and stays apart
+    assert out["RW_WW"].tolist() == [400.0, 800.0, 1500.0]
+    assert (out.geometry.geom_type == "Polygon").all()
+    assert "_touch_group" not in out.columns

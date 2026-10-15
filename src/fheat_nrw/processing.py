@@ -175,7 +175,34 @@ def _merge_buildings(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         aggfunc_all[heat_col] = "sum"
 
     aggfunc = {k: v for k, v in aggfunc_all.items() if k in gdf.columns}
-    return gdf.dissolve(by=by_cols, as_index=False, aggfunc=aggfunc)
+    gdf = gdf.assign(_touch_group=_touching_groups(gdf, by_cols))
+    merged = gdf.dissolve(by=by_cols + ["_touch_group"], as_index=False, aggfunc=aggfunc)
+    return merged.drop(columns="_touch_group")
+
+
+def _touching_groups(gdf: gpd.GeoDataFrame, by_cols: list[str]) -> np.ndarray:
+    """Number of the touching cluster of each building within its ``by_cols`` group.
+
+    Only buildings that touch each other are one building: separate buildings
+    on the same parcel with the same function stay separate, each with its own
+    house connection.
+    """
+    keys = pd.MultiIndex.from_frame(gdf[by_cols].astype(str)).factorize()[0]
+    left, right = gdf.sindex.query(gdf.geometry, predicate="intersects")
+    same = keys[left] == keys[right]
+    parent = np.arange(len(gdf))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for a, b in zip(left[same], right[same]):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    return np.array([find(i) for i in range(len(gdf))])
 
 
 def _spatial_join_parcels(

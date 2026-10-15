@@ -2,27 +2,27 @@
   "objekte": {
     "WP_Bereich": 1,
     "WP_Eignungspruefung": 3,
-    "WP_EnergieBaublock": 43,
+    "WP_EnergieBaublock": 44,
     "WP_EnergieRaster": 48,
-    "WP_GebaeudeBaublock": 43,
+    "WP_GebaeudeBaublock": 44,
     "WP_Plan": 1,
     "WP_WaermeinfrastrukturAggregiert": 2,
     "WP_Waermelinie": 122,
     "WP_Waermenetz": 1,
-    "WP_WaermeversorgungsgebietZieljahr": 43
+    "WP_WaermeversorgungsgebietZieljahr": 44
   },
   "waermelinien_mwh": 15991.2,
   "waermelinien_m": 12648.9,
   "baubloecke_mwh": 15991.2,
   "raster_mwh": 12752.2,
   "gebaeudetypen": {
-    "10001": 39,
+    "10001": 40,
     "2000": 2,
     "9999": 2
   },
   "baualtersklassen": {
     "1000": 10,
-    "2000": 5,
+    "2000": 6,
     "3000": 3,
     "4000": 17,
     "5000": 3,
@@ -35,18 +35,18 @@
   },
   "anschluesse_in_bloecken": 294,
   "gebaeude": {
-    "alle": 586,
-    "wohnen": 540,
-    "nichtwohnen": 46
+    "alle": 588,
+    "wohnen": 541,
+    "nichtwohnen": 47
   },
-  "anschlussquote_prozent": 50.17,
+  "anschlussquote_prozent": 50.0,
   "versorgungsarten": {
     "1000": 19,
-    "3000": 24
+    "3000": 25
   },
   "eignung_waermenetz": {
     "1000": 12,
-    "2000": 20,
+    "2000": 21,
     "3000": 8,
     "4000": 3
   },
