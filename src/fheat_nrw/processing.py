@@ -13,6 +13,7 @@ from shapely.geometry import LineString, MultiLineString
 
 from fheat_core import columns as cols
 from fheat_core.xwp.mapping.building_type import assign_building_types
+from fheat_nrw.download import ADDRESS_COLUMN
 
 # BAK-Klassifikation (Baualtersklassen nach DIN/BDEW)
 BAK_BINS = [0, 1918, 1948, 1957, 1968, 1978, 1983, 1994, 2001, 9999]
@@ -50,8 +51,12 @@ def process_buildings(
     building_info_db: pd.DataFrame,
     wg_demand_data: pd.DataFrame,
     heat_attribute: str,
+    addresses: gpd.GeoDataFrame | None = None,
 ) -> gpd.GeoDataFrame:
     """Full NRW building processing pipeline → BuildingsSchema-compliant.
+
+    ``addresses``: ALKIS building outlines with address text; touching parts
+    with different addresses are not merged.
 
     Steps: filter heat>0 → LANUV type/age → merge → spatial-join with parcels →
     BAK → Vlh + Lastprofil → custom heat demand → power → Anschluss → rename.
@@ -70,7 +75,7 @@ def process_buildings(
 
     if has_alkis:
         bld = _add_lanuv_age_and_type(bld)
-        bld = _merge_buildings(bld, heat_col)
+        bld = _merge_buildings(bld, heat_col, building_addresses(bld, addresses))
         bld["new_ID"] = bld.index.astype("int32")
         if "nationalCadastralReference" in parcels.columns and "Flurstueck" in bld.columns:
             bld = _spatial_join_parcels(bld, parcels, ["validFrom"])
@@ -139,8 +144,14 @@ def _add_lanuv_age_and_type(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def _merge_buildings(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
-    """Dissolve by Flurstueck/citygml_fu/Fortschrei/type with weighted-mean aggregations."""
+def _merge_buildings(
+    gdf: gpd.GeoDataFrame, heat_col: str, addresses: pd.Series | None = None
+) -> gpd.GeoDataFrame:
+    """Dissolve by Flurstueck/citygml_fu/Fortschrei/type with weighted-mean aggregations.
+
+    Only touching parts are merged, never two with different ``addresses``
+    (aligned with ``gdf``, "" for parts without address such as annexes).
+    """
     by_all = ["Flurstueck", "citygml_fu", "Fortschrei", "type"]
     by_cols = [c for c in by_all if c in gdf.columns]
     if len(by_cols) != len(by_all):
@@ -175,22 +186,37 @@ def _merge_buildings(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         aggfunc_all[heat_col] = "sum"
 
     aggfunc = {k: v for k, v in aggfunc_all.items() if k in gdf.columns}
-    gdf = gdf.assign(_touch_group=_touching_groups(gdf, by_cols))
+    gdf = gdf.assign(_touch_group=_touching_groups(gdf, by_cols, addresses))
     merged = gdf.dissolve(by=by_cols + ["_touch_group"], as_index=False, aggfunc=aggfunc)
     return merged.drop(columns="_touch_group")
 
 
-def _touching_groups(gdf: gpd.GeoDataFrame, by_cols: list[str]) -> np.ndarray:
+def building_addresses(bld: gpd.GeoDataFrame, addresses: gpd.GeoDataFrame | None) -> pd.Series | None:
+    """Address text of the ALKIS building each building lies in ("" when none)."""
+    if addresses is None or addresses.empty or bld.empty:
+        return None
+    text = addresses[ADDRESS_COLUMN].fillna("").astype(str).str.strip()
+    with_text = addresses.loc[text != "", ["geometry"]].assign(_address=text[text != ""]).to_crs(bld.crs)
+    points = gpd.GeoDataFrame(geometry=bld.geometry.representative_point(), crs=bld.crs)
+    hit = gpd.sjoin(points, with_text, how="left", predicate="within")
+    return hit["_address"].groupby(level=0).first().reindex(bld.index).fillna("")
+
+
+def _touching_groups(
+    gdf: gpd.GeoDataFrame, by_cols: list[str], addresses: pd.Series | None = None
+) -> np.ndarray:
     """Number of the touching cluster of each building within its ``by_cols`` group.
 
     Only buildings that touch each other are one building: separate buildings
     on the same parcel with the same function stay separate, each with its own
-    house connection.
+    house connection. Touching parts with different addresses (terraced houses
+    No. 2 and No. 4) stay apart as well; a part without address (annex) joins.
     """
     keys = pd.MultiIndex.from_frame(gdf[by_cols].astype(str)).factorize()[0]
     left, right = gdf.sindex.query(gdf.geometry, predicate="intersects")
     same = keys[left] == keys[right]
     parent = np.arange(len(gdf))
+    address = [""] * len(gdf) if addresses is None else list(addresses.to_numpy())
 
     def find(i):
         while parent[i] != i:
@@ -200,8 +226,11 @@ def _touching_groups(gdf: gpd.GeoDataFrame, by_cols: list[str]) -> np.ndarray:
 
     for a, b in zip(left[same], right[same]):
         ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[max(ra, rb)] = min(ra, rb)
+        if ra == rb or (address[ra] and address[rb] and address[ra] != address[rb]):
+            continue
+        root, child = min(ra, rb), max(ra, rb)
+        parent[child] = root
+        address[root] = address[root] or address[child]
     return np.array([find(i) for i in range(len(gdf))])
 
 
