@@ -221,6 +221,7 @@ def test_expert_net_satisfies_net_schema(solved_expert_net):
         cols.ROAD_SURFACE,
         cols.PIPE_COST,
         cols.CIVIL_COST,
+        cols.LENGTH_UNDER_BUILDINGS,
     }
     assert expected == set(net.columns)
     assert not net.empty
@@ -322,6 +323,49 @@ def test_house_connections_meet_the_street_at_right_angles(
         assert on_street == pytest.approx(0.0, abs=1e-6)
         # straight to the nearest street point: as long as the building's distance
         assert line.length == pytest.approx(at_building, abs=1e-6)
+
+
+@pytest.mark.parametrize("mode", [NetworkMode.PHASE0, NetworkMode.EXPERT])
+def test_house_connection_under_another_building_is_marked(
+    request, parcels_gdf, pipe_info_df, temperature_series, mode
+):
+    """The rear house stays connected at right angles, 10 m under the front house, and the net says so."""
+    if mode == NetworkMode.EXPERT:
+        request.getfixturevalue("tt")
+    streets = gpd.GeoDataFrame({cols.ROUTABLE: [1], "geometry": [LineString([(-50, 0), (50, 0)])]}, crs=CRS)
+    polys = [box(-5, 5, 5, 15), box(-3, 20, 3, 26)]  # front house, rear house (centroid (0, 23))
+    buildings = gpd.GeoDataFrame(
+        {
+            cols.BUILDING_ID: [0, 1],
+            cols.CONNECT: 1,
+            cols.HEAT_DEMAND: 20000.0,
+            cols.THERMAL_POWER: 12.0,
+            cols.FULL_LOAD_HOURS: 1600.0,
+            cols.LOAD_PROFILE: "EFH",
+            "geometry": polys,
+        },
+        crs=CRS,
+    )
+    source = gpd.GeoDataFrame({"geometry": [Point(-60, -10)]}, crs=CRS)
+    adapter = StubAdapter(
+        buildings, streets, parcels_gdf, source,
+        pipe_info=pipe_info_df, temperature=temperature_series, holidays={},
+    )
+    state = PipelineState(
+        phase=Phase.STATUS, buildings_gdf=buildings, streets_gdf=streets,
+        parcels_gdf=parcels_gdf, source_gdf=source,
+    )
+    config = _forced_config()
+    config.network_mode = mode.value
+    net = network_step.run(state, config, adapter).net_gdf
+
+    houses = net[net[cols.TYPE] == cols.EDGE_TYPE_HOUSE_CONNECTION]
+    marked = {
+        round(line.length, 6): under
+        for line, under in zip(houses.geometry, houses[cols.LENGTH_UNDER_BUILDINGS])
+    }
+    assert marked == {10.0: 0.0, 23.0: 10.0}  # front house free, rear house 10 m under the front one
+    assert (net.loc[net[cols.TYPE] != cols.EDGE_TYPE_HOUSE_CONNECTION, cols.LENGTH_UNDER_BUILDINGS] == 0).all()
 
 
 def test_source_on_street_raises_actionable_error(
