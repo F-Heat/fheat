@@ -66,6 +66,7 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
         buildings, streets, source, config, adapter, civil_layers=layers
     )
     raise_if_cancelled()
+    state.time_limit_solution = backend.time_limit_solution
 
     NetSchema.validate(net_gdf)
     net_gdf = annotate_network_costs(

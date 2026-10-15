@@ -45,3 +45,7 @@ class PipelineState:
     pipe_summary_df: Optional[pd.DataFrame] = None       # pipe quantities per DN
     building_summary_df: Optional[pd.DataFrame] = None   # connected buildings per load profile
     result_summary: Optional[dict] = None
+
+    # NETWORK stopped at the solver's time limit and the net is the best solution
+    # found until then (not proven optimal): {"gap": relative gap or None}
+    time_limit_solution: Optional[dict] = None
