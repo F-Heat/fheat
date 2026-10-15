@@ -75,7 +75,8 @@ def process_buildings(
 
     if has_alkis:
         bld = _add_lanuv_age_and_type(bld)
-        bld = _merge_buildings(bld, heat_col, building_addresses(bld, addresses))
+        bld["Adresse"] = building_addresses(bld, addresses)
+        bld = _merge_buildings(bld, heat_col, bld["Adresse"])
         bld["new_ID"] = bld.index.astype("int32")
         if "nationalCadastralReference" in parcels.columns and "Flurstueck" in bld.columns:
             bld = _spatial_join_parcels(bld, parcels, ["validFrom"])
@@ -181,6 +182,7 @@ def _merge_buildings(
         "age_LANUV": mode_or_string,
         "Vlh": "first",
         "Block_ID": "first",
+        "Adresse": lambda x: next((v for v in x if v), ""),
     }
     if heat_col in gdf.columns:
         aggfunc_all[heat_col] = "sum"
@@ -191,10 +193,10 @@ def _merge_buildings(
     return merged.drop(columns="_touch_group")
 
 
-def building_addresses(bld: gpd.GeoDataFrame, addresses: gpd.GeoDataFrame | None) -> pd.Series | None:
+def building_addresses(bld: gpd.GeoDataFrame, addresses: gpd.GeoDataFrame | None) -> pd.Series:
     """Address text of the ALKIS building each building lies in ("" when none)."""
     if addresses is None or addresses.empty or bld.empty:
-        return None
+        return pd.Series("", index=bld.index)
     text = addresses[ADDRESS_COLUMN].fillna("").astype(str).str.strip()
     with_text = addresses.loc[text != "", ["geometry"]].assign(_address=text[text != ""]).to_crs(bld.crs)
     points = gpd.GeoDataFrame(geometry=bld.geometry.representative_point(), crs=bld.crs)
@@ -394,6 +396,8 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         out[cols.BUILDING_TYPE] = gdf["type"]
     if "Nutzung" in gdf.columns:
         out[cols.USAGE] = gdf["Nutzung"]
+    if "Adresse" in gdf.columns:
+        out[cols.ADDRESS] = gdf["Adresse"].astype("string")
     if "NF" in gdf.columns:
         out[cols.FLOOR_AREA] = gdf["NF"]
     if "age_LANUV" in gdf.columns:

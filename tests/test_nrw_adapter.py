@@ -756,6 +756,7 @@ def test_merge_keeps_touching_parts_with_different_addresses_apart():
     addresses = building_addresses(bld, alkis)
     assert addresses.tolist() == ["Steinstr. 2", "Steinstr. 4", "", ""]
 
-    out = _merge_buildings(bld, "RW_WW", addresses)
+    out = _merge_buildings(bld.assign(Adresse=addresses), "RW_WW", addresses)
+    assert sorted(out["Adresse"].tolist()) == ["Steinstr. 2", "Steinstr. 4"]
     # the annex joins No. 4; the shed touches both and joins the first, No. 2 and No. 4 stay apart
     assert sorted(out["RW_WW"].tolist()) == [1050.0, 2300.0]
