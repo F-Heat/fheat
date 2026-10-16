@@ -177,6 +177,7 @@ NetSchema = FrameSchema(
         cols.ROAD_SURFACE: "str",
         cols.PIPE_COST: "float",
         cols.CIVIL_COST: "float",
+        cols.LENGTH_UNDER_BUILDINGS: "float",
     },
     geometry_type="LineString",
     allow_empty=True,

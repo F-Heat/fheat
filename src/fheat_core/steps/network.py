@@ -3,15 +3,16 @@
 The step no longer contains an algorithm. It prepares the input frames
 (filtering + CRS), hands them to the backend selected by
 ``config.network_mode``, validates the result against ``NetSchema``, writes
-the civil works factors and pipe costs onto the net (the same for every
-backend) and merges a backend-decided connection status back into the full
-buildings frame.
+how far each house connection runs under other buildings, the civil works
+factors and pipe costs onto the net (the same for every backend) and merges
+a backend-decided connection status back into the full buildings frame.
 """
 from __future__ import annotations
 
 import logging
 
 from fheat_core import columns as cols
+from fheat_core.algorithms.under_buildings import mark_length_under_buildings
 from fheat_core.cancel import raise_if_cancelled
 from fheat_core.errors import NO_BUILDINGS, PipelineInputError
 from fheat_core.network import get_backend
@@ -69,6 +70,7 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     state.time_limit_solution = backend.time_limit_solution
 
     NetSchema.validate(net_gdf)
+    net_gdf = mark_length_under_buildings(net_gdf, buildings, buildings_all)
     net_gdf = annotate_network_costs(
         net_gdf, layers, resolve_pipe_info(adapter), config.civil_cost_share
     )
