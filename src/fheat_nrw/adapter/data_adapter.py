@@ -131,6 +131,18 @@ class NRWDataAdapter(DataAdapter):
     geothermal_blocks_path : Path | None
         Lokale ONG/MTG-Datei der Wärmestudie (Shape, GeoPackage, Geodatabase
         oder ZIP). Hat Vorrang vor dem Download.
+    download_geothermal_deep : bool
+        Wenn True (Standard), werden die Rasterzellen (3 × 3 km) der LANUK-
+        Wärmestudie zur hydrothermalen Geothermie (Dublette, mitteltief und
+        tief) im Umkreis des Gebiets geladen (NRW-Datei, 2 MB, im
+        Zwischenspeicher). Grobe Abschätzung, Fündigkeit unbekannt; der
+        Zellmittelpunkt ist ein Vorschlag für ``source_coordinates``, es wird
+        keine Quelle gesetzt. Fehler → Warnung, kein Layer.
+    geothermal_deep_path : Path | None
+        Lokale TG-Rasterdatei der Wärmestudie. Hat Vorrang vor dem Download.
+    geothermal_deep_buffer : float
+        Umkreis um das Gebiet in m (Standard 5000), weil eine Dublette nicht
+        im Wohngebiet stehen muss.
     cache_dir : Path | None
         Ordner für große Downloads (Standard: ``FHEAT_CACHE_DIR`` oder
         ``~/.cache/fheat``).
@@ -159,6 +171,9 @@ class NRWDataAdapter(DataAdapter):
         borehole_extraction_path: Optional[Path] = None,
         download_geothermal_blocks: bool = True,
         geothermal_blocks_path: Optional[Path] = None,
+        download_geothermal_deep: bool = True,
+        geothermal_deep_path: Optional[Path] = None,
+        geothermal_deep_buffer: float = 5000.0,
         cache_dir: Optional[Path] = None,
     ) -> None:
         if not municipality_name and not city_name and not district_key:
@@ -187,6 +202,9 @@ class NRWDataAdapter(DataAdapter):
         self._borehole_extraction_path = _optional_path(borehole_extraction_path)
         self._download_geothermal_blocks = bool(download_geothermal_blocks)
         self._geothermal_blocks_path = _optional_path(geothermal_blocks_path)
+        self._download_geothermal_deep = bool(download_geothermal_deep)
+        self._geothermal_deep_path = _optional_path(geothermal_deep_path)
+        self._geothermal_deep_buffer = float(geothermal_deep_buffer)
         self._cache_dir = _optional_path(cache_dir)
 
         self._buildings: Optional[gpd.GeoDataFrame] = None
@@ -259,6 +277,15 @@ class NRWDataAdapter(DataAdapter):
             "Geothermie-Potenzial je Baublock (LANUK) konnte nicht geladen werden (%s) — "
             "kein Layer. Lokale Datei via geothermal_blocks_path=... setzen, "
             "oder download_geothermal_blocks=False zum Abschalten.",
+        )
+
+    def fetch_geothermal_deep(self) -> Optional[gpd.GeoDataFrame]:
+        """LANUK doublet raster cells around the loaded area (None on failure)."""
+        return self._optional_layer(
+            "geothermal_deep", self._load_geothermal_deep,
+            "Raster tiefe Geothermie (LANUK) konnte nicht geladen werden (%s) — kein Layer. "
+            "Lokale Datei via geothermal_deep_path=... setzen, "
+            "oder download_geothermal_deep=False zum Abschalten.",
         )
 
     # ------------------------------------------------------------------
@@ -352,6 +379,43 @@ class NRWDataAdapter(DataAdapter):
             return None
         blocks = pot.process_blocks(self._to_area_crs(raw), buildings)
         return self._inside_outline(blocks)
+
+    def _load_geothermal_deep(self) -> Optional[gpd.GeoDataFrame]:
+        raw = self._load_nrw_layer(
+            self._geothermal_deep_path, self._download_geothermal_deep,
+            dl.FILE_DEEP_GEOTHERMAL, dl.LAYER_DEEP_GEOTHERMAL, self._geothermal_deep_buffer,
+        )
+        if raw is None or raw.empty:
+            return None
+        cells = pot.process_deep_cells(raw, self._area_outline())
+        cells = cells[cells[cols.DISTANCE_TO_AREA] <= self._geothermal_deep_buffer]
+        return self._to_area_crs(cells.reset_index(drop=True))
+
+    def _load_nrw_layer(
+        self, path: Optional[Path], download: bool, filename: str, layer: str, buffer: float
+    ) -> Optional[gpd.GeoDataFrame]:
+        """Features of an NRW-wide LANUK file in the area box widened by ``buffer`` m, EPSG:25832."""
+        around = self._area_box().to_crs(LANDUSE_BBOX_CRS).buffer(buffer, join_style=2)
+        if path is not None:
+            raw = _read_local(path, None, around)
+        elif download:
+            zip_path = dl.cached_file(dl.URL_BUILDINGS, filename, self._cache_dir)
+            raw = cache.read_layer_bbox(zip_path, layer, tuple(around.total_bounds))
+        else:
+            return None
+        if raw is None or raw.empty:
+            return raw
+        if raw.crs is not None and raw.crs != LANDUSE_BBOX_CRS:
+            raw = raw.to_crs(LANDUSE_BBOX_CRS)
+        return raw[raw.intersects(around.iloc[0])].reset_index(drop=True)
+
+    def _area_outline(self):
+        """Outline of the loaded area in EPSG:25832 (the area box without buildings)."""
+        if self._buildings is not None:
+            outline = self.provide_boundary()
+            if outline is not None and not outline.empty:
+                return unary_union(outline.to_crs(LANDUSE_BBOX_CRS).geometry.values)
+        return self._area_box().to_crs(LANDUSE_BBOX_CRS).iloc[0]
 
     def _municipality_zip(self) -> tuple[Path, str]:
         """Cached municipality ZIP of the heat study and its 8-digit key."""

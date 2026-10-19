@@ -191,3 +191,56 @@ def process_blocks(
     )
     ordered = [cols.BLOCK_ID, *(c for c, _ in BLOCK_FIELDS.values()), cols.BLOCK_POTENTIAL_STATUS]
     return out[ordered + ["geometry"]].reset_index(drop=True)
+
+
+#: LANUK doublet raster field → (column, factor); GWh/a → MWh/a
+DEEP_FIELDS = {
+    "MT_P10_MW": (cols.DOUBLET_MT_P10_MW, 1.0),
+    "MT_P50_MW": (cols.DOUBLET_MT_P50_MW, 1.0),
+    "MT_P90_MW": (cols.DOUBLET_MT_P90_MW, 1.0),
+    "T_P10_MW": (cols.DOUBLET_T_P10_MW, 1.0),
+    "T_P50_MW": (cols.DOUBLET_T_P50_MW, 1.0),
+    "T_P90_MW": (cols.DOUBLET_T_P90_MW, 1.0),
+    "MT_P10_GWh": (cols.DOUBLET_MT_P10_MWH, 1e3),
+    "MT_P50_GWh": (cols.DOUBLET_MT_P50_MWH, 1e3),
+    "MT_P90_GWh": (cols.DOUBLET_MT_P90_MWH, 1e3),
+    "T_P10_GWh": (cols.DOUBLET_T_P10_MWH, 1e3),
+    "T_P50_GWh": (cols.DOUBLET_T_P50_MWH, 1e3),
+    "T_P90_GWh": (cols.DOUBLET_T_P90_MWH, 1e3),
+    "Volllastst": (cols.DOUBLET_FULL_LOAD_HOURS, 1.0),
+    "fraction": (cols.CELL_SHARE, 1.0),
+}
+DEEP_NOTES = {"Hinweis1": cols.DEEP_NOTE_DEPTH, "Hinweis2": cols.DEEP_NOTE_SURVEY}
+
+
+def _distance_and_candidate(out: gpd.GeoDataFrame, area: BaseGeometry) -> None:
+    """Distance to ``area`` and the WGS84 centre of every feature (in place)."""
+    out[cols.DISTANCE_TO_AREA] = out.geometry.distance(area).astype("float64")
+    centres = out.geometry.centroid.to_crs("EPSG:4326")
+    out[cols.SOURCE_CANDIDATE_LAT] = centres.y.round(6)
+    out[cols.SOURCE_CANDIDATE_LON] = centres.x.round(6)
+
+
+def process_deep_cells(raw: gpd.GeoDataFrame, area: BaseGeometry) -> gpd.GeoDataFrame:
+    """LANUK doublet raster cells → canonical columns.
+
+    ``deep_potential_mwh`` is the P50 yield of the better reservoir of the
+    cell (medium-deep or deep): one hypothetical plant per cell, so an upper
+    bound, not a sum. The cell centre is a candidate for ``source_coordinates``
+    — nothing is placed automatically. ``area`` (same CRS) gives the distance.
+    """
+    missing = [field for field in DEEP_FIELDS if field not in raw.columns]
+    if missing:
+        raise RuntimeError(f"LANUK-Rasterdaten tiefe Geothermie ohne Felder {missing} (Feldnamen geändert?).")
+    out = gpd.GeoDataFrame(geometry=raw.geometry.values, crs=raw.crs)
+    for field, (column, factor) in DEEP_FIELDS.items():
+        out[column] = pd.to_numeric(raw[field], errors="coerce").astype("float64").values * factor
+    for field, column in DEEP_NOTES.items():
+        out[column] = raw[field].astype("string").values if field in raw.columns else pd.NA
+    out[cols.DEEP_POTENTIAL_MWH] = out[[cols.DOUBLET_MT_P50_MWH, cols.DOUBLET_T_P50_MWH]].max(axis=1)
+    _distance_and_candidate(out, area)
+    ordered = [
+        cols.DEEP_POTENTIAL_MWH, *(c for c, _ in DEEP_FIELDS.values()), *DEEP_NOTES.values(),
+        cols.DISTANCE_TO_AREA, cols.SOURCE_CANDIDATE_LAT, cols.SOURCE_CANDIDATE_LON,
+    ]
+    return out[ordered + ["geometry"]].sort_values(cols.DISTANCE_TO_AREA, kind="stable").reset_index(drop=True)

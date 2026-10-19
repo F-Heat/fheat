@@ -83,6 +83,15 @@ class DataAdapter(ABC):
         """
         return None
 
+    def fetch_geothermal_deep(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: grid cells with a hydrothermal doublet potential around the area.
+
+        ``deep_potential_mwh`` (upper bound per cell), ``distance_to_area`` and
+        the cell centre as ``source_candidate_lat``/``_lon``. A suggestion
+        only: the heat source is never placed automatically.
+        """
+        return None
+
     # Optional data — default implementation returns None;
     # the core then loads its own default.
     def provide_pipe_info(self) -> Optional[pd.DataFrame]:

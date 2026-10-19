@@ -376,3 +376,102 @@ class TestAdapterGeothermalBlocks:
         with caplog.at_level("WARNING"):
             assert _loaded_adapter().fetch_geothermal_blocks() is None
         assert "Baublock" in caplog.records[-1].getMessage()
+
+
+# ---------------------------------------------------------------------------
+# Deep geothermal: LANUK doublet raster
+# ---------------------------------------------------------------------------
+
+
+def _raw_cells(geometries) -> gpd.GeoDataFrame:
+    n = len(geometries)
+    data = {field: [0.0] * n for field in pot.DEEP_FIELDS}
+    data.update({"fraction": [100.0] * n, "Volllastst": [6000.0] * n,
+                 "MT_P50_MW": [2.0] + [0.0] * (n - 1), "MT_P50_GWh": [12.0] + [0.0] * (n - 1),
+                 "T_P50_MW": [1.0] * n, "T_P50_GWh": [6.0] * n,
+                 "Hinweis1": ["Potenzial tiefer 5.000 m möglich"] + [None] * (n - 1),
+                 "Hinweis2": [None] * n})
+    return gpd.GeoDataFrame(data, geometry=list(geometries), crs=CRS)
+
+
+class TestProcessDeepCells:
+    def test_units_upper_bound_and_candidate(self):
+        cells = [box(388000, 5779000, 391000, 5782000), box(394000, 5779000, 397000, 5782000)]
+        out = pot.process_deep_cells(_raw_cells(cells), box(*AREA_BOX))
+        assert out[cols.DOUBLET_MT_P50_MWH].tolist() == [12000.0, 0.0]
+        assert out[cols.DOUBLET_MT_P50_MW].tolist() == [2.0, 0.0]
+        # the better reservoir of the cell, not the sum
+        assert out[cols.DEEP_POTENTIAL_MWH].tolist() == [12000.0, 6000.0]
+        assert out[cols.DISTANCE_TO_AREA].tolist() == pytest.approx([0.0, 5900.0])
+        assert out[cols.DEEP_NOTE_DEPTH].iloc[0] == "Potenzial tiefer 5.000 m möglich"
+        assert pd.isna(out[cols.DEEP_NOTE_SURVEY].iloc[0])
+        centre = gpd.GeoSeries([cells[0].centroid], crs=CRS).to_crs("EPSG:4326").iloc[0]
+        assert out[cols.SOURCE_CANDIDATE_LAT].iloc[0] == pytest.approx(centre.y, abs=1e-6)
+        assert out[cols.SOURCE_CANDIDATE_LON].iloc[0] == pytest.approx(centre.x, abs=1e-6)
+
+    def test_sorted_by_distance(self):
+        cells = [box(400000, 5779000, 403000, 5782000), box(388000, 5779000, 391000, 5782000)]
+        out = pot.process_deep_cells(_raw_cells(cells), box(*AREA_BOX))
+        assert out[cols.DISTANCE_TO_AREA].iloc[0] == 0.0
+
+    def test_changed_field_names_raise(self):
+        raw = _raw_cells([box(0, 0, 1, 1)]).rename(columns={"T_P50_GWh": "T50"})
+        with pytest.raises(RuntimeError, match="Feldnamen"):
+            pot.process_deep_cells(raw, box(0, 0, 1, 1))
+
+
+def _nrw_zip(tmp_path, name: str, layer: str, gdf: gpd.GeoDataFrame):
+    gpkg = tmp_path / f"{layer}.gpkg"
+    gdf.to_file(gpkg, layer=layer, driver="GPKG")
+    path = tmp_path / name
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.write(gpkg, arcname=gpkg.name)
+    return path
+
+
+class TestAdapterGeothermalDeep:
+    def _cells(self):
+        # touching the area, 3 km east, and 4.2 km east + 4.2 km north = 5.9 km
+        # (inside the box widened by 5 km, outside the 5 km distance)
+        return _raw_cells([
+            box(387000, 5778000, 390000, 5781000),
+            box(391100, 5779000, 394100, 5782000),
+            box(392300, 5783300, 395300, 5786300),
+        ])
+
+    def test_cells_within_the_buffer(self, monkeypatch, tmp_path):
+        path = _nrw_zip(tmp_path, dl.FILE_DEEP_GEOTHERMAL, dl.LAYER_DEEP_GEOTHERMAL, self._cells())
+        seen = {}
+
+        def fake_cached_file(url, name, cache_dir=None, files=None):
+            seen.update(url=url, name=name)
+            return path
+
+        monkeypatch.setattr(dl, "cached_file", fake_cached_file)
+        out = _loaded_adapter().fetch_geothermal_deep()
+        assert seen == {"url": dl.URL_BUILDINGS, "name": dl.FILE_DEEP_GEOTHERMAL}
+        # third cell: 4.2 km east and 4.2 km north of the area → 5.9 km, outside
+        assert out[cols.DISTANCE_TO_AREA].tolist() == pytest.approx([0.0, 3000.0])
+        assert out.crs == CRS
+
+    def test_buffer_is_a_parameter(self, monkeypatch, tmp_path):
+        path = _nrw_zip(tmp_path, dl.FILE_DEEP_GEOTHERMAL, dl.LAYER_DEEP_GEOTHERMAL, self._cells())
+        monkeypatch.setattr(dl, "cached_file", lambda *a, **kw: path)
+        out = _loaded_adapter(geothermal_deep_buffer=8000).fetch_geothermal_deep()
+        assert len(out) == 3
+
+    def test_local_file_and_switch(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(dl, "cached_file", lambda *a, **kw: pytest.fail("no download"))
+        local = tmp_path / "tg.gpkg"
+        self._cells().to_file(local, driver="GPKG")
+        assert len(_loaded_adapter(geothermal_deep_path=local).fetch_geothermal_deep()) == 2
+        assert _loaded_adapter(download_geothermal_deep=False).fetch_geothermal_deep() is None
+
+    def test_failure_gives_none_and_a_warning(self, monkeypatch, caplog):
+        def failing(*a, **kw):
+            raise RuntimeError("Download fehlgeschlagen")
+
+        monkeypatch.setattr(dl, "cached_file", failing)
+        with caplog.at_level("WARNING"):
+            assert _loaded_adapter().fetch_geothermal_deep() is None
+        assert "tiefe Geothermie" in caplog.records[-1].getMessage()

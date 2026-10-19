@@ -135,6 +135,31 @@ STATUS_ASSESSED = "assessed"
 STATUS_PARTLY_ASSESSED = "partly_assessed"
 STATUS_NOT_ASSESSED = "not_assessed"
 
+# Hydrothermal doublet per grid cell (NRW: LANUK heat study, 3 × 3 km raster).
+# A rough estimate: whether a well finds water is unknown. MT = medium-deep
+# reservoir (400-1,500 m), T = deep reservoir (1,500-5,000 m); P10/P50/P90 =
+# reached with 10/50/90 % probability.
+DOUBLET_MT_P10_MW = "doublet_mt_p10_mw"      # thermal power [MW]
+DOUBLET_MT_P50_MW = "doublet_mt_p50_mw"      # [MW]
+DOUBLET_MT_P90_MW = "doublet_mt_p90_mw"      # [MW]
+DOUBLET_T_P10_MW = "doublet_t_p10_mw"        # [MW]
+DOUBLET_T_P50_MW = "doublet_t_p50_mw"        # [MW]
+DOUBLET_T_P90_MW = "doublet_t_p90_mw"        # [MW]
+DOUBLET_MT_P10_MWH = "doublet_mt_p10_mwh"    # heat yield at the full load hours [MWh/a]
+DOUBLET_MT_P50_MWH = "doublet_mt_p50_mwh"    # [MWh/a]
+DOUBLET_MT_P90_MWH = "doublet_mt_p90_mwh"    # [MWh/a]
+DOUBLET_T_P10_MWH = "doublet_t_p10_mwh"      # [MWh/a]
+DOUBLET_T_P50_MWH = "doublet_t_p50_mwh"      # [MWh/a]
+DOUBLET_T_P90_MWH = "doublet_t_p90_mwh"      # [MWh/a]
+DOUBLET_FULL_LOAD_HOURS = "doublet_full_load_hours"  # [h/a]
+DEEP_POTENTIAL_MWH = "deep_potential_mwh"    # better reservoir of the cell, P50 [MWh/a] (upper bound)
+CELL_SHARE = "cell_share"                    # share of the cell inside NRW [%]
+DEEP_NOTE_DEPTH = "deep_note_depth"          # source note on potential below 5,000 m
+DEEP_NOTE_SURVEY = "deep_note_survey"        # source note on ongoing surveys
+DISTANCE_TO_AREA = "distance_to_area"        # distance to the loaded area [m], 0 = inside
+SOURCE_CANDIDATE_LAT = "source_candidate_lat"  # cell centre, WGS84 latitude (for source_coordinates)
+SOURCE_CANDIDATE_LON = "source_candidate_lon"  # cell centre, WGS84 longitude
+
 
 # ============================================================
 # Internal geometry helper columns
@@ -200,6 +225,22 @@ UNITS: dict[str, str] = {
     MTG_POTENTIAL_2045_MWH: "MWh/a",
     BLOCK_HEATING_LOAD: "kW",
     BLOCK_HEATING_LOAD_2045: "kW",
+    DOUBLET_MT_P10_MW: "MW",
+    DOUBLET_MT_P50_MW: "MW",
+    DOUBLET_MT_P90_MW: "MW",
+    DOUBLET_T_P10_MW: "MW",
+    DOUBLET_T_P50_MW: "MW",
+    DOUBLET_T_P90_MW: "MW",
+    DOUBLET_MT_P10_MWH: "MWh/a",
+    DOUBLET_MT_P50_MWH: "MWh/a",
+    DOUBLET_MT_P90_MWH: "MWh/a",
+    DOUBLET_T_P10_MWH: "MWh/a",
+    DOUBLET_T_P50_MWH: "MWh/a",
+    DOUBLET_T_P90_MWH: "MWh/a",
+    DOUBLET_FULL_LOAD_HOURS: "h/a",
+    DEEP_POTENTIAL_MWH: "MWh/a",
+    CELL_SHARE: "%",
+    DISTANCE_TO_AREA: "m",
 }
 
 
@@ -286,6 +327,26 @@ LABELS_DE: dict[str, str] = {
     BLOCK_HEATING_LOAD: "Heizlast Baublock [kW]",
     BLOCK_HEATING_LOAD_2045: "Heizlast Baublock 2045 [kW]",
     BLOCK_POTENTIAL_STATUS: "Bewertung Baublock",
+    DOUBLET_MT_P10_MW: "MTG Dublette P10 [MW]",
+    DOUBLET_MT_P50_MW: "MTG Dublette P50 [MW]",
+    DOUBLET_MT_P90_MW: "MTG Dublette P90 [MW]",
+    DOUBLET_T_P10_MW: "TG Dublette P10 [MW]",
+    DOUBLET_T_P50_MW: "TG Dublette P50 [MW]",
+    DOUBLET_T_P90_MW: "TG Dublette P90 [MW]",
+    DOUBLET_MT_P10_MWH: "MTG Dublette P10 [MWh/a]",
+    DOUBLET_MT_P50_MWH: "MTG Dublette P50 [MWh/a]",
+    DOUBLET_MT_P90_MWH: "MTG Dublette P90 [MWh/a]",
+    DOUBLET_T_P10_MWH: "TG Dublette P10 [MWh/a]",
+    DOUBLET_T_P50_MWH: "TG Dublette P50 [MWh/a]",
+    DOUBLET_T_P90_MWH: "TG Dublette P90 [MWh/a]",
+    DOUBLET_FULL_LOAD_HOURS: "Vlh Dublette [h/a]",
+    DEEP_POTENTIAL_MWH: "Potenzial Dublette P50 [MWh/a]",
+    CELL_SHARE: "Anteil in NRW [%]",
+    DEEP_NOTE_DEPTH: "Hinweis Tiefe",
+    DEEP_NOTE_SURVEY: "Hinweis Bearbeitung",
+    DISTANCE_TO_AREA: "Abstand Gebiet [m]",
+    SOURCE_CANDIDATE_LAT: "Quelle Breite",
+    SOURCE_CANDIDATE_LON: "Quelle Laenge",
 }
 
 

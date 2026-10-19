@@ -23,6 +23,12 @@ from fheat_nrw import cache
 from fheat_nrw.area import district_parcels
 
 URL_BUILDINGS = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kwp/"
+# LANUK heat study, NRW-wide geodatabases in the same folder (index.json).
+# Checked 2026-10-19 (docs/potenzialdaten.md): EPSG:25832, values in MW and
+# GWh/a (doublet raster) or kWh/a (solar thermal). Licence: Datenlizenz
+# Deutschland – Zero 2.0. Loaded through the cache (fheat_nrw.cache).
+FILE_DEEP_GEOTHERMAL = "KWP-NRW-Potenzial_TG_Raster_EPSG25832_Geodatabase.zip"   # 2 MB
+LAYER_DEEP_GEOTHERMAL = "MTG_TG_Raster_NRW"
 URL_PARCELS = "https://www.wfs.nrw.de/geobasis/wfs_nw_inspire-flurstuecke_alkis"
 LAYER_PARCELS = "cp:CadastralParcel"
 # ALKIS "Tatsächliche Nutzung" (simplified ALKIS). Checked 2026-10-09 via
