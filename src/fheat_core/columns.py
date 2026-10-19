@@ -105,6 +105,38 @@ HEAT_DEMAND_MWH = "heat_demand_mwh"                  # heat demand [MWh/a]
 
 
 # ============================================================
+# Potential layers (optional, see DataAdapter.fetch_geothermal_*)
+# ============================================================
+
+# Shallow geothermal parameters (NRW: GD NRW IS GT 50, scale 1:50,000)
+GROUND_CONDUCTIVITY_40 = "ground_conductivity_40"    # thermal conductivity, probe 40 m [W/(m·K)]
+GROUND_CONDUCTIVITY_60 = "ground_conductivity_60"    # dto. 60 m [W/(m·K)]
+GROUND_CONDUCTIVITY_80 = "ground_conductivity_80"    # dto. 80 m [W/(m·K)]
+GROUND_CONDUCTIVITY_100 = "ground_conductivity_100"  # dto. 100 m [W/(m·K)]
+COLLECTOR_EXTRACTION_1800 = "collector_extraction_1800"  # ground collector, 1800 h/a [W/m²]
+COLLECTOR_EXTRACTION_2400 = "collector_extraction_2400"  # dto. 2400 h/a [W/m²]
+# Screening value from the conductivity (VDI 4640-2:2001), NOT for design
+BOREHOLE_EXTRACTION_1800 = "borehole_extraction_1800"    # borehole heat exchanger, 1800 h/a [W/m]
+BOREHOLE_EXTRACTION_2400 = "borehole_extraction_2400"    # dto. 2400 h/a [W/m]
+GEOTHERMAL_STATUS = "geothermal_status"  # assessed / partly_assessed / not_assessed
+
+# Shallow and medium-deep geothermal potential per building block (NRW: LANUK
+# heat study). A value of the whole block, never split onto its buildings.
+ONG_POTENTIAL_MWH = "ong_potential_mwh"            # shallow geothermal yield today [MWh/a]
+ONG_POTENTIAL_2045_MWH = "ong_potential_2045_mwh"  # dto. 2045 [MWh/a]
+MTG_POTENTIAL_MWH = "mtg_potential_mwh"            # medium-deep borehole heat exchangers today [MWh/a]
+MTG_POTENTIAL_2045_MWH = "mtg_potential_2045_mwh"  # dto. 2045 [MWh/a]
+BLOCK_HEATING_LOAD = "block_heating_load"          # heating load of the block's buildings [kW]
+BLOCK_HEATING_LOAD_2045 = "block_heating_load_2045"  # dto. 2045 [kW]
+BLOCK_POTENTIAL_STATUS = "block_potential_status"  # assessed / not_assessed
+
+#: values of GEOTHERMAL_STATUS / BLOCK_POTENTIAL_STATUS
+STATUS_ASSESSED = "assessed"
+STATUS_PARTLY_ASSESSED = "partly_assessed"
+STATUS_NOT_ASSESSED = "not_assessed"
+
+
+# ============================================================
 # Internal geometry helper columns
 # ============================================================
 
@@ -154,6 +186,20 @@ UNITS: dict[str, str] = {
     HEAT_DEMAND_MWH: "MWh/a",
     PIPE_COST: "€",
     CIVIL_COST: "€",
+    GROUND_CONDUCTIVITY_40: "W/(m·K)",
+    GROUND_CONDUCTIVITY_60: "W/(m·K)",
+    GROUND_CONDUCTIVITY_80: "W/(m·K)",
+    GROUND_CONDUCTIVITY_100: "W/(m·K)",
+    COLLECTOR_EXTRACTION_1800: "W/m²",
+    COLLECTOR_EXTRACTION_2400: "W/m²",
+    BOREHOLE_EXTRACTION_1800: "W/m",
+    BOREHOLE_EXTRACTION_2400: "W/m",
+    ONG_POTENTIAL_MWH: "MWh/a",
+    ONG_POTENTIAL_2045_MWH: "MWh/a",
+    MTG_POTENTIAL_MWH: "MWh/a",
+    MTG_POTENTIAL_2045_MWH: "MWh/a",
+    BLOCK_HEATING_LOAD: "kW",
+    BLOCK_HEATING_LOAD_2045: "kW",
 }
 
 
@@ -223,6 +269,23 @@ LABELS_DE: dict[str, str] = {
     HEAT_LOSS_MWH: "Verlust [MWh/a]",
     HEAT_LOSS_EXTRA_INSULATION_MWH: "Verlust bei extra Daemmung [MWh/a]",
     HEAT_DEMAND_MWH: "Waermebedarf [MWh/a]",
+    # Potential layers
+    GROUND_CONDUCTIVITY_40: "Waermeleitfaehigkeit 40m [W/m*K]",
+    GROUND_CONDUCTIVITY_60: "Waermeleitfaehigkeit 60m [W/m*K]",
+    GROUND_CONDUCTIVITY_80: "Waermeleitfaehigkeit 80m [W/m*K]",
+    GROUND_CONDUCTIVITY_100: "Waermeleitfaehigkeit 100m [W/m*K]",
+    COLLECTOR_EXTRACTION_1800: "Entzug Kollektor 1800h [W/m²]",
+    COLLECTOR_EXTRACTION_2400: "Entzug Kollektor 2400h [W/m²]",
+    BOREHOLE_EXTRACTION_1800: "Richtwert Entzug Sonde 1800h [W/m]",
+    BOREHOLE_EXTRACTION_2400: "Richtwert Entzug Sonde 2400h [W/m]",
+    GEOTHERMAL_STATUS: "Bewertung Geothermie",
+    ONG_POTENTIAL_MWH: "Potenzial ONG Baublock [MWh/a]",
+    ONG_POTENTIAL_2045_MWH: "Potenzial ONG Baublock 2045 [MWh/a]",
+    MTG_POTENTIAL_MWH: "Potenzial MTG Baublock [MWh/a]",
+    MTG_POTENTIAL_2045_MWH: "Potenzial MTG Baublock 2045 [MWh/a]",
+    BLOCK_HEATING_LOAD: "Heizlast Baublock [kW]",
+    BLOCK_HEATING_LOAD_2045: "Heizlast Baublock 2045 [kW]",
+    BLOCK_POTENTIAL_STATUS: "Bewertung Baublock",
 }
 
 

@@ -1,0 +1,10 @@
+{
+  "source": "VDI 4640 Blatt 2 (Ausgabe 2001), Tabelle 2: spezifische Entzugsleistung von Erdwärmesonden, kleine Anlagen bis 30 kW Heizleistung, Sondenlänge 40 bis 100 m",
+  "note": "Screening-Richtwert, nicht für die Auslegung. Die Ausgabe 2019 der VDI 4640 Blatt 2 verlangt für die Auslegung eine Simulation.",
+  "conductivity_depth_m": [100, 80, 60, 40],
+  "classes": [
+    {"label": "lambda < 1,5", "max": 1.5, "max_inclusive": false, "extraction_1800": 25, "extraction_2400": 20},
+    {"label": "lambda 1,5 - 3,0", "max": 3.0, "max_inclusive": true, "extraction_1800": 60, "extraction_2400": 50},
+    {"label": "lambda > 3,0", "max": null, "max_inclusive": true, "extraction_1800": 84, "extraction_2400": 70}
+  ]
+}

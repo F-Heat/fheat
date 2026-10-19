@@ -31,6 +31,28 @@ LAYER_PARCELS = "cp:CadastralParcel"
 # "Straßenverkehr", "Fließgewässer"). Licence: Datenlizenz Deutschland – Zero 2.0.
 URL_LANDUSE = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht"
 LAYER_LANDUSE = "ave:Nutzung"
+# GD NRW "INSPIRE IS GT 50" (shallow geothermal, scale 1:50,000). Checked
+# 2026-10-19 (docs/potenzialdaten.md): "capacity" is the thermal conductivity
+# for borehole heat exchangers (EWS, unit "W/m*K", "vext_scalar" = probe length
+# in m) and the specific extraction for ground collectors (EWK, "W/m²@<h>h/a").
+# The default CRS is EPSG:4258, so bbox and srsName name EPSG:25832; only the
+# GEOJSON answer can be read. Areas without an assessment have no feature.
+# Licence: Datenlizenz Deutschland – Namensnennung 2.0, source "Geologischer
+# Dienst NRW".
+URL_GEOTHERMAL = "https://www.wfs.nrw.de/gd/wfs_nw_inspire-gt50"
+LAYERS_GEOTHERMAL = {
+    "ews40": "er:Geothermie_EWS40",
+    "ews60": "er:Geothermie_EWS60",
+    "ews80": "er:Geothermie_EWS80",
+    "ews100": "er:Geothermie_EWS100",
+    "ewk1800": "er:Geothermie_EWK1800",
+    "ewk2400": "er:Geothermie_EWK2400",
+}
+GEOTHERMAL_SRS = "urn:ogc:def:crs:EPSG::25832"
+GEOTHERMAL_OUTPUT_FORMAT = "GEOJSON"
+#: expected "capacity_uom" per layer kind
+GEOTHERMAL_UNIT_EWS = "W/m*K"
+GEOTHERMAL_UNIT_EWK = "W/m²@{hours}h/a"
 WFS_VERSION = "2.0.0"
 WFS_OUTPUT_FORMAT = "text/xml"
 HTTP_TIMEOUT = 120
@@ -96,15 +118,19 @@ def find_file(files: list, name: str) -> Optional[dict]:
     return None
 
 
-def cached_file(url: str, name: str, cache_dir: Optional[Path] = None) -> Path:
+def cached_file(
+    url: str, name: str, cache_dir: Optional[Path] = None, files: Optional[list] = None
+) -> Path:
     """Local copy of ``url + name`` from the cache (:mod:`fheat_nrw.cache`).
 
     Loads the file again when ``index.json`` of the folder lists a newer
-    timestamp. If the index cannot be read, a file already in the cache is
-    used as it is.
+    timestamp (``files``: the index if it is already loaded). If the index
+    cannot be read, a file already in the cache is used as it is.
     """
     try:
-        entry = find_file(file_list_from_url(url + "index.json"), name)
+        if files is None:
+            files = file_list_from_url(url + "index.json")
+        entry = find_file(files, name)
     except RuntimeError:
         local = cache.cache_dir(cache_dir) / name
         if local.exists():
@@ -229,3 +255,48 @@ def get_osm_surface_via_overpass(
     if not rows:
         return gpd.GeoDataFrame({c: [] for c in _OSM_COLUMNS}, geometry=[], crs="EPSG:4326")
     return gpd.GeoDataFrame(rows, geometry=geoms, crs="EPSG:4326")
+
+
+def get_geothermal_from_wfs(
+    wfs_url: str, bbox, layer: str, timeout: int = HTTP_TIMEOUT
+) -> gpd.GeoDataFrame:
+    """One IS GT 50 layer (e.g. ``er:Geothermie_EWS40``) in a bbox, EPSG:25832.
+
+    Raw WFS attributes (``capacity``, ``capacity_uom``, ``vext_scalar``). The
+    service returns whole polygons, not cut at the bbox.
+    """
+    try:
+        wfs = WebFeatureService(wfs_url, version=WFS_VERSION, timeout=timeout)
+        response = wfs.getfeature(
+            typename=layer,
+            bbox=(*(float(v) for v in bbox), GEOTHERMAL_SRS),
+            srsname=GEOTHERMAL_SRS,
+            outputFormat=GEOTHERMAL_OUTPUT_FORMAT,
+        )
+        gdf = gpd.read_file(response)
+    except Exception as e:
+        raise RuntimeError(f"WFS-Anfrage (Geothermie {layer}) an '{wfs_url}' fehlgeschlagen: {e}") from e
+    if gdf.crs is None:
+        gdf = gdf.set_crs("EPSG:25832")
+    return gdf
+
+
+def check_geothermal_unit(gdf: gpd.GeoDataFrame, key: str) -> None:
+    """Raise if ``capacity_uom`` is not the unit expected for layer ``key``.
+
+    EWS layers carry a thermal conductivity, EWK layers a specific extraction
+    at the hours in the key. A different unit is never converted silently.
+    """
+    if gdf.empty:
+        return
+    if key.startswith("ews"):
+        expected = GEOTHERMAL_UNIT_EWS
+    else:
+        expected = GEOTHERMAL_UNIT_EWK.format(hours=key.removeprefix("ewk"))
+    if "capacity_uom" not in gdf.columns:
+        raise RuntimeError(f"Geothermie-Layer '{key}' hat keine Spalte 'capacity_uom'.")
+    units = set(gdf["capacity_uom"].dropna().astype(str).str.strip())
+    if units != {expected}:
+        raise RuntimeError(
+            f"Geothermie-Layer '{key}' hat die Einheit {sorted(units)}, erwartet '{expected}'."
+        )

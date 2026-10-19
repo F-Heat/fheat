@@ -118,7 +118,9 @@ def cached_download(
 def vector_source(zip_path: PathLike, layer: Optional[str] = None) -> str:
     """GDAL path of the vector data inside a ZIP.
 
-    A shapefile whose name ends with ``<layer>.shp`` wins; otherwise the
+    A shapefile whose name contains ``layer`` wins (like
+    ``Potenzial-ONG-MTG-Baublock_05566084`` in
+    ``Potenzial-ONG-MTG-Baublock_05566084_Steinfurt.shp``); otherwise the
     first geodatabase or GeoPackage.
     """
     zip_path = Path(zip_path)
@@ -127,7 +129,7 @@ def vector_source(zip_path: PathLike, layer: Optional[str] = None) -> str:
     except (OSError, zipfile.BadZipFile) as e:
         raise RuntimeError(f"ZIP-Datei '{zip_path}' ist nicht lesbar: {e}") from e
     if layer:
-        shapes = [n for n in names if n.endswith(f"{layer}.shp")]
+        shapes = [n for n in names if n.endswith(".shp") and layer in n.rsplit("/", 1)[-1]]
         if shapes:
             return f"/vsizip/{zip_path.as_posix()}/{shapes[0]}"
     gdbs = sorted({n.split(".gdb/")[0] + ".gdb" for n in names if ".gdb/" in n})
