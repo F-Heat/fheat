@@ -475,3 +475,90 @@ class TestAdapterGeothermalDeep:
         with caplog.at_level("WARNING"):
             assert _loaded_adapter().fetch_geothermal_deep() is None
         assert "tiefe Geothermie" in caplog.records[-1].getMessage()
+
+
+# ---------------------------------------------------------------------------
+# Ground-mounted solar thermal
+# ---------------------------------------------------------------------------
+
+
+def _raw_flure(geometries, areas) -> gpd.GeoDataFrame:
+    n = len(geometries)
+    return gpd.GeoDataFrame(
+        {"Flur_id": [f"05519{i:04d}" for i in range(n)], "gemeinde": ["Steinfurt"] * n,
+         "AGS": ["05566084"] * n, "Nutzfl_m2": areas,
+         "Pot_FK_kWh": [a * 250.0 if a == a else 0.0 for a in areas],
+         "Pot_VR_kWh": [a * 260.0 if a == a else 0.0 for a in areas],
+         "Po_PNS_kWh": [a * 130.0 if a == a else 0.0 for a in areas],
+         "Po_POW_kWh": [a * 140.0 if a == a else 0.0 for a in areas]},
+        geometry=list(geometries), crs=CRS,
+    )
+
+
+class TestProcessSolarThermal:
+    def test_yields_specific_values_and_distances(self):
+        raw = _raw_flure([box(388200, 5779000, 388300, 5779100), box(388000, 5779000, 388100, 5779100),
+                          box(390000, 5779000, 390100, 5779100)], [1000.0, 2000.0, np.nan])
+        buildings = gpd.GeoDataFrame(
+            {cols.HEAT_DEMAND: [0.0, 5000.0]},
+            geometry=[box(388190, 5779000, 388195, 5779005), box(388150, 5779000, 388160, 5779010)], crs=CRS,
+        )
+        out = pot.process_solar_thermal(raw, box(388000, 5779000, 388100, 5779100), buildings)
+        # the Flur without usable area is left out, the nearest comes first
+        assert out[cols.FLUR_ID].tolist() == ["055190001", "055190000"]
+        assert out[cols.SOLAR_FLAT_PLATE_MWH].tolist() == pytest.approx([500.0, 250.0])
+        assert out[cols.SOLAR_FLAT_PLATE_SPECIFIC].tolist() == pytest.approx([250.0, 250.0])
+        assert out[cols.SOLAR_TROUGH_EW_SPECIFIC].tolist() == pytest.approx([140.0, 140.0])
+        assert out[cols.DISTANCE_TO_AREA].tolist() == pytest.approx([0.0, 100.0])
+        # the building without demand does not count
+        assert out[cols.DISTANCE_TO_DEMAND].tolist() == pytest.approx([50.0, 40.0])
+
+    def test_without_buildings_no_demand_distance(self):
+        raw = _raw_flure([box(0, 0, 10, 10)], [100.0])
+        out = pot.process_solar_thermal(raw, box(0, 0, 10, 10))
+        assert np.isnan(out[cols.DISTANCE_TO_DEMAND].iloc[0])
+
+    def test_documented_field_names_are_not_the_real_ones(self):
+        raw = _raw_flure([box(0, 0, 10, 10)], [100.0]).rename(columns={"Pot_FK_kWh": "Po_FK_kWh"})
+        with pytest.raises(RuntimeError, match="Pot_FK_kWh"):
+            pot.process_solar_thermal(raw, box(0, 0, 10, 10))
+
+
+class TestAdapterSolarThermal:
+    def _flure(self):
+        # in the area, 1.5 km east, 2.5 km east (inside the widened box only with buffer 3000)
+        return _raw_flure([box(388000, 5779000, 388050, 5779050), box(389600, 5779000, 389700, 5779100),
+                           box(390600, 5779000, 390700, 5779100)], [500.0, 800.0, 900.0])
+
+    def test_fields_within_the_buffer(self, monkeypatch, tmp_path):
+        path = _nrw_zip(tmp_path, dl.FILE_SOLAR_THERMAL, dl.LAYER_SOLAR_THERMAL, self._flure())
+        seen = {}
+
+        def fake_cached_file(url, name, cache_dir=None, files=None):
+            seen.update(url=url, name=name)
+            return path
+
+        monkeypatch.setattr(dl, "cached_file", fake_cached_file)
+        adapter = _loaded_adapter()
+        adapter._buildings[cols.HEAT_DEMAND] = [12000.0]
+        out = adapter.fetch_solar_thermal()
+        assert seen == {"url": dl.URL_BUILDINGS, "name": dl.FILE_SOLAR_THERMAL}
+        assert out[cols.DISTANCE_TO_AREA].tolist() == pytest.approx([0.0, 1500.0])
+        assert out[cols.DISTANCE_TO_DEMAND].iloc[1] == pytest.approx(1580.0)
+        assert out.crs == CRS
+
+    def test_buffer_local_file_and_switch(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(dl, "cached_file", lambda *a, **kw: pytest.fail("no download"))
+        local = tmp_path / "ff.gpkg"
+        self._flure().to_file(local, driver="GPKG")
+        assert len(_loaded_adapter(solar_thermal_path=local, solar_thermal_buffer=3000).fetch_solar_thermal()) == 3
+        assert _loaded_adapter(download_solar_thermal=False).fetch_solar_thermal() is None
+
+    def test_failure_gives_none_and_a_warning(self, monkeypatch, caplog):
+        def failing(*a, **kw):
+            raise RuntimeError("Download fehlgeschlagen")
+
+        monkeypatch.setattr(dl, "cached_file", failing)
+        with caplog.at_level("WARNING"):
+            assert _loaded_adapter().fetch_solar_thermal() is None
+        assert "Solarthermie" in caplog.records[-1].getMessage()

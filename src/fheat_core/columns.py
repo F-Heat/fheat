@@ -157,8 +157,21 @@ CELL_SHARE = "cell_share"                    # share of the cell inside NRW [%]
 DEEP_NOTE_DEPTH = "deep_note_depth"          # source note on potential below 5,000 m
 DEEP_NOTE_SURVEY = "deep_note_survey"        # source note on ongoing surveys
 DISTANCE_TO_AREA = "distance_to_area"        # distance to the loaded area [m], 0 = inside
-SOURCE_CANDIDATE_LAT = "source_candidate_lat"  # cell centre, WGS84 latitude (for source_coordinates)
-SOURCE_CANDIDATE_LON = "source_candidate_lon"  # cell centre, WGS84 longitude
+SOURCE_CANDIDATE_LAT = "source_candidate_lat"  # point inside the cell or field, WGS84 latitude (for source_coordinates)
+SOURCE_CANDIDATE_LON = "source_candidate_lon"  # dto. WGS84 longitude
+
+# Ground-mounted solar thermal per cadastral district (NRW: LANUK heat study)
+FLUR_ID = "flur_id"                                  # id of the cadastral district (Flur)
+SOLAR_USABLE_AREA = "solar_usable_area"              # usable area without a 3 m margin [m²]
+SOLAR_FLAT_PLATE_MWH = "solar_flat_plate_mwh"        # flat plate collectors, 60 °C [MWh/a]
+SOLAR_VACUUM_TUBE_MWH = "solar_vacuum_tube_mwh"      # vacuum tube collectors, 90 °C [MWh/a]
+SOLAR_TROUGH_NS_MWH = "solar_trough_ns_mwh"          # parabolic trough north-south, 150 °C [MWh/a]
+SOLAR_TROUGH_EW_MWH = "solar_trough_ew_mwh"          # parabolic trough east-west, 150 °C [MWh/a]
+SOLAR_FLAT_PLATE_SPECIFIC = "solar_flat_plate_specific"    # yield per usable area [kWh/(m²·a)]
+SOLAR_VACUUM_TUBE_SPECIFIC = "solar_vacuum_tube_specific"  # [kWh/(m²·a)]
+SOLAR_TROUGH_NS_SPECIFIC = "solar_trough_ns_specific"      # [kWh/(m²·a)]
+SOLAR_TROUGH_EW_SPECIFIC = "solar_trough_ew_specific"      # [kWh/(m²·a)]
+DISTANCE_TO_DEMAND = "distance_to_demand"            # to the nearest building with heat demand [m]
 
 
 # ============================================================
@@ -241,6 +254,16 @@ UNITS: dict[str, str] = {
     DEEP_POTENTIAL_MWH: "MWh/a",
     CELL_SHARE: "%",
     DISTANCE_TO_AREA: "m",
+    SOLAR_USABLE_AREA: "m²",
+    SOLAR_FLAT_PLATE_MWH: "MWh/a",
+    SOLAR_VACUUM_TUBE_MWH: "MWh/a",
+    SOLAR_TROUGH_NS_MWH: "MWh/a",
+    SOLAR_TROUGH_EW_MWH: "MWh/a",
+    SOLAR_FLAT_PLATE_SPECIFIC: "kWh/(m²·a)",
+    SOLAR_VACUUM_TUBE_SPECIFIC: "kWh/(m²·a)",
+    SOLAR_TROUGH_NS_SPECIFIC: "kWh/(m²·a)",
+    SOLAR_TROUGH_EW_SPECIFIC: "kWh/(m²·a)",
+    DISTANCE_TO_DEMAND: "m",
 }
 
 
@@ -347,6 +370,17 @@ LABELS_DE: dict[str, str] = {
     DISTANCE_TO_AREA: "Abstand Gebiet [m]",
     SOURCE_CANDIDATE_LAT: "Quelle Breite",
     SOURCE_CANDIDATE_LON: "Quelle Laenge",
+    FLUR_ID: "Flur_ID",
+    SOLAR_USABLE_AREA: "Nutzflaeche [m²]",
+    SOLAR_FLAT_PLATE_MWH: "Flachkollektor [MWh/a]",
+    SOLAR_VACUUM_TUBE_MWH: "Vakuumroehre [MWh/a]",
+    SOLAR_TROUGH_NS_MWH: "Parabolrinne N-S [MWh/a]",
+    SOLAR_TROUGH_EW_MWH: "Parabolrinne O-W [MWh/a]",
+    SOLAR_FLAT_PLATE_SPECIFIC: "Flachkollektor [kWh/m²*a]",
+    SOLAR_VACUUM_TUBE_SPECIFIC: "Vakuumroehre [kWh/m²*a]",
+    SOLAR_TROUGH_NS_SPECIFIC: "Parabolrinne N-S [kWh/m²*a]",
+    SOLAR_TROUGH_EW_SPECIFIC: "Parabolrinne O-W [kWh/m²*a]",
+    DISTANCE_TO_DEMAND: "Abstand Waermebedarf [m]",
 }
 
 

@@ -214,9 +214,9 @@ DEEP_NOTES = {"Hinweis1": cols.DEEP_NOTE_DEPTH, "Hinweis2": cols.DEEP_NOTE_SURVE
 
 
 def _distance_and_candidate(out: gpd.GeoDataFrame, area: BaseGeometry) -> None:
-    """Distance to ``area`` and the WGS84 centre of every feature (in place)."""
+    """Distance to ``area`` and a WGS84 point inside every feature (in place)."""
     out[cols.DISTANCE_TO_AREA] = out.geometry.distance(area).astype("float64")
-    centres = out.geometry.centroid.to_crs("EPSG:4326")
+    centres = out.geometry.representative_point().to_crs("EPSG:4326")
     out[cols.SOURCE_CANDIDATE_LAT] = centres.y.round(6)
     out[cols.SOURCE_CANDIDATE_LON] = centres.x.round(6)
 
@@ -242,5 +242,64 @@ def process_deep_cells(raw: gpd.GeoDataFrame, area: BaseGeometry) -> gpd.GeoData
     ordered = [
         cols.DEEP_POTENTIAL_MWH, *(c for c, _ in DEEP_FIELDS.values()), *DEEP_NOTES.values(),
         cols.DISTANCE_TO_AREA, cols.SOURCE_CANDIDATE_LAT, cols.SOURCE_CANDIDATE_LON,
+    ]
+    return out[ordered + ["geometry"]].sort_values(cols.DISTANCE_TO_AREA, kind="stable").reset_index(drop=True)
+
+
+#: LANUK solar thermal field → (column, factor); kWh/a → MWh/a. The field
+#: names differ from the LANUK documentation (Pot_FK_kWh, not Po_FK_kWh).
+SOLAR_FIELDS = {
+    "Pot_FK_kWh": (cols.SOLAR_FLAT_PLATE_MWH, cols.SOLAR_FLAT_PLATE_SPECIFIC),
+    "Pot_VR_kWh": (cols.SOLAR_VACUUM_TUBE_MWH, cols.SOLAR_VACUUM_TUBE_SPECIFIC),
+    "Po_PNS_kWh": (cols.SOLAR_TROUGH_NS_MWH, cols.SOLAR_TROUGH_NS_SPECIFIC),
+    "Po_POW_kWh": (cols.SOLAR_TROUGH_EW_MWH, cols.SOLAR_TROUGH_EW_SPECIFIC),
+}
+SOLAR_AREA_FIELD = "Nutzfl_m2"
+SOLAR_ID_FIELD = "Flur_id"
+
+
+def distance_to_demand(gdf: gpd.GeoDataFrame, buildings: Optional[gpd.GeoDataFrame]) -> pd.Series:
+    """Distance of every feature to the nearest building with heat demand [m] (NaN without)."""
+    out = pd.Series(np.nan, index=gdf.index, dtype="float64")
+    if buildings is None or buildings.empty or cols.HEAT_DEMAND not in buildings.columns or gdf.empty:
+        return out
+    demand = buildings[pd.to_numeric(buildings[cols.HEAT_DEMAND], errors="coerce") > 0]
+    if demand.empty:
+        return out
+    demand = demand[["geometry"]].to_crs(gdf.crs) if demand.crs != gdf.crs else demand[["geometry"]]
+    nearest = gpd.sjoin_nearest(gdf[["geometry"]], demand, distance_col="_distance")
+    out.loc[:] = nearest.groupby(level=0)["_distance"].min().reindex(gdf.index).values
+    return out
+
+
+def process_solar_thermal(
+    raw: gpd.GeoDataFrame, area: BaseGeometry, buildings: Optional[gpd.GeoDataFrame] = None
+) -> gpd.GeoDataFrame:
+    """LANUK ground-mounted solar thermal per Flur → canonical columns.
+
+    Yields in MWh/a per collector type and the specific yield in kWh/(m²·a)
+    from the usable area. Flure without usable area (no suitable land, all
+    yields 0) are left out. Distances to ``area`` and to the nearest building
+    with heat demand let near fields come first.
+    """
+    missing = [f for f in (*SOLAR_FIELDS, SOLAR_AREA_FIELD, SOLAR_ID_FIELD) if f not in raw.columns]
+    if missing:
+        raise RuntimeError(f"LANUK-Daten Freiflaechen-Solarthermie ohne Felder {missing} (Feldnamen geändert?).")
+    usable = pd.to_numeric(raw[SOLAR_AREA_FIELD], errors="coerce").astype("float64")
+    raw = raw[usable > 0]
+    usable = usable[usable > 0]
+    out = gpd.GeoDataFrame(geometry=raw.geometry.values, crs=raw.crs)
+    out[cols.FLUR_ID] = raw[SOLAR_ID_FIELD].astype("string").values
+    out[cols.SOLAR_USABLE_AREA] = usable.values
+    for field, (column, specific) in SOLAR_FIELDS.items():
+        kwh = pd.to_numeric(raw[field], errors="coerce").astype("float64").values
+        out[column] = kwh * 1e-3
+        out[specific] = kwh / usable.values
+    _distance_and_candidate(out, area)
+    out[cols.DISTANCE_TO_DEMAND] = distance_to_demand(out, buildings)
+    ordered = [
+        cols.FLUR_ID, cols.SOLAR_USABLE_AREA, *(c for c, _ in SOLAR_FIELDS.values()),
+        *(s for _, s in SOLAR_FIELDS.values()), cols.DISTANCE_TO_AREA, cols.DISTANCE_TO_DEMAND,
+        cols.SOURCE_CANDIDATE_LAT, cols.SOURCE_CANDIDATE_LON,
     ]
     return out[ordered + ["geometry"]].sort_values(cols.DISTANCE_TO_AREA, kind="stable").reset_index(drop=True)

@@ -92,6 +92,14 @@ class DataAdapter(ABC):
         """
         return None
 
+    def fetch_solar_thermal(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: areas for ground-mounted solar thermal around the area.
+
+        Yield per collector type (``solar_*_mwh``) and per m², the usable area,
+        ``distance_to_area`` and ``distance_to_demand``.
+        """
+        return None
+
     # Optional data — default implementation returns None;
     # the core then loads its own default.
     def provide_pipe_info(self) -> Optional[pd.DataFrame]:

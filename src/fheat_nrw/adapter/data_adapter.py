@@ -143,6 +143,15 @@ class NRWDataAdapter(DataAdapter):
     geothermal_deep_buffer : float
         Umkreis um das Gebiet in m (Standard 5000), weil eine Dublette nicht
         im Wohngebiet stehen muss.
+    download_solar_thermal : bool
+        Wenn True (Standard), wird das Potenzial der Freiflächen-Solarthermie
+        je Flur aus der LANUK-Wärmestudie im Umkreis des Gebiets geladen
+        (NRW-Datei, 63 MB, im Zwischenspeicher), mit Abstand zum Gebiet und
+        zum nächsten Gebäude mit Wärmebedarf. Fehler → Warnung, kein Layer.
+    solar_thermal_path : Path | None
+        Lokale FF-Solarthermie-Datei der Wärmestudie. Hat Vorrang vor dem Download.
+    solar_thermal_buffer : float
+        Umkreis um das Gebiet in m (Standard 2000).
     cache_dir : Path | None
         Ordner für große Downloads (Standard: ``FHEAT_CACHE_DIR`` oder
         ``~/.cache/fheat``).
@@ -174,6 +183,9 @@ class NRWDataAdapter(DataAdapter):
         download_geothermal_deep: bool = True,
         geothermal_deep_path: Optional[Path] = None,
         geothermal_deep_buffer: float = 5000.0,
+        download_solar_thermal: bool = True,
+        solar_thermal_path: Optional[Path] = None,
+        solar_thermal_buffer: float = 2000.0,
         cache_dir: Optional[Path] = None,
     ) -> None:
         if not municipality_name and not city_name and not district_key:
@@ -205,6 +217,9 @@ class NRWDataAdapter(DataAdapter):
         self._download_geothermal_deep = bool(download_geothermal_deep)
         self._geothermal_deep_path = _optional_path(geothermal_deep_path)
         self._geothermal_deep_buffer = float(geothermal_deep_buffer)
+        self._download_solar_thermal = bool(download_solar_thermal)
+        self._solar_thermal_path = _optional_path(solar_thermal_path)
+        self._solar_thermal_buffer = float(solar_thermal_buffer)
         self._cache_dir = _optional_path(cache_dir)
 
         self._buildings: Optional[gpd.GeoDataFrame] = None
@@ -286,6 +301,15 @@ class NRWDataAdapter(DataAdapter):
             "Raster tiefe Geothermie (LANUK) konnte nicht geladen werden (%s) — kein Layer. "
             "Lokale Datei via geothermal_deep_path=... setzen, "
             "oder download_geothermal_deep=False zum Abschalten.",
+        )
+
+    def fetch_solar_thermal(self) -> Optional[gpd.GeoDataFrame]:
+        """LANUK ground-mounted solar thermal per Flur around the loaded area (None on failure)."""
+        return self._optional_layer(
+            "solar_thermal", self._load_solar_thermal,
+            "Freiflaechen-Solarthermie (LANUK) konnte nicht geladen werden (%s) — kein Layer. "
+            "Lokale Datei via solar_thermal_path=... setzen, "
+            "oder download_solar_thermal=False zum Abschalten.",
         )
 
     # ------------------------------------------------------------------
@@ -390,6 +414,17 @@ class NRWDataAdapter(DataAdapter):
         cells = pot.process_deep_cells(raw, self._area_outline())
         cells = cells[cells[cols.DISTANCE_TO_AREA] <= self._geothermal_deep_buffer]
         return self._to_area_crs(cells.reset_index(drop=True))
+
+    def _load_solar_thermal(self) -> Optional[gpd.GeoDataFrame]:
+        raw = self._load_nrw_layer(
+            self._solar_thermal_path, self._download_solar_thermal,
+            dl.FILE_SOLAR_THERMAL, dl.LAYER_SOLAR_THERMAL, self._solar_thermal_buffer,
+        )
+        if raw is None or raw.empty:
+            return None
+        fields = pot.process_solar_thermal(raw, self._area_outline(), self._buildings)
+        fields = fields[fields[cols.DISTANCE_TO_AREA] <= self._solar_thermal_buffer]
+        return self._to_area_crs(fields.reset_index(drop=True))
 
     def _load_nrw_layer(
         self, path: Optional[Path], download: bool, filename: str, layer: str, buffer: float

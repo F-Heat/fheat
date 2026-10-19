@@ -29,6 +29,8 @@ URL_BUILDINGS = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kw
 # Deutschland – Zero 2.0. Loaded through the cache (fheat_nrw.cache).
 FILE_DEEP_GEOTHERMAL = "KWP-NRW-Potenzial_TG_Raster_EPSG25832_Geodatabase.zip"   # 2 MB
 LAYER_DEEP_GEOTHERMAL = "MTG_TG_Raster_NRW"
+FILE_SOLAR_THERMAL = "KWP-NRW-Potenzial_FF_Solarthermie_Flur_EPSG25832_Geodatabase.zip"  # 63 MB
+LAYER_SOLAR_THERMAL = "FF_Solarthermie_Flur_NRW"
 URL_PARCELS = "https://www.wfs.nrw.de/geobasis/wfs_nw_inspire-flurstuecke_alkis"
 LAYER_PARCELS = "cp:CadastralParcel"
 # ALKIS "Tatsächliche Nutzung" (simplified ALKIS). Checked 2026-10-09 via
