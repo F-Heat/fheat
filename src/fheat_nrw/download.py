@@ -10,6 +10,7 @@ import urllib.request
 from importlib.metadata import PackageNotFoundError, version
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 from zipfile import BadZipFile, ZipFile
 
 import geopandas as gpd
@@ -18,6 +19,7 @@ from owslib.wfs import WebFeatureService
 from shapely.geometry import LineString
 
 from fheat_core import cancel
+from fheat_nrw import cache
 from fheat_nrw.area import district_parcels
 
 URL_BUILDINGS = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kwp/"
@@ -80,6 +82,37 @@ def file_list_from_url(url: str) -> list:
     for ds in data.get("datasets", []):
         files.extend(ds.get("files", []))
     return files
+
+
+def find_file(files: list, name: str) -> Optional[dict]:
+    """Entry of ``name`` in a file list of :func:`file_list_from_url`.
+
+    The entry carries ``name``, ``size`` (text, bytes) and ``timestamp``
+    (ISO time) as listed in ``index.json``. None if the file is not listed.
+    """
+    for item in files:
+        if item.get("name") == name:
+            return item
+    return None
+
+
+def cached_file(url: str, name: str, cache_dir: Optional[Path] = None) -> Path:
+    """Local copy of ``url + name`` from the cache (:mod:`fheat_nrw.cache`).
+
+    Loads the file again when ``index.json`` of the folder lists a newer
+    timestamp. If the index cannot be read, a file already in the cache is
+    used as it is.
+    """
+    try:
+        entry = find_file(file_list_from_url(url + "index.json"), name)
+    except RuntimeError:
+        local = cache.cache_dir(cache_dir) / name
+        if local.exists():
+            return local
+        raise
+    if entry is None:
+        raise RuntimeError(f"Datei '{name}' ist im OpenGeoData-NRW-Index ({url}) nicht gelistet.")
+    return cache.cached_download(url + name, name, entry.get("timestamp"), cache_dir)
 
 
 def search_filename(files: list, city_id: str) -> str:
