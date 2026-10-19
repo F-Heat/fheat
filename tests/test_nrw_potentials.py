@@ -562,3 +562,23 @@ class TestAdapterSolarThermal:
         with caplog.at_level("WARNING"):
             assert _loaded_adapter().fetch_solar_thermal() is None
         assert "Solarthermie" in caplog.records[-1].getMessage()
+
+
+# ---------------------------------------------------------------------------
+# Real services (only with -m network)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.network
+class TestRealSources:
+    BOX = (386000.0, 5778000.0, 387000.0, 5779000.0)   # Burgsteinfurt
+
+    def test_gd_wfs_and_doublet_raster(self, tmp_path):
+        adapter = NRWDataAdapter(municipality_name="Steinfurt", area_bbox=self.BOX, cache_dir=tmp_path)
+        shallow = adapter.fetch_geothermal_shallow()
+        assert shallow is not None
+        assert shallow.geometry.area.sum() == pytest.approx(1e6, rel=1e-6)
+        assert shallow[cols.GROUND_CONDUCTIVITY_100].between(0.5, 5).all()
+        deep = adapter.fetch_geothermal_deep()
+        assert deep is not None and (deep[cols.DISTANCE_TO_AREA] <= 5000).all()
+        assert (tmp_path / dl.FILE_DEEP_GEOTHERMAL).exists()

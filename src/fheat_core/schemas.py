@@ -253,6 +253,78 @@ class LoadProfileSchema:
 LOAD_PROFILE_SCHEMA = LoadProfileSchema()
 
 
+# ============================================================
+# Potential layers — optional, adapter provides them or None
+# ============================================================
+
+GeothermalShallowSchema = FrameSchema(
+    name="GeothermalShallow",
+    required_columns={
+        cols.GEOTHERMAL_STATUS: "str",
+        "geometry": "Polygon",
+    },
+    optional_columns={
+        cols.GROUND_CONDUCTIVITY_40: "float",
+        cols.GROUND_CONDUCTIVITY_60: "float",
+        cols.GROUND_CONDUCTIVITY_80: "float",
+        cols.GROUND_CONDUCTIVITY_100: "float",
+        cols.COLLECTOR_EXTRACTION_1800: "float",
+        cols.COLLECTOR_EXTRACTION_2400: "float",
+        cols.BOREHOLE_EXTRACTION_1800: "float",
+        cols.BOREHOLE_EXTRACTION_2400: "float",
+    },
+    geometry_type="Polygon",
+)
+
+GeothermalBlocksSchema = FrameSchema(
+    name="GeothermalBlocks",
+    required_columns={
+        cols.BLOCK_ID: "str",
+        cols.ONG_POTENTIAL_MWH: "float",
+        cols.MTG_POTENTIAL_MWH: "float",
+        cols.BLOCK_POTENTIAL_STATUS: "str",
+        "geometry": "Polygon",
+    },
+    optional_columns={
+        cols.ONG_POTENTIAL_2045_MWH: "float",
+        cols.MTG_POTENTIAL_2045_MWH: "float",
+        cols.BLOCK_HEATING_LOAD: "float",
+        cols.BLOCK_HEATING_LOAD_2045: "float",
+    },
+    geometry_type="Polygon",
+)
+
+GeothermalDeepSchema = FrameSchema(
+    name="GeothermalDeep",
+    required_columns={
+        cols.DEEP_POTENTIAL_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        cols.SOURCE_CANDIDATE_LAT: "float",
+        cols.SOURCE_CANDIDATE_LON: "float",
+        "geometry": "Polygon",
+    },
+    geometry_type="Polygon",
+)
+
+SolarThermalSchema = FrameSchema(
+    name="SolarThermal",
+    required_columns={
+        cols.SOLAR_USABLE_AREA: "float",
+        cols.SOLAR_FLAT_PLATE_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        "geometry": "Polygon",
+    },
+    optional_columns={
+        cols.FLUR_ID: "str",
+        cols.SOLAR_VACUUM_TUBE_MWH: "float",
+        cols.SOLAR_TROUGH_NS_MWH: "float",
+        cols.SOLAR_TROUGH_EW_MWH: "float",
+        cols.DISTANCE_TO_DEMAND: "float",
+    },
+    geometry_type="Polygon",
+)
+
+
 @dataclass(frozen=True)
 class ResultSummarySchema:
     name: str = "ResultSummary"
@@ -276,6 +348,12 @@ class ResultSummarySchema:
         "total_pipe_cost_eur",
         "total_civil_cost_eur",
         "mean_civil_cost_factor",
+        # Present only when the adapter provides the potential layer
+        "ong_potential_mwh_a",
+        "mtg_potential_mwh_a",
+        "deep_potential_max_mwh_a",
+        "solar_thermal_flat_plate_mwh_a",
+        "solar_thermal_area_m2",
     )
 
     def validate(self, summary) -> None:

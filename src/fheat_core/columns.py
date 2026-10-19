@@ -401,6 +401,11 @@ SUMMARY_LABELS_DE: dict[str, str] = {
     "total_pipe_cost_eur": "Investition Rohrleitungen [€]",
     "total_civil_cost_eur": "davon Tiefbau [€]",
     "mean_civil_cost_factor": "Mittlerer Tiefbaufaktor",
+    "ong_potential_mwh_a": "Potenzial oberflächennahe Geothermie der Baublöcke [MWh/a]",
+    "mtg_potential_mwh_a": "Potenzial mitteltiefe Geothermie (Sonden) der Baublöcke [MWh/a]",
+    "deep_potential_max_mwh_a": "Größtes Potenzial einer Dublette im Umkreis (P50) [MWh/a]",
+    "solar_thermal_flat_plate_mwh_a": "Freiflächen-Solarthermie im Umkreis, Flachkollektor [MWh/a]",
+    "solar_thermal_area_m2": "Nutzfläche Freiflächen-Solarthermie im Umkreis [m²]",
 }
 
 
