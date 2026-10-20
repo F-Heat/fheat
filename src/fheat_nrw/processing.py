@@ -168,6 +168,7 @@ def _merge_buildings(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         "RW_WW": "sum",
         "age_LANUV": mode_or_string,
         "Vlh": "first",
+        "Block_ID": "first",
     }
     if heat_col in gdf.columns:
         aggfunc_all[heat_col] = "sum"
@@ -341,6 +342,8 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         out[cols.AGE] = gdf["age_LANUV"]
     if "BAK" in gdf.columns:
         out[cols.CONSTRUCTION_CLASS] = gdf["BAK"]
+    if "Block_ID" in gdf.columns:
+        out[cols.BLOCK_ID] = gdf["Block_ID"].astype("string")
 
     out["geometry"] = gdf["geometry"]
     df = pd.DataFrame(out)
