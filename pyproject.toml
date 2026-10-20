@@ -51,9 +51,8 @@ topotherm = [                                # expert mode: topotherm STS optimi
     "pandas<3",                              # topotherm 0.6.0 breaks on pandas 3.x
     "highspy>=1.7",                          # open-source MILP solver
 ]
-xwp = ["lxml>=4.9"]                         # XWaermeplan export (GML writer, XSD validation)
 full = ["owslib>=0.29", "lxml>=4.9", "workalendar>=17.0"]
-dev = ["pytest>=7.0", "build>=1.0", "twine>=5.0", "jsonschema>=4.18"]  # jsonschema: XWaermeplan JSON-FG tests
+dev = ["pytest>=7.0", "build>=1.0", "twine>=5.0"]
 
 # NOTE: there is deliberately no [dependency-groups] entry for topotherm.
 # A PEP 735 group can only hold requirement strings, and topotherm 0.6.0 has
@@ -72,6 +71,5 @@ Issues = "https://github.com/F-Heat/fheat/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"fheat_core.data" = ["*.csv", "*.json"]
+"fheat_core.data" = ["*.csv"]
 "fheat_nrw.data" = ["*.json", "*.csv"]
-"fheat_core.xwp" = ["spec/**/*"]            # vendored XWaermeplan XSD/JSON schemas
