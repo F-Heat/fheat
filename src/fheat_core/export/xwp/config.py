@@ -70,17 +70,15 @@ class XWPExportConfig:
     suitability_thresholds: Optional[tuple[float, float, float]] = None
 
     _MODES: ClassVar[frozenset] = frozenset({"plan", "fragment"})
+    _OPTIONAL_CODES: ClassVar[frozenset] = frozenset({"source_energy_carrier"})  # None = not written
 
     def __post_init__(self) -> None:
         if self.mode not in self._MODES:
             raise ValueError(f"mode {self.mode!r} is not allowed. Allowed values: {sorted(self._MODES)}")
-        self.procedure = mapping.check_code("WP_VerfahrenArt", self.procedure)
-        self.legal_basis = mapping.check_code("WP_GesetzlicheGrundlage", self.legal_basis)
-        self.network_status = mapping.check_code("WP_Status", self.network_status)
-        self.network_medium = mapping.check_code("WP_Transportmedium", self.network_medium)
-        self.supply_type = mapping.check_code("WP_WaermeversorgungsgebietTyp", self.supply_type)
-        if self.source_energy_carrier is not None:
-            self.source_energy_carrier = mapping.check_code("WP_Energietraeger", self.source_energy_carrier)
+        for name, code_list in mapping.CONFIG_CODE_LISTS.items():
+            value = getattr(self, name)
+            if value is not None or name not in self._OPTIONAL_CODES:
+                setattr(self, name, mapping.check_code(code_list, value))
         self.supply_year = str(self.supply_year).lower()
         if self.supply_year not in mapping.SUPPLY_AREA_CLASS:
             raise ValueError(

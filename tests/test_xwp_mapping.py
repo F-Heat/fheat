@@ -12,7 +12,8 @@ pytestmark = pytest.mark.xwp
 
 from fheat_core.export.xwp import builder, mapping  # noqa: E402
 
-USED_BY = mapping.CODE_LIST_PROPERTIES
+CODES = sorted((c, n) for c, n, a in mapping.attributes() if a.code_list)
+MEASURES = sorted((c, n) for c, n, a in mapping.attributes() if a.uom)
 
 
 @pytest.fixture(scope="module")
@@ -25,20 +26,23 @@ def test_schema_version(schema):
     assert str(schema.namespace_uri).rstrip("/") == mapping.NAMESPACE
 
 
-def test_every_code_list_is_checked():
-    assert set(USED_BY) == set(mapping.CODE_LISTS)
+@pytest.mark.parametrize("featuretype", sorted(mapping.CLASSES))
+def test_classes_and_attributes_exist(schema, featuretype):
+    model = schema.model_factory(featuretype)
+    for prop in mapping.CLASSES[featuretype]:
+        assert model.get_property_info(prop) is not None
 
 
-@pytest.mark.parametrize("code_list", sorted(USED_BY))
-def test_code_lists_match_the_enumerations(schema, code_list):
-    featuretype, prop = USED_BY[code_list]
+@pytest.mark.parametrize("featuretype, prop", CODES)
+def test_code_lists_match_the_enumerations(schema, featuretype, prop):
+    code_list = mapping.CLASSES[featuretype][prop].code_list
     enum = schema.model_factory(featuretype).get_property_info(prop).enum
     assert enum.__name__ == code_list
     assert set(mapping.CODE_LISTS[code_list]) == {member.value for member in enum}
 
 
-@pytest.mark.parametrize("featuretype, prop", sorted(mapping.MEASURES))
+@pytest.mark.parametrize("featuretype, prop", MEASURES)
 def test_units_match_the_model(schema, featuretype, prop):
     info = schema.model_factory(featuretype).get_property_info(prop)
     assert info.stereotype == "Measure"
-    assert mapping.MEASURES[(featuretype, prop)].uom == info.uom
+    assert mapping.CLASSES[featuretype][prop].uom == info.uom

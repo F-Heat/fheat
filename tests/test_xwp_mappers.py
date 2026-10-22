@@ -1,9 +1,11 @@
 """Mappers of the XWaermeplan export on hand-built frames; no xplan-tools needed."""
 from __future__ import annotations
 
+import ast
 import dataclasses
 import datetime
 from collections import defaultdict
+from pathlib import Path
 
 import geopandas as gpd
 import pytest
@@ -198,8 +200,8 @@ class TestPlan:
         assert first["key"].startswith("/0/") and first["key"] != second["key"]
 
 
-class TestWrittenProperties:
-    """``mapping.WRITTEN_PROPERTIES`` is exactly what the mappers write; test_xwp_evidence checks it against the XSD."""
+class TestTable:
+    """``mapping.CLASSES`` is exactly what the export writes; test_xwp_evidence checks it against the XSD."""
 
     def test_table_equals_the_records(self, config):
         wld = gpd.GeoDataFrame({cols.LENGTH: [100.0], cols.HEAT_DEMAND: [120_000.0], cols.HEAT_LINE_DENSITY: [1200.0]},
@@ -219,9 +221,31 @@ class TestWrittenProperties:
             featuretype = record["featuretype"]
             written[featuretype] |= set(record["properties"]) | {record["geometry_property"]}
             for prop, value in record["properties"].items():
-                if (featuretype, prop) in mapping.DATA_TYPES:
-                    written[mapping.DATA_TYPES[(featuretype, prop)]] |= set(value)
-        assert dict(written) == {k: set(v) for k, v in mapping.WRITTEN_PROPERTIES.items()}
+                attribute = mapping.CLASSES[featuretype][prop]
+                if attribute.source == "nested":
+                    written[attribute.name] |= set(value)
+        # the references are added by the builder
+        expected = {c: {n for n, a in table.items() if a.source != "reference"} for c, table in mapping.CLASSES.items()}
+        assert dict(written) == expected
+
+    def test_exporter_reads_columns_only_through_constants(self):
+        """No column or summary key of F|Heat as text in a subscript, ``.get()`` or ``getattr()`` of the export."""
+        names = {v for k, v in vars(cols).items() if k.isupper() and isinstance(v, str)}
+        found = []
+        for path in sorted(Path(mapping.__file__).parent.glob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Subscript):
+                    keys = [node.slice]
+                elif isinstance(node, ast.Call) and (
+                    (isinstance(node.func, ast.Attribute) and node.func.attr == "get")
+                    or (isinstance(node.func, ast.Name) and node.func.id == "getattr")
+                ):
+                    keys = node.args[1:2] if isinstance(node.func, ast.Name) else node.args[:1]
+                else:
+                    continue
+                found += [f"{path.name}:{node.lineno} {k.value!r}" for k in keys
+                          if isinstance(k, ast.Constant) and k.value in names]
+        assert found == []
 
 
 class TestGeometryKey:

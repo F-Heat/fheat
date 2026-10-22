@@ -133,6 +133,9 @@ WLDSchema = FrameSchema(
         cols.HEAT_LINE_DENSITY: "float",
         cols.CONNECTED_IDS: "str",
     },
+    optional_columns={
+        cols.HEAT_DEMAND: "float",  # written by the status step; the density is demand / length
+    },
     geometry_type="LineString",
     allow_empty=True,
 )
@@ -255,25 +258,25 @@ LOAD_PROFILE_SCHEMA = LoadProfileSchema()
 class ResultSummarySchema:
     name: str = "ResultSummary"
     required_keys: tuple = (
-        "total_heat_demand_mwh_a",
-        "total_buildings",
-        "total_power_glf_kw",
-        "glf",
-        "total_network_length_m",
-        "total_loss_mwh_a",
-        "supply_temperature_c",
-        "return_temperature_c",
-        "total_house_connection_length_m",
-        "total_route_length_m",
-        "total_loss_extra_insulation_mwh_a",
+        cols.TOTAL_HEAT_DEMAND,
+        cols.TOTAL_BUILDINGS,
+        cols.TOTAL_POWER_GLF,
+        cols.GLF,
+        cols.TOTAL_NETWORK_LENGTH,
+        cols.TOTAL_LOSS,
+        cols.SUPPLY_TEMPERATURE,
+        cols.RETURN_TEMPERATURE,
+        cols.TOTAL_HOUSE_CONNECTION_LENGTH,
+        cols.TOTAL_ROUTE_LENGTH,
+        cols.TOTAL_LOSS_EXTRA_INSULATION,
     )
     # Present only when the net carries civil cost factors / pipe costs
     # (left out rather than set to 0, see steps/results.py).
     optional_keys: tuple = (
-        "civil_cost_share",
-        "total_pipe_cost_eur",
-        "total_civil_cost_eur",
-        "mean_civil_cost_factor",
+        cols.CIVIL_COST_SHARE,
+        cols.TOTAL_PIPE_COST,
+        cols.TOTAL_CIVIL_COST,
+        cols.MEAN_CIVIL_COST_FACTOR,
     )
 
     def validate(self, summary) -> None:

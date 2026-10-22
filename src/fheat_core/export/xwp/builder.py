@@ -1,8 +1,9 @@
 """Feature records -> xplan-tools models and their collection.
 
 Thin wrapper around xplan-tools: sets the ids and the references between
-plan, area and map features and lets xplan-tools check fields, code lists
-and references. Imports xplan-tools only when called.
+plan, area and map features (the attributes with source "reference" in
+``mapping.CLASSES``) and lets xplan-tools check fields, code lists and
+references. Imports xplan-tools only when called.
 """
 from __future__ import annotations
 
@@ -34,10 +35,10 @@ def plan_id(config: XWPExportConfig) -> uuid.UUID:
     """
     rs = config.resolved_regional_key
     if config.mode == "plan":
-        return feature_id(rs, "WP_Plan", plan_key(config))
+        return feature_id(rs, mapping.PLAN, plan_key(config))
     if config.plan_id:
         return uuid.UUID(config.plan_id)
-    return uuid.uuid5(ID_NAMESPACE, f"{rs}/WP_Plan")
+    return uuid.uuid5(ID_NAMESPACE, f"{rs}/{mapping.PLAN}")
 
 
 def appschema():
@@ -61,8 +62,9 @@ def build_collection(records: Sequence[dict], config: XWPExportConfig, srid: int
     schema = appschema()
     rs = config.resolved_regional_key
     plan = plan_id(config)
-    bereich = next(r for r in records if r["featuretype"] == "WP_Bereich")
-    bereich_id = feature_id(rs, "WP_Bereich", bereich["key"])
+    bereich = next(r for r in records if r["featuretype"] == mapping.AREA)
+    bereich_id = feature_id(rs, mapping.AREA, bereich["key"])
+    references = {"plan": plan, "area": bereich_id, "areas": [bereich_id]}
 
     features, issues, seen = {}, [], set()
     for record in records:
@@ -79,12 +81,9 @@ def build_collection(records: Sequence[dict], config: XWPExportConfig, srid: int
                 "srid": srid,
                 "wkt": shapely.to_wkt(record["geometry"], rounding_precision=COORDINATE_DECIMALS, trim=True),
             }
-        if featuretype == "WP_Plan":
-            data["bereich"] = [bereich_id]
-        elif featuretype == "WP_Bereich":
-            data["gehoertZuPlan"] = plan
-        else:
-            data["gehoertZuBereich"] = bereich_id
+        for name, attribute in mapping.CLASSES[featuretype].items():
+            if attribute.source == "reference":
+                data[name] = references[attribute.name]
         try:
             feature = schema.model_factory(featuretype).model_validate(data)
         except ValidationError as exc:
@@ -99,7 +98,7 @@ def build_collection(records: Sequence[dict], config: XWPExportConfig, srid: int
 
     checked = features
     if config.mode == "fragment":
-        checked = {**features, plan: schema.model_factory("WP_Plan").model_construct(id=plan)}
+        checked = {**features, plan: schema.model_factory(mapping.PLAN).model_construct(id=plan)}
     try:
         collection = BaseCollection.from_features(checked, srid=srid, appschema=schema)
     except ValueError as exc:

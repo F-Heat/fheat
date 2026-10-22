@@ -1,22 +1,24 @@
 """F|Heat results -> XWaermeplan feature records (plain dicts).
 
-One pure function per target class; they hold all F|Heat knowledge of the
-export and need no xplan-tools. A record is
+One function per target class picks the F|Heat objects (rows, networks)
+and their geometry; :func:`fill` takes every attribute from the class's table
+in :mod:`fheat_core.export.xwp.mapping`, the values F|Heat derives from
+:data:`RULES`. They need no xplan-tools. A record is
 
     {"featuretype": "WP_Waermelinie", "key": "<stable F|Heat key>",
      "geometry": <shapely geometry or None>, "geometry_property": "position",
      "properties": {...}}
 
 The builder adds ids and references and turns the records into xplan-tools
-models. Units and codes come from :mod:`fheat_core.export.xwp.mapping`; the
-attribute choices are documented in ``docs/xwp_mapping.md``.
+models. The attribute choices are documented in ``docs/xwp_mapping.md``.
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import math
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 import geopandas as gpd
 import shapely
@@ -43,125 +45,26 @@ class NetworkResult:
     """
 
     state: PipelineState
-    name: Optional[str] = None       # WP_Waermenetz.name
+    name: Optional[str] = None
     key: Optional[str] = None
-    operator: Optional[str] = None   # WP_Waermenetz.betreiber
+    operator: Optional[str] = None
 
 
-# ------------------------------------------------------------------
-# WP_Plan, WP_Bereich
-# ------------------------------------------------------------------
+@dataclass
+class Source:
+    """What one feature is filled from: the config, an F|Heat row or a network, as far as the class needs them."""
 
-def plan_key(config: XWPExportConfig) -> str:
-    """Stable key of the plan: its name (mode plan), the municipality's plan id or "" (fragment)."""
-    return config.plan_name if config.mode == "plan" else (config.plan_id or "")
+    config: Optional[XWPExportConfig] = None
+    row: Optional[dict] = None
+    network: Optional[NetworkResult] = None
 
+    @property
+    def summary(self) -> dict:
+        return self.network.state.result_summary
 
-def map_plan(config: XWPExportConfig, boundary: BaseGeometry) -> list[dict]:
-    """WP_Plan (mode "plan" only) and its one WP_Bereich, both with the plan boundary.
-
-    The key of the area includes its boundary, so two exports into the same
-    plan with different boundaries get different areas.
-    """
-    area = polygonal(boundary)
-    records = []
-    if config.mode == "plan":
-        records.append(_record("WP_Plan", plan_key(config), area, {
-            "name": config.plan_name,
-            "planungsverantwortlicheStelle": {
-                "name": config.municipality_name,
-                "regionalSchluessel12": config.resolved_regional_key,
-            },
-            "verfahrensart": config.procedure,
-            "gesetzlicheGrundlage": config.legal_basis,
-            "zieljahr": str(config.target_year),
-            "basisJahrDatenerfassung": str(config.base_year),
-            "beschlussDatum": config.decision_date,
-        }, geometry_property="raeumlicherGeltungsbereich"))
-    records.append(_record("WP_Bereich", f"{plan_key(config)}/{config.area_number}/{geometry_key(area)}", area, {
-        "nummer": config.area_number,
-        "name": config.area_name,
-    }, geometry_property="geltungsbereich"))
-    return records
-
-
-# ------------------------------------------------------------------
-# WP_Waermelinie
-# ------------------------------------------------------------------
-
-def map_waermelinien(wld_gdf: Optional[gpd.GeoDataFrame]) -> list[dict]:
-    """One WP_Waermelinie per street segment with heat demand and length (WPG Anlage 2 I.2.2)."""
-    if wld_gdf is None or wld_gdf.empty:
-        return []
-    records = []
-    has_demand = cols.HEAT_DEMAND in wld_gdf.columns
-    for row in wld_gdf.itertuples(index=False):
-        length = _number(getattr(row, cols.LENGTH))
-        density = _number(getattr(row, cols.HEAT_LINE_DENSITY))
-        demand = _number(getattr(row, cols.HEAT_DEMAND)) if has_demand else (
-            density * length if density is not None and length is not None else None
-        )
-        line = lineal(row.geometry)
-        if not length or not demand or line is None:
-            continue  # segments without heat demand carry no heat line
-        if density is None:
-            density = demand / length
-        records.append(_record("WP_Waermelinie", geometry_key(line), line, {
-            "waermeMenge": mapping.measure("WP_Waermelinie", "waermeMenge", demand),
-            "waermelinienDichte": mapping.measure("WP_Waermelinie", "waermelinienDichte", density),
-            "laenge": mapping.measure("WP_Waermelinie", "laenge", length),
-        }))
-    return records
-
-
-# ------------------------------------------------------------------
-# WP_Waermenetz
-# ------------------------------------------------------------------
-
-def map_waermenetze(networks: Sequence[NetworkResult], config: XWPExportConfig, crs) -> list[dict]:
-    """One WP_Waermenetz per network (WPG Anlage 2 I.2.8 a).
-
-    The area is a buffer of ``config.resolved_network_buffer`` around every
-    edge of the network (route, house and source connections), dissolved, as
-    in the technical plan. ``laenge`` is the route length,
-    ``anzahlGebaeudeAnschluss`` the connected buildings, both from the result
-    summary.
-    """
-    records = []
-    for i, net in enumerate(networks, start=1):
-        label = net.name or f"Netz {i}"
-        state = net.state
-        summary = state.result_summary
-        if state.net_gdf is None or state.net_gdf.empty or not summary:
-            raise ValueError(f"network {label!r} has no result (net_gdf and result_summary of phase RESULTS).")
-        edges = _to_crs(state.net_gdf, crs)
-        area = polygonal(unary_union(list(edges.geometry)).buffer(config.resolved_network_buffer))
-        props = {
-            "netzID": net.key or net.name or f"N{i:02d}",
-            "name": label,
-            "betreiber": net.operator,
-            "medium": config.network_medium,
-            "laenge": mapping.measure("WP_Waermenetz", "laenge", summary["total_route_length_m"]),
-            "anzahlGebaeudeAnschluss": int(summary["total_buildings"]),
-            "status": config.network_status,
-            "temperatur": mapping.measure("WP_Waermenetz", "temperatur", summary.get("supply_temperature_c")),
-        }
-        if config.source_energy_carrier is not None:
-            fed_in = float(summary["total_heat_demand_mwh_a"]) + float(summary.get("total_loss_mwh_a") or 0.0)
-            props["eeNachEnergietraeger"] = {
-                "energietraeger": config.source_energy_carrier,
-                "endenergie": mapping.measure("WP_EndenergieEnergietraeger", "endenergie", fed_in),
-            }
-        records.append(_record("WP_Waermenetz", props["netzID"], area, _drop_none(props)))
-    return records
-
-
-# ------------------------------------------------------------------
-# WP_WaermeversorgungsgebietZieljahr / ...Stuetzjahr
-# ------------------------------------------------------------------
 
 def suitability_stage(heat_demand_density, thresholds: Optional[tuple[float, float, float]]) -> Optional[str]:
-    """Proposed WP_Eignungsstufe for a heat network from the heat demand density [MWh/(ha·a)]."""
+    """Proposed suitability stage for a heat network from the heat demand density [MWh/(ha·a)]."""
     value = _number(heat_demand_density)
     if value is None or thresholds is None:
         return None
@@ -171,32 +74,156 @@ def suitability_stage(heat_demand_density, thresholds: Optional[tuple[float, flo
     return mapping.SUITABILITY_STAGES[-1]
 
 
+def _heat_fed_in(source: Source) -> float:
+    """Heat fed into the network: demand of the connected buildings plus the losses [MWh/a]."""
+    return float(source.summary[cols.TOTAL_HEAT_DEMAND]) + float(source.summary.get(cols.TOTAL_LOSS) or 0.0)
+
+
+#: Values F|Heat derives, by the name the tables give as source "rule"
+RULES: dict[str, Callable[[Source], object]] = {
+    "heat_fed_in": _heat_fed_in,
+    "suitability": lambda source: suitability_stage(
+        source.row.get(cols.HEAT_DEMAND_DENSITY), source.config.suitability_thresholds),
+    "interim_year": lambda source: mapping.INTERIM_YEAR_CODE[source.config.supply_year],
+}
+
+
+def fill(class_name: str, source: Source) -> dict:
+    """The attributes of ``class_name`` from its table; missing values, geometry and references left out."""
+    properties = {}
+    for name, attribute in mapping.CLASSES[class_name].items():
+        value = _value(attribute, source)
+        if value is not None:
+            properties[name] = value
+    return properties
+
+
+def _value(attribute: mapping.Attribute, source: Source):
+    if attribute.source in ("geometry", "reference"):
+        return None
+    if attribute.source == "nested":
+        nested = {}
+        for name, inner in mapping.CLASSES[attribute.name].items():
+            value = _value(inner, source)
+            if value is None:
+                return None  # a data type is written whole or not at all
+            nested[name] = value
+        return nested
+    if attribute.source == "column":
+        raw = source.row.get(attribute.name)
+    elif attribute.source == "summary":
+        raw = source.summary.get(attribute.name)
+    elif attribute.source == "config":
+        raw = getattr(source.config, attribute.name)
+    elif attribute.source == "network":
+        raw = getattr(source.network, attribute.name)
+    elif attribute.source == "rule":
+        raw = RULES[attribute.name](source)
+    else:
+        raise ValueError(f"unknown source {attribute.source!r}")
+    return attribute.convert(raw)
+
+
+# ------------------------------------------------------------------
+# Plan and area
+# ------------------------------------------------------------------
+
+def plan_key(config: XWPExportConfig) -> str:
+    """Stable key of the plan: its name (mode plan), the municipality's plan id or "" (fragment)."""
+    return config.plan_name if config.mode == "plan" else (config.plan_id or "")
+
+
+def map_plan(config: XWPExportConfig, boundary: BaseGeometry) -> list[dict]:
+    """The plan (mode "plan" only) and its one area, both with the plan boundary.
+
+    The key of the area includes its boundary, so two exports into the same
+    plan with different boundaries get different areas.
+    """
+    area = polygonal(boundary)
+    source = Source(config)
+    records = []
+    if config.mode == "plan":
+        records.append(_record(mapping.PLAN, plan_key(config), area, fill(mapping.PLAN, source)))
+    key = f"{plan_key(config)}/{config.area_number}/{geometry_key(area)}"
+    records.append(_record(mapping.AREA, key, area, fill(mapping.AREA, source)))
+    return records
+
+
+# ------------------------------------------------------------------
+# Heat lines (WPG Anlage 2 I.2.2)
+# ------------------------------------------------------------------
+
+def map_waermelinien(wld_gdf: Optional[gpd.GeoDataFrame]) -> list[dict]:
+    """One heat line per street segment with heat demand and length.
+
+    The WLD schema does not require the heat demand; without the column it
+    is density times length.
+    """
+    if wld_gdf is None or wld_gdf.empty:
+        return []
+    records = []
+    for row in wld_gdf.to_dict("records"):
+        length = _number(row.get(cols.LENGTH))
+        density = _number(row.get(cols.HEAT_LINE_DENSITY))
+        demand = _number(row.get(cols.HEAT_DEMAND)) if cols.HEAT_DEMAND in row else (
+            density * length if density is not None and length is not None else None
+        )
+        line = lineal(row["geometry"])
+        if not length or not demand or line is None:
+            continue  # segments without heat demand carry no heat line
+        if density is None:
+            density = demand / length
+        values = {cols.LENGTH: length, cols.HEAT_DEMAND: demand, cols.HEAT_LINE_DENSITY: density}
+        records.append(_record(mapping.HEAT_LINE, geometry_key(line), line,
+                               fill(mapping.HEAT_LINE, Source(row=values))))
+    return records
+
+
+# ------------------------------------------------------------------
+# Heat networks (WPG Anlage 2 I.2.8 a)
+# ------------------------------------------------------------------
+
+def map_waermenetze(networks: Sequence[NetworkResult], config: XWPExportConfig, crs) -> list[dict]:
+    """One heat network per calculated network.
+
+    The area is a buffer of ``config.resolved_network_buffer`` around every
+    edge of the network (route, house and source connections), dissolved, as
+    in the technical plan. Without a name a network is "Netz <n>", without
+    a key it takes its name, else "N<nn>".
+    """
+    records = []
+    for i, net in enumerate(networks, start=1):
+        net = dataclasses.replace(net, name=net.name or f"Netz {i}", key=net.key or net.name or f"N{i:02d}")
+        state = net.state
+        if state.net_gdf is None or state.net_gdf.empty or not state.result_summary:
+            raise ValueError(f"network {net.name!r} has no result (net_gdf and result_summary of phase RESULTS).")
+        edges = _to_crs(state.net_gdf, crs)
+        area = polygonal(unary_union(list(edges.geometry)).buffer(config.resolved_network_buffer))
+        records.append(_record(mapping.HEAT_NETWORK, net.key, area,
+                               fill(mapping.HEAT_NETWORK, Source(config, network=net))))
+    return records
+
+
+# ------------------------------------------------------------------
+# Supply areas
+# ------------------------------------------------------------------
+
 def map_versorgungsgebiete(polygons_gdf: Optional[gpd.GeoDataFrame], config: XWPExportConfig) -> list[dict]:
     """One supply area per suitability polygon, class after ``config.supply_year``.
 
     Every area gets ``config.supply_type``; F|Heat makes no decision per
-    area. The target-year class gets ``eignungWaermenetz`` from the heat
+    area. The target-year class gets a proposed suitability from the heat
     demand density when ``config.suitability_thresholds`` is set.
     """
     if polygons_gdf is None or polygons_gdf.empty:
         return []
-    featuretype = config.supply_area_class
+    class_name = config.supply_area_class
     records = []
-    for row in polygons_gdf.itertuples(index=False):
-        area = polygonal(row.geometry)
+    for row in polygons_gdf.to_dict("records"):
+        area = polygonal(row["geometry"])
         if area is None:
             continue
-        props = {
-            "versorgungsart": config.supply_type,
-            "waermeMenge": mapping.measure(featuretype, "waermeMenge", getattr(row, cols.HEAT_DEMAND, None)),
-        }
-        if featuretype == "WP_WaermeversorgungsgebietZieljahr":
-            props["eignungWaermenetz"] = suitability_stage(
-                getattr(row, cols.HEAT_DEMAND_DENSITY, None), config.suitability_thresholds
-            )
-        else:
-            props["stuetzjahr"] = mapping.INTERIM_YEAR_CODE[config.supply_year]
-        records.append(_record(featuretype, geometry_key(area), area, _drop_none(props)))
+        records.append(_record(class_name, geometry_key(area), area, fill(class_name, Source(config, row=row))))
     return records
 
 
@@ -233,12 +260,12 @@ def _to_crs(gdf: gpd.GeoDataFrame, crs) -> gpd.GeoDataFrame:
     return gdf.to_crs(crs)
 
 
-def _record(featuretype: str, key: str, geometry, properties: dict, geometry_property: str = "position") -> dict:
+def _record(class_name: str, key: str, geometry, properties: dict) -> dict:
     return {
-        "featuretype": featuretype,
+        "featuretype": class_name,
         "key": str(key),
         "geometry": geometry,
-        "geometry_property": geometry_property,
+        "geometry_property": mapping.geometry_property(class_name),
         "properties": properties,
     }
 
@@ -249,7 +276,3 @@ def _number(value) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return value if math.isfinite(value) else None
-
-
-def _drop_none(props: dict) -> dict:
-    return {k: v for k, v in props.items() if v is not None}

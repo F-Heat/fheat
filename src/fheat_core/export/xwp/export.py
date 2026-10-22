@@ -89,9 +89,11 @@ def _notes(config: XWPExportConfig, boundary) -> list[str]:
              else "plan boundary: the union of the parcels (no boundary passed)"]
     if config.mode == "fragment":
         if not config.plan_id:
-            notes.append(f"no plan_id: WP_Bereich.gehoertZuPlan refers to the derived id {builder.plan_id(config)}; "
+            to_plan, _ = mapping.written_from(mapping.AREA, "reference", "plan")
+            notes.append(f"no plan_id: {mapping.AREA}.{to_plan} refers to the derived id {builder.plan_id(config)}; "
                          "replace it with the id of the municipality's plan when merging")
-        notes.append(f"WP_Bereich.nummer {config.area_number} has to be unique within the municipality's plan")
+        number, _ = mapping.written_from(mapping.AREA, "config", "area_number")
+        notes.append(f"{mapping.AREA}.{number} {config.area_number} has to be unique within the municipality's plan")
     return notes
 
 
@@ -164,21 +166,23 @@ def _consistency(records, state, nets, area, config) -> list[Issue]:
         elif not reach.covers(geom):
             issues.append(Issue("consistency", label, "geometry reaches beyond the plan boundary"))
 
-    netz = [r for r in records if r["featuretype"] == "WP_Waermenetz"]
+    length, attribute = mapping.written_from(mapping.HEAT_NETWORK, "summary", cols.TOTAL_ROUTE_LENGTH)
+    netz = [r for r in records if r["featuretype"] == mapping.HEAT_NETWORK]
     for record, net in zip(netz, nets):
-        expected = float(net.state.result_summary["total_route_length_m"])
-        if abs(record["properties"]["laenge"]["value"] - expected) > 1e-6:
-            issues.append(Issue("consistency", f"WP_Waermenetz {record['key']}",
-                                f"laenge {record['properties']['laenge']['value']} m != route length {expected} m"))
+        expected = float(net.state.result_summary[cols.TOTAL_ROUTE_LENGTH]) * attribute.factor
+        exported = record["properties"].get(length, {}).get("value")
+        if exported is None or abs(exported - expected) > 1e-6:
+            issues.append(Issue("consistency", f"{mapping.HEAT_NETWORK} {record['key']}",
+                                f"{length} {exported} {attribute.uom} != route length {expected} {attribute.uom}"))
 
     polygons = state.polygons_gdf
     if polygons is not None and not polygons.empty and cols.HEAT_DEMAND in polygons.columns:
+        heat, attribute = mapping.written_from(config.supply_area_class, "column", cols.HEAT_DEMAND)
         areas = [r for r in records if r["featuretype"] == config.supply_area_class]
-        exported = sum(r["properties"].get("waermeMenge", {}).get("value", 0.0) for r in areas)
-        conversion = mapping.MEASURES[(config.supply_area_class, "waermeMenge")]
-        expected = float(polygons[cols.HEAT_DEMAND].fillna(0.0).sum()) * conversion.factor
+        exported = sum(r["properties"].get(heat, {}).get("value", 0.0) for r in areas)
+        expected = float(polygons[cols.HEAT_DEMAND].fillna(0.0).sum()) * attribute.factor
         if abs(exported - expected) > SUM_TOLERANCE * max(abs(expected), 1.0) + 1e-3:
             issues.append(Issue("consistency", None,
-                                f"waermeMenge of the supply areas {exported:.3f} MWh/a != "
-                                f"heat demand of the suitability polygons {expected:.3f} MWh/a"))
+                                f"{heat} of the supply areas {exported:.3f} {attribute.uom} != "
+                                f"heat demand of the suitability polygons {expected:.3f} {attribute.uom}"))
     return issues

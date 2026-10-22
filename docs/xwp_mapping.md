@@ -1,6 +1,10 @@
 # XWärmeplan mapping
 
-F|Heat → XWärmeplan 0.9.6, as implemented in [`fheat_core/export/xwp/`](../src/fheat_core/export/xwp/). Status 21.10.2026. Codes, units and the written properties live in `mapping.py`, the logic in `mappers.py`. Two tests keep the tables honest: `tests/test_xwp_mapping.py` against the model of xplan-tools 1.26, `tests/test_xwp_evidence.py` against the original of the XLeitstelle (XSD and feature catalogue, without xplan-tools).
+F|Heat → XWärmeplan 0.9.6, as implemented in [`fheat_core/export/xwp/`](../src/fheat_core/export/xwp/). Status 22.10.2026.
+
+Every exported class has a table of its attributes in `mapping.py` (`CLASSES`): for each attribute the source (a column of an F|Heat layer or a key of the network summary, both as constants of `fheat_core/columns.py`, a field of `XWPExportConfig`, a field of the network, a rule F|Heat derives, a nested data type, the geometry or a reference set by the builder), the F|Heat unit, the XWärmeplan unit with the factor between them and the code list. `mappers.py` picks the F|Heat objects and fills each class from its table; the few values F|Heat derives (suitability stage, interim year, heat fed into a network) are the `RULES` there. The rest of the export names no class, attribute or code of XWärmeplan, so a change of the standard touches `mapping.py` and the test data.
+
+Three tests keep the table honest: `tests/test_xwp_mapping.py` against the model of xplan-tools 1.26; `tests/test_xwp_evidence.py` against the original of the XLeitstelle (XSD and feature catalogue, without xplan-tools) and against F|Heat, every source has to exist in the F|Heat schemas (`schemas.py`), so a renamed column fails a test before an export; `tests/test_xwp_mappers.py` that the records hold exactly the attributes of the table and that the export reads no column or summary key as text.
 
 Version 1 writes `WP_Plan` with one `WP_Bereich` (mode `plan`) or only the `WP_Bereich` (mode `fragment`), plus `WP_Waermelinie`, `WP_Waermenetz` and one class of supply areas. GML is checked against the XSD. JSON-FG is written as xplan-tools writes it (measures as `{value, uom}`, references as bare UUIDs); that does not validate against the official JSON schema yet.
 

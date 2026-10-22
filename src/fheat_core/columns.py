@@ -123,6 +123,27 @@ TOTAL_EXTRA_INSULATION = "total_extra_insulation"  # total (extra insulation)
 
 
 # ============================================================
+# Result summary — keys of PipelineState.result_summary
+# (the simultaneity factor of the network is the key GLF)
+# ============================================================
+
+TOTAL_HEAT_DEMAND = "total_heat_demand_mwh_a"                      # heat demand of the connected buildings [MWh/a]
+TOTAL_BUILDINGS = "total_buildings"                                # connected buildings
+TOTAL_POWER_GLF = "total_power_glf_kw"                             # thermal power with simultaneity factor [kW]
+TOTAL_NETWORK_LENGTH = "total_network_length_m"                    # all edges [m]
+TOTAL_HOUSE_CONNECTION_LENGTH = "total_house_connection_length_m"  # house connections [m]
+TOTAL_ROUTE_LENGTH = "total_route_length_m"                        # route without house connections [m]
+TOTAL_LOSS = "total_loss_mwh_a"                                    # heat loss of the network [MWh/a]
+TOTAL_LOSS_EXTRA_INSULATION = "total_loss_extra_insulation_mwh_a"  # heat loss with extra insulation [MWh/a]
+SUPPLY_TEMPERATURE = "supply_temperature_c"                        # supply temperature [°C]
+RETURN_TEMPERATURE = "return_temperature_c"                        # return temperature [°C]
+CIVIL_COST_SHARE = "civil_cost_share"                              # civil works share of the pipe costs (config)
+TOTAL_PIPE_COST = "total_pipe_cost_eur"                            # pipe investment [€]
+TOTAL_CIVIL_COST = "total_civil_cost_eur"                          # civil works part of the pipe investment [€]
+MEAN_CIVIL_COST_FACTOR = "mean_civil_cost_factor"                  # civil works factor, weighted by length
+
+
+# ============================================================
 # Units (metadata)
 # ============================================================
 
@@ -224,21 +245,21 @@ LABELS_DE: dict[str, str] = {
 
 # German labels for the keys of ``PipelineState.result_summary`` (table export).
 SUMMARY_LABELS_DE: dict[str, str] = {
-    "total_heat_demand_mwh_a": "Gesamtwärmebedarf [MWh/a]",
-    "total_buildings": "Angeschlossene Gebäude",
-    "total_power_glf_kw": "Thermische Leistung (GLF) [kW]",
-    "glf": "Gleichzeitigkeitsfaktor",
-    "total_network_length_m": "Netzlänge [m]",
-    "total_house_connection_length_m": "Hausanschlusslänge [m]",
-    "total_route_length_m": "Trassenlänge [m]",
-    "total_loss_mwh_a": "Netzwärmeverlust [MWh/a]",
-    "total_loss_extra_insulation_mwh_a": "Netzwärmeverlust bei extra Dämmung [MWh/a]",
-    "supply_temperature_c": "Vorlauftemperatur [°C]",
-    "return_temperature_c": "Rücklauftemperatur [°C]",
-    "civil_cost_share": "Tiefbauanteil der Rohrkosten",
-    "total_pipe_cost_eur": "Investition Rohrleitungen [€]",
-    "total_civil_cost_eur": "davon Tiefbau [€]",
-    "mean_civil_cost_factor": "Mittlerer Tiefbaufaktor",
+    TOTAL_HEAT_DEMAND: "Gesamtwärmebedarf [MWh/a]",
+    TOTAL_BUILDINGS: "Angeschlossene Gebäude",
+    TOTAL_POWER_GLF: "Thermische Leistung (GLF) [kW]",
+    GLF: "Gleichzeitigkeitsfaktor",
+    TOTAL_NETWORK_LENGTH: "Netzlänge [m]",
+    TOTAL_HOUSE_CONNECTION_LENGTH: "Hausanschlusslänge [m]",
+    TOTAL_ROUTE_LENGTH: "Trassenlänge [m]",
+    TOTAL_LOSS: "Netzwärmeverlust [MWh/a]",
+    TOTAL_LOSS_EXTRA_INSULATION: "Netzwärmeverlust bei extra Dämmung [MWh/a]",
+    SUPPLY_TEMPERATURE: "Vorlauftemperatur [°C]",
+    RETURN_TEMPERATURE: "Rücklauftemperatur [°C]",
+    CIVIL_COST_SHARE: "Tiefbauanteil der Rohrkosten",
+    TOTAL_PIPE_COST: "Investition Rohrleitungen [€]",
+    TOTAL_CIVIL_COST: "davon Tiefbau [€]",
+    MEAN_CIVIL_COST_FACTOR: "Mittlerer Tiefbaufaktor",
 }
 
 

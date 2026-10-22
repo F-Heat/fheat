@@ -1,18 +1,24 @@
-"""Code lists, unit conversions and written properties of the XWaermeplan export, as data.
+"""The XWaermeplan side of the export, as data.
 
-Everything that depends on the schema version and is not F|Heat logic lives
-here: the codes F|Heat writes or accepts in :class:`XWPExportConfig`, with a
-short German label for forms, the unit of every measure F|Heat converts and
-the properties the mappers write. A new schema version means updating these
-tables; ``tests/test_xwp_mapping.py`` checks them against the model
-xplan-tools ships, ``tests/test_xwp_evidence.py`` against the XSD and the
-feature catalogue of the XLeitstelle. The module needs no xplan-tools, so the
-configuration can be checked without it.
+Everything that depends on the schema version lives here: the classes
+F|Heat writes with every attribute, where its value comes from, its unit and
+code list (:data:`CLASSES`), and the codes F|Heat writes or accepts in
+:class:`XWPExportConfig`, with a short German label for forms. Apart from
+the defaults of :class:`XWPExportConfig`, the rest of the export names no
+class, attribute or code of XWaermeplan; a new schema version means updating
+this module. ``tests/test_xwp_mapping.py`` checks it
+against the model xplan-tools ships, ``tests/test_xwp_evidence.py`` against
+the XSD and the feature catalogue of the XLeitstelle and against the F|Heat
+schemas. The module needs no xplan-tools, so the configuration can be checked
+without it.
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Iterator, Optional
+
+from fheat_core import columns as cols
 
 #: xplan-tools application schema (prefix, major.minor) and the full version it must be
 APPSCHEMA = ("xwp", "0.9")
@@ -127,15 +133,6 @@ INTERIM_YEAR = {  # WP_Stuetzjahr
     "2000": "2035",
     "3000": "2040",
 }
-
-#: Supply area class per ``XWPExportConfig.supply_year``; the interim years
-#: are one class with the attribute ``stuetzjahr``.
-SUPPLY_AREA_CLASS = {
-    "zieljahr": "WP_WaermeversorgungsgebietZieljahr",
-    "2030": "WP_WaermeversorgungsgebietStuetzjahr",
-    "2035": "WP_WaermeversorgungsgebietStuetzjahr",
-    "2040": "WP_WaermeversorgungsgebietStuetzjahr",
-}
 INTERIM_YEAR_CODE = {label: code for code, label in INTERIM_YEAR.items()}
 
 #: Lower bounds of the suitability stages 1000, 2000 and 3000 (below the last: 4000)
@@ -152,44 +149,6 @@ CODE_LISTS = {
     "WP_Stuetzjahr": INTERIM_YEAR,
 }
 
-#: code list -> (feature or data type, property) the export writes it to
-CODE_LIST_PROPERTIES = {
-    "WP_VerfahrenArt": ("WP_Plan", "verfahrensart"),
-    "WP_GesetzlicheGrundlage": ("WP_Plan", "gesetzlicheGrundlage"),
-    "WP_Status": ("WP_Waermenetz", "status"),
-    "WP_Transportmedium": ("WP_Waermenetz", "medium"),
-    "WP_Energietraeger": ("WP_EndenergieEnergietraeger", "energietraeger"),
-    "WP_WaermeversorgungsgebietTyp": ("WP_WaermeversorgungsgebietZieljahr", "versorgungsart"),
-    "WP_Eignungsstufe": ("WP_WaermeversorgungsgebietZieljahr", "eignungWaermenetz"),
-    "WP_Stuetzjahr": ("WP_WaermeversorgungsgebietStuetzjahr", "stuetzjahr"),
-}
-
-#: Properties the mappers write, per feature or data type, geometry included.
-#: The builder adds the references (WP_Plan.bereich, WP_Bereich.gehoertZuPlan
-#: and gehoertZuBereich of every map feature).
-WRITTEN_PROPERTIES = {
-    "WP_Plan": (
-        "name", "planungsverantwortlicheStelle", "verfahrensart", "gesetzlicheGrundlage",
-        "zieljahr", "basisJahrDatenerfassung", "beschlussDatum", "raeumlicherGeltungsbereich",
-    ),
-    "WP_Gemeinde": ("name", "regionalSchluessel12"),
-    "WP_Bereich": ("nummer", "name", "geltungsbereich"),
-    "WP_Waermelinie": ("position", "waermeMenge", "waermelinienDichte", "laenge"),
-    "WP_Waermenetz": (
-        "position", "netzID", "name", "betreiber", "medium", "laenge",
-        "anzahlGebaeudeAnschluss", "status", "temperatur", "eeNachEnergietraeger",
-    ),
-    "WP_EndenergieEnergietraeger": ("energietraeger", "endenergie"),
-    "WP_WaermeversorgungsgebietZieljahr": ("position", "versorgungsart", "waermeMenge", "eignungWaermenetz"),
-    "WP_WaermeversorgungsgebietStuetzjahr": ("position", "versorgungsart", "waermeMenge", "stuetzjahr"),
-}
-
-#: (feature type, property) -> data type of the nested value the mappers write
-DATA_TYPES = {
-    ("WP_Plan", "planungsverantwortlicheStelle"): "WP_Gemeinde",
-    ("WP_Waermenetz", "eeNachEnergietraeger"): "WP_EndenergieEnergietraeger",
-}
-
 
 def check_code(code_list: str, code) -> str:
     """``code`` as string if it is in the code list, else ValueError (no fallback to 9999)."""
@@ -200,41 +159,171 @@ def check_code(code_list: str, code) -> str:
     return code
 
 
-@dataclass(frozen=True)
-class Conversion:
-    """F|Heat value x ``factor`` = XWaermeplan value in ``uom``."""
+# ------------------------------------------------------------------
+# Classes and their attributes
+# ------------------------------------------------------------------
 
-    fheat_unit: str
-    factor: float
-    uom: str
+#: The classes F|Heat writes; the rest of the export names them only through these.
+PLAN = "WP_Plan"
+MUNICIPALITY = "WP_Gemeinde"
+AREA = "WP_Bereich"
+HEAT_LINE = "WP_Waermelinie"
+HEAT_NETWORK = "WP_Waermenetz"
+FINAL_ENERGY = "WP_EndenergieEnergietraeger"
+SUPPLY_AREA_TARGET = "WP_WaermeversorgungsgebietZieljahr"
+SUPPLY_AREA_INTERIM = "WP_WaermeversorgungsgebietStuetzjahr"
 
-
-_HEAT = Conversion("kWh/a", 1e-3, "MWh/a")
-
-#: (feature or data type, property) -> conversion of the F|Heat value
-MEASURES = {
-    ("WP_Waermelinie", "waermeMenge"): _HEAT,
-    ("WP_Waermelinie", "waermelinienDichte"): Conversion("kWh/(a·m)", 1e-3, "MWh/(m*a)"),
-    ("WP_Waermelinie", "laenge"): Conversion("m", 1.0, "m"),
-    ("WP_Waermenetz", "laenge"): Conversion("m", 1.0, "m"),
-    ("WP_Waermenetz", "temperatur"): Conversion("°C", 1.0, "°C"),
-    ("WP_EndenergieEnergietraeger", "endenergie"): Conversion("MWh/a", 1.0, "MWh/a"),
-    ("WP_WaermeversorgungsgebietZieljahr", "waermeMenge"): _HEAT,
-    ("WP_WaermeversorgungsgebietStuetzjahr", "waermeMenge"): _HEAT,
+#: Supply area class per ``XWPExportConfig.supply_year``; the interim years
+#: are one class with the attribute ``stuetzjahr``.
+SUPPLY_AREA_CLASS = {
+    "zieljahr": SUPPLY_AREA_TARGET,
+    "2030": SUPPLY_AREA_INTERIM,
+    "2035": SUPPLY_AREA_INTERIM,
+    "2040": SUPPLY_AREA_INTERIM,
 }
 
 DECIMALS = 6  # of converted measures; F|Heat values carry no more
 
 
-def measure(feature_type: str, prop: str, value) -> dict | None:
-    """``{"value", "uom"}`` of an F|Heat value; None for a missing or non-finite value."""
-    conversion = MEASURES[(feature_type, prop)]
-    if value is None:
-        return None
-    value = float(value)
-    if not math.isfinite(value):
-        return None
-    return {"value": round(value * conversion.factor, DECIMALS), "uom": conversion.uom}
+@dataclass(frozen=True)
+class Attribute:
+    """Where the export takes one attribute of a class from, and how it converts it.
+
+    ``source`` says where the value comes from, ``name`` what it is called there:
+
+    - ``"column"``: column of the F|Heat layer (a constant of :mod:`fheat_core.columns`)
+    - ``"summary"``: key of the network's ``result_summary`` (a constant of :mod:`fheat_core.columns`)
+    - ``"config"``: field of :class:`XWPExportConfig`
+    - ``"network"``: field of the :class:`NetworkResult`
+    - ``"rule"``: a value F|Heat derives, the function ``name`` in ``mappers.RULES``
+    - ``"nested"``: a value of the data type ``name``, filled from its own table
+    - ``"geometry"``: the geometry of the feature
+    - ``"reference"``: set by the builder: ``"plan"``, ``"area"`` or ``"areas"``
+
+    A measure carries the F|Heat ``unit``, the XWaermeplan unit ``uom`` and
+    the ``factor`` between them; a code its ``code_list`` (checked in
+    :class:`XWPExportConfig` and by xplan-tools, which reports a wrong code as
+    a finding); ``cast`` turns a value into the type the schema asks for.
+    """
+
+    source: str
+    name: str = ""
+    unit: Optional[str] = None
+    uom: Optional[str] = None
+    factor: float = 1.0
+    code_list: Optional[str] = None
+    cast: Optional[type] = None
+
+    def convert(self, value):
+        """The XWaermeplan value of an F|Heat value; None for a missing or non-finite one."""
+        if value is None:
+            return None
+        if self.uom is not None:
+            value = float(value)
+            if not math.isfinite(value):
+                return None
+            return {"value": round(value * self.factor, DECIMALS), "uom": self.uom}
+        if self.code_list is not None:
+            return str(value)
+        return self.cast(value) if self.cast is not None else value
+
+
+_HEAT = {"unit": "kWh/a", "uom": "MWh/a", "factor": 1e-3}
+_METRE = {"unit": "m", "uom": "m"}
+_GEOMETRY = Attribute("geometry")
+_IN_AREA = Attribute("reference", "area")
+
+#: class or data type -> attribute -> where it comes from. Exactly what the export writes.
+CLASSES: dict[str, dict[str, Attribute]] = {
+    PLAN: {
+        "name": Attribute("config", "plan_name"),
+        "planungsverantwortlicheStelle": Attribute("nested", MUNICIPALITY),
+        "verfahrensart": Attribute("config", "procedure", code_list="WP_VerfahrenArt"),
+        "gesetzlicheGrundlage": Attribute("config", "legal_basis", code_list="WP_GesetzlicheGrundlage"),
+        "zieljahr": Attribute("config", "target_year", cast=str),
+        "basisJahrDatenerfassung": Attribute("config", "base_year", cast=str),
+        "beschlussDatum": Attribute("config", "decision_date"),
+        "raeumlicherGeltungsbereich": _GEOMETRY,
+        "bereich": Attribute("reference", "areas"),
+    },
+    MUNICIPALITY: {
+        "name": Attribute("config", "municipality_name"),
+        "regionalSchluessel12": Attribute("config", "resolved_regional_key"),
+    },
+    AREA: {
+        "nummer": Attribute("config", "area_number"),
+        "name": Attribute("config", "area_name"),
+        "geltungsbereich": _GEOMETRY,
+        "gehoertZuPlan": Attribute("reference", "plan"),
+    },
+    HEAT_LINE: {
+        "position": _GEOMETRY,
+        "waermeMenge": Attribute("column", cols.HEAT_DEMAND, **_HEAT),
+        "waermelinienDichte": Attribute("column", cols.HEAT_LINE_DENSITY, unit="kWh/(a·m)", uom="MWh/(m*a)",
+                                        factor=1e-3),
+        "laenge": Attribute("column", cols.LENGTH, **_METRE),
+        "gehoertZuBereich": _IN_AREA,
+    },
+    HEAT_NETWORK: {
+        "position": _GEOMETRY,
+        "netzID": Attribute("network", "key"),
+        "name": Attribute("network", "name"),
+        "betreiber": Attribute("network", "operator"),
+        "medium": Attribute("config", "network_medium", code_list="WP_Transportmedium"),
+        "laenge": Attribute("summary", cols.TOTAL_ROUTE_LENGTH, **_METRE),
+        "anzahlGebaeudeAnschluss": Attribute("summary", cols.TOTAL_BUILDINGS, cast=int),
+        "status": Attribute("config", "network_status", code_list="WP_Status"),
+        "temperatur": Attribute("summary", cols.SUPPLY_TEMPERATURE, unit="°C", uom="°C"),
+        "eeNachEnergietraeger": Attribute("nested", FINAL_ENERGY),
+        "gehoertZuBereich": _IN_AREA,
+    },
+    FINAL_ENERGY: {
+        "energietraeger": Attribute("config", "source_energy_carrier", code_list="WP_Energietraeger"),
+        "endenergie": Attribute("rule", "heat_fed_in", unit="MWh/a", uom="MWh/a"),
+    },
+    SUPPLY_AREA_TARGET: {
+        "position": _GEOMETRY,
+        "versorgungsart": Attribute("config", "supply_type", code_list="WP_WaermeversorgungsgebietTyp"),
+        "waermeMenge": Attribute("column", cols.HEAT_DEMAND, **_HEAT),
+        "eignungWaermenetz": Attribute("rule", "suitability", code_list="WP_Eignungsstufe"),
+        "gehoertZuBereich": _IN_AREA,
+    },
+    SUPPLY_AREA_INTERIM: {
+        "position": _GEOMETRY,
+        "versorgungsart": Attribute("config", "supply_type", code_list="WP_WaermeversorgungsgebietTyp"),
+        "waermeMenge": Attribute("column", cols.HEAT_DEMAND, **_HEAT),
+        "stuetzjahr": Attribute("rule", "interim_year", code_list="WP_Stuetzjahr"),
+        "gehoertZuBereich": _IN_AREA,
+    },
+}
+
+#: XWPExportConfig field -> code list its codes must come from
+CONFIG_CODE_LISTS = {
+    attribute.name: attribute.code_list
+    for attributes in CLASSES.values()
+    for attribute in attributes.values()
+    if attribute.source == "config" and attribute.code_list is not None
+}
+
+
+def attributes() -> Iterator[tuple[str, str, Attribute]]:
+    """``(class, attribute name, attribute)`` of every attribute the export writes."""
+    for class_name, table in CLASSES.items():
+        for name, attribute in table.items():
+            yield class_name, name, attribute
+
+
+def geometry_property(class_name: str) -> str:
+    """The attribute that holds the geometry of ``class_name``."""
+    return next(name for name, attribute in CLASSES[class_name].items() if attribute.source == "geometry")
+
+
+def written_from(class_name: str, source: str, name: str) -> tuple[str, Attribute]:
+    """``(attribute name, attribute)`` of ``class_name`` filled from ``source`` ``name``."""
+    return next(
+        (prop, attribute) for prop, attribute in CLASSES[class_name].items()
+        if (attribute.source, attribute.name) == (source, name)
+    )
 
 
 def regional_key(municipality_key) -> str:

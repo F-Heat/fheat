@@ -28,7 +28,7 @@ def write(collection, path) -> Path:
     path = Path(path)
     fmt = format_of(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    has_plan = any(f.get_name() == "WP_Plan" for f in collection.get_features())
+    has_plan = any(f.get_name() == mapping.PLAN for f in collection.get_features())
     if fmt == "gml" and not has_plan:
         _write_gml_without_plan(collection, path)
     else:
