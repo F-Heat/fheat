@@ -66,6 +66,21 @@ class TestWaermelinien:
         [record] = map_waermelinien(wld.drop(columns=cols.HEAT_DEMAND))
         assert record["properties"]["waermeMenge"]["value"] == 120.0
 
+    def test_cut_to_the_boundary_keeps_the_density(self, wld):
+        [record] = map_waermelinien(wld, box(-10, -10, 60, 10))
+        props = record["properties"]
+        assert props["laenge"] == {"value": 60.0, "uom": "m"}
+        assert props["waermelinienDichte"] == {"value": 1.2, "uom": "MWh/(m*a)"}
+        assert props["waermeMenge"] == {"value": 72.0, "uom": "MWh/a"}
+        assert record["geometry"].length == pytest.approx(60.0)
+
+    def test_inside_the_boundary_unchanged(self, wld):
+        assert map_waermelinien(wld, box(-10, -10, 200, 20)) == map_waermelinien(wld)
+
+    @pytest.mark.parametrize("boundary", [box(200, 200, 300, 300), box(99.6, -10, 200, 10)])
+    def test_outside_or_shorter_than_half_a_metre_is_left_out(self, wld, boundary):
+        assert map_waermelinien(wld, boundary) == []
+
     def test_empty(self):
         assert map_waermelinien(None) == []
 

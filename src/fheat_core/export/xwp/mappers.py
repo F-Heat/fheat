@@ -32,6 +32,7 @@ from fheat_core.export.xwp.config import XWPExportConfig
 from fheat_core.state import PipelineState
 
 KEY_PRECISION = 0.1  # m; geometries that differ less get the same key
+MIN_SEGMENT_LENGTH = 0.5  # m; a heat line cut to the plan boundary shorter than this is left out
 
 
 @dataclass
@@ -153,11 +154,14 @@ def map_plan(config: XWPExportConfig, boundary: BaseGeometry) -> list[dict]:
 # Heat lines (WPG Anlage 2 I.2.2)
 # ------------------------------------------------------------------
 
-def map_waermelinien(wld_gdf: Optional[gpd.GeoDataFrame]) -> list[dict]:
+def map_waermelinien(wld_gdf: Optional[gpd.GeoDataFrame], boundary: Optional[BaseGeometry] = None) -> list[dict]:
     """One heat line per street segment with heat demand and length.
 
     The WLD schema does not require the heat demand; without the column it
-    is density times length.
+    is density times length. A segment that leaves ``boundary`` is cut to
+    it: the length is the part inside, the density stays, the heat demand is
+    density times that length. A part shorter than
+    :data:`MIN_SEGMENT_LENGTH` is left out.
     """
     if wld_gdf is None or wld_gdf.empty:
         return []
@@ -173,6 +177,11 @@ def map_waermelinien(wld_gdf: Optional[gpd.GeoDataFrame]) -> list[dict]:
             continue  # segments without heat demand carry no heat line
         if density is None:
             density = demand / length
+        if boundary is not None and not boundary.covers(line):
+            line = lineal(line.intersection(boundary))
+            if line is None or line.length < MIN_SEGMENT_LENGTH:
+                continue
+            length, demand = line.length, density * line.length
         values = {cols.LENGTH: length, cols.HEAT_DEMAND: demand, cols.HEAT_LINE_DENSITY: density}
         records.append(_record(mapping.HEAT_LINE, geometry_key(line), line,
                                fill(mapping.HEAT_LINE, Source(row=values))))

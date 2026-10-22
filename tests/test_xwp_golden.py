@@ -83,7 +83,7 @@ def export(tmp_path_factory):
 
 
 def key_figures(report) -> dict:
-    """What a change of the mapping should make visible: counts, sums, the network and findings."""
+    """What a change of the mapping should make visible: counts, sums, the network, findings and notes."""
     from shapely import wkt
     from xplan_tools.interface import Datasource
 
@@ -106,6 +106,7 @@ def key_figures(report) -> dict:
                     "flaeche_ha": round(wkt.loads(netz.position.wkt).area / 10_000, 1)},
         "eignungWaermenetz": dict(sorted(suitability.items())),
         "issues": sorted(f"{i.level}: {i.feature or ''} {i.message}".strip() for i in report.issues),
+        "notes": report.notes,
     }
 
 

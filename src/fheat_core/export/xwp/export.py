@@ -5,10 +5,12 @@ A one-way adapter: reads finished pipeline states, never changes them.
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence, Union
 
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
@@ -16,6 +18,7 @@ from fheat_core import columns as cols
 from fheat_core.export.xwp import builder, mapping, writer
 from fheat_core.export.xwp.config import XWPExportConfig
 from fheat_core.export.xwp.mappers import (
+    MIN_SEGMENT_LENGTH,
     NetworkResult,
     map_plan,
     map_versorgungsgebiete,
@@ -47,7 +50,7 @@ def export_xwaermeplan(
     takes ``state`` itself when it holds a network. ``path`` is one file or
     several, ``.gml`` and/or ``.json`` (JSON-FG). ``boundary`` (geometry or
     GeoDataFrame in the CRS of ``state``, e.g. ``adapter.provide_boundary()``)
-    is the plan area; None = the union of the parcels. Areas of map features
+    is the plan area; None = the union of the parcels. Areas and heat lines
     are cut to it. ``schema_dir`` with the XSD of the schema version enables
     the schema check of the GML (see :func:`writer.validate_gml`).
 
@@ -62,15 +65,16 @@ def export_xwaermeplan(
     nets = _networks(state, networks)
     area = _boundary(state, boundary, crs)
 
+    heat_lines = _heat_lines(state.wld_gdf, area)
     features, clipped = _clip([
-        *map_waermelinien(state.wld_gdf),
+        *map_waermelinien(state.wld_gdf, area),
         *map_waermenetze(nets, config, crs),
         *map_versorgungsgebiete(state.polygons_gdf, config),
     ], area)
     records = [*map_plan(config, area), *features]
     report = ExportReport(counts=dict(Counter(r["featuretype"] for r in records)),
-                          notes=_notes(config, boundary))
-    consistency = clipped + _consistency(records, state, nets, area, config)
+                          notes=_notes(config, boundary, heat_lines))
+    consistency = clipped + _consistency(records, state, nets, area, config, heat_lines)
 
     collection, report.issues = builder.build_collection(records, config, srid)
     if collection is not None:
@@ -83,10 +87,47 @@ def export_xwaermeplan(
     return report
 
 
-def _notes(config: XWPExportConfig, boundary) -> list[str]:
+@dataclass(frozen=True)
+class _HeatLines:
+    """Heat demand of the heat lines inside and outside the plan boundary [kWh/a] and how many are cut."""
+
+    inside: float = 0.0
+    outside: float = 0.0
+    cut: int = 0
+
+
+def _heat_lines(wld: Optional[gpd.GeoDataFrame], area: BaseGeometry) -> _HeatLines:
+    """The heat lines against the plan boundary, computed apart from the mapper to check it."""
+    if wld is None or wld.empty:
+        return _HeatLines()
+    length = pd.to_numeric(wld[cols.LENGTH], errors="coerce")
+    density = pd.to_numeric(wld[cols.HEAT_LINE_DENSITY], errors="coerce")
+    if cols.HEAT_DEMAND in wld.columns:
+        demand = pd.to_numeric(wld[cols.HEAT_DEMAND], errors="coerce")
+        density = density.fillna(demand / length)
+    else:
+        demand = density * length
+    carried = (wld.geometry.notna() & ~wld.geometry.is_empty & length.notna() & (length != 0)
+               & demand.notna() & (demand != 0))
+    cut = carried & ~wld.geometry.covered_by(area)
+    inside = length.where(~cut, wld.geometry.intersection(area).length)
+    inside = inside.where(~cut | (inside >= MIN_SEGMENT_LENGTH), 0.0)
+    return _HeatLines(
+        inside=float((density * inside)[carried].sum()),
+        outside=float((density * (length - inside))[carried].sum()),
+        cut=int(cut.sum()),
+    )
+
+
+def _notes(config: XWPExportConfig, boundary, heat_lines: _HeatLines) -> list[str]:
     """What the user should know about the written plan; no findings."""
     notes = ["plan boundary: the boundary passed to the export" if boundary is not None
              else "plan boundary: the union of the parcels (no boundary passed)"]
+    if heat_lines.cut:
+        _, attribute = mapping.written_from(mapping.HEAT_LINE, "column", cols.HEAT_DEMAND)
+        notes.append(f"heat lines cut at the plan boundary: {heat_lines.cut}; "
+                     f"{heat_lines.outside * attribute.factor:.1f} {attribute.uom} of their heat demand "
+                     "lies outside and is not exported")
     if config.mode == "fragment":
         if not config.plan_id:
             to_plan, _ = mapping.written_from(mapping.AREA, "reference", "plan")
@@ -135,7 +176,8 @@ def _clip(records, area) -> tuple[list[dict], list[Issue]]:
     The suitability polygons are parcels buffered by ``buffer_distance`` and
     the network areas buffers around routes, so at the edge of the analysis
     they reach beyond it; a plan content outside the plan makes no sense.
-    Lines stay as they are (their length is an attribute) and are checked.
+    Their attributes stay those of the F|Heat result. The heat lines are cut
+    by their mapper, which recalculates length and heat demand.
     """
     kept, issues = [], []
     for r in records:
@@ -152,7 +194,7 @@ def _clip(records, area) -> tuple[list[dict], list[Issue]]:
     return kept, issues
 
 
-def _consistency(records, state, nets, area, config) -> list[Issue]:
+def _consistency(records, state, nets, area, config, heat_lines: _HeatLines) -> list[Issue]:
     """The export must agree with the F|Heat result it came from."""
     issues = []
     reach = area.buffer(BOUNDARY_TOLERANCE)
@@ -165,6 +207,15 @@ def _consistency(records, state, nets, area, config) -> list[Issue]:
             issues.append(Issue("consistency", label, "geometry is not valid"))
         elif not reach.covers(geom):
             issues.append(Issue("consistency", label, "geometry reaches beyond the plan boundary"))
+
+    heat, attribute = mapping.written_from(mapping.HEAT_LINE, "column", cols.HEAT_DEMAND)
+    exported = sum(r["properties"].get(heat, {}).get("value", 0.0) for r in records
+                   if r["featuretype"] == mapping.HEAT_LINE)
+    expected = heat_lines.inside * attribute.factor
+    if abs(exported - expected) > SUM_TOLERANCE * max(abs(expected), 1.0) + 1e-3:
+        issues.append(Issue("consistency", None,
+                            f"{heat} of the heat lines {exported:.3f} {attribute.uom} != heat demand of the "
+                            f"street segments inside the plan boundary {expected:.3f} {attribute.uom}"))
 
     length, attribute = mapping.written_from(mapping.HEAT_NETWORK, "summary", cols.TOTAL_ROUTE_LENGTH)
     netz = [r for r in records if r["featuretype"] == mapping.HEAT_NETWORK]

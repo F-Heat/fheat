@@ -50,7 +50,7 @@ Every row names its source in the column **Source**:
 | `waermelinienDichte` | `heat_line_density` (kWh/(a·m)) | ÷ 1000 → MWh/(m·a) | XSD 0..1; OAK MWh/(m*a); TP |
 | `laenge` | `length` (m) | unchanged | XSD 0..1; OAK m; TP |
 
-Segments without heat demand or length are left out. Lines are not cut to the plan boundary yet; a segment beyond it is reported (consistency).
+Segments without heat demand or length are left out. A segment that leaves the plan boundary is cut to it (TP "Consistency": geometries inside the area): `laenge` is the length inside, `waermelinienDichte` stays, `waermeMenge` = density × that length; a part shorter than 0.5 m is left out. The report's notes name how many segments were cut and how much heat demand lies outside. The density rule spreads a segment's heat demand evenly along the street, so the part outside takes its share even when the buildings it serves lie inside.
 
 ## WP_Waermenetz (WPG Anlage 2 I.2.8 a)
 
@@ -99,9 +99,9 @@ The report collects all findings instead of stopping at the first (TP "Validatio
 
 1. **structure**: xplan-tools validates every feature (mandatory fields, code lists, extra fields) and the references. In mode fragment a stand-in for the municipality's plan takes the place of the plan outside the file, so every other reference is checked as well. Nothing is written then.
 2. **schema**: the written GML against the XSD, offline through an XML catalog (`schema_dir=`, test data in `tests/fixtures/xwp/xsd-0.9.6/`).
-3. **consistency**: valid, non-empty geometries inside the plan boundary (0.5 m tolerance); `laenge` equals the route length; the supply areas carry the heat demand of the suitability polygons. A geographic CRS is rejected before anything is built.
+3. **consistency**: valid, non-empty geometries inside the plan boundary (0.5 m tolerance); the heat lines carry the heat demand of the street segments inside the plan boundary (computed apart from the mapper); `laenge` of a network equals its route length; the supply areas carry the heat demand of the suitability polygons. A geographic CRS is rejected before anything is built.
 
-Besides the findings the report carries **notes**, which do not make it fail: which plan boundary was used (passed or the union of the parcels) and, in mode fragment, the derived plan id and that `WP_Bereich.nummer` has to be unique within the municipality's plan (XSD documentation of `nummer`).
+Besides the findings the report carries **notes**, which do not make it fail: which plan boundary was used (passed or the union of the parcels), how many heat lines were cut at it with the heat demand outside, and, in mode fragment, the derived plan id and that `WP_Bereich.nummer` has to be unique within the municipality's plan (XSD documentation of `nummer`).
 
 ## Not mapped
 

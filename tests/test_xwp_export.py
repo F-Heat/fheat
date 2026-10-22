@@ -185,10 +185,11 @@ def test_analysis_only_has_no_network(state, config, tmp_path):
 
 
 def test_consistency_findings_are_reported(state, config, tmp_path):
-    report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=box(-5, -5, 20, 15))
+    # a plan boundary beside the analysis: the supply area and the network lie outside it
+    report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=box(170, -50, 250, 100))
     assert report.files and not report.ok
     assert {i.level for i in report.issues} == {"consistency"}
-    assert any("beyond the plan boundary" in i.message for i in report.issues)
+    assert any("outside the plan boundary" in i.message for i in report.issues)
 
 
 def test_structure_findings_stop_the_export(state, config, tmp_path):
@@ -199,17 +200,23 @@ def test_structure_findings_stop_the_export(state, config, tmp_path):
     assert "verfahrensart" in report.issues[0].message
 
 
-def test_areas_are_cut_to_the_parcels_by_default(state, config, tmp_path):
+def test_features_are_cut_to_the_parcels_by_default(state, config, tmp_path):
     from shapely import wkt
 
     report = export_xwaermeplan(state, config, tmp_path / "plan.gml")
+    assert report.ok, report.issues
     parcels = state.parcels_gdf.union_all().buffer(0.01)
-    areas = [wkt.loads(f.position.wkt) for f in read(report.files["gml"]).get_features()
+    features = list(read(report.files["gml"]).get_features())
+    areas = [wkt.loads(f.position.wkt) for f in features
              if f.get_name() in ("WP_Waermenetz", "WP_WaermeversorgungsgebietZieljahr")]
     assert areas and all(parcels.covers(a) for a in areas)
-    # the stub street runs beyond the parcels: reported, not cut
-    assert [i.feature.split()[0] for i in report.issues] == ["WP_Waermelinie"]
-    assert report.notes == ["plan boundary: the union of the parcels (no boundary passed)"]
+    # the stub street runs beyond the parcels: cut, its heat demand outside is named in the notes
+    [line] = [f for f in features if f.get_name() == "WP_Waermelinie"]
+    assert parcels.covers(wkt.loads(line.position.wkt))
+    assert line.laenge.value == pytest.approx(90.0)
+    assert line.waermeMenge.value == pytest.approx(line.waermelinienDichte.value * 90.0)
+    assert report.notes[0] == "plan boundary: the union of the parcels (no boundary passed)"
+    assert report.notes[1].startswith("heat lines cut at the plan boundary: 1;")
 
 
 def test_schema_check_finds_invalid_gml(state, config, tmp_path):
