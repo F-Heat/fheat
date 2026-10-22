@@ -316,6 +316,12 @@ def test_schema_check_finds_invalid_gml(state, config, tmp_path):
     assert findings and "verfahrensart" in findings[0]
 
 
+def test_schema_dir_may_be_relative(state, config, tmp_path, monkeypatch):
+    monkeypatch.chdir(XSD.parent)
+    report = export_xwaermeplan(state, config, tmp_path / "plan.gml", schema_dir=XSD.name, boundary=AREA)
+    assert report.ok and report.schema_checked, report.issues
+
+
 def test_geographic_crs_is_rejected(state, config, tmp_path):
     geographic = dataclasses.replace(state, wld_gdf=state.wld_gdf.to_crs("EPSG:4326"))
     with pytest.raises(ValueError, match="projected CRS"):

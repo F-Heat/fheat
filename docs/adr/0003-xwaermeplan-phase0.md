@@ -3,6 +3,7 @@
 - Status: angenommen
 - Datum: 21.10.2026
 - Ergänzt: [ADR 0002](0002-xwaermeplan-xplan-tools.md)
+- Ergänzt durch: [ADR 0004](0004-xwaermeplan-zwei-ausgaben.md)
 - Kontext: Technischer Plan „F-Heat → XWärmeplan Export“ (Philipp Sommer, 19.10.2026), Abbildung in [`docs/xwp_mapping.md`](../xwp_mapping.md)
 
 ## Kontext

@@ -3,7 +3,7 @@
 - Status: angenommen
 - Datum: 20.10.2026
 - Löst ab: [ADR 0001](0001-xwaermeplan.md)
-- Ergänzt durch: [ADR 0003](0003-xwaermeplan-phase0.md)
+- Ergänzt durch: [ADR 0003](0003-xwaermeplan-phase0.md), [ADR 0004](0004-xwaermeplan-zwei-ausgaben.md)
 - Kontext: Technischer Plan „F-Heat → XWärmeplan Export“ (Philipp Sommer, 19.10.2026), Abbildung in [`docs/xwp_mapping.md`](../xwp_mapping.md)
 
 ## Kontext
@@ -14,11 +14,11 @@ ADR 0001 hat XWärmeplan mit eigenem, aus der XSD generiertem Modell und eigenen
 
 1. **Export als dünner Adapter auf xplan-tools** im Paket `fheat_core.export.xwp`. Nur die Mapper kennen F|Heat; Builder und Writer reichen an xplan-tools weiter. Die Pipeline und `FHeatOrchestrator` bleiben unverändert.
 2. **Zielversion 0.9.6 mit xplan-tools 1.26 unter Python 3.13**, gepinnt auf `>=1.26,<1.27` im Extra `[xwp]`. 0.9.5 unter Python 3.12 wäre sofort lauffähig, bliebe aber zwei Versionen hinter dem Standard stehen. Der Export importiert xplan-tools erst beim Aufruf; ohne das Extra bleibt F|Heat unter 3.10 bis 3.14 installierbar.
-3. **Umfang Version 1:** `WP_Plan`, ein `WP_Bereich`, `WP_Waermelinie`, `WP_Waermenetz` und eine Klasse von Versorgungsgebieten. Bestandsanalyse, Baublöcke, Energiebilanz, Maßnahmen und die Ergänzungsdatei aus ADR 0001 entfallen.
+3. **Umfang Version 1:** `WP_Plan`, ein `WP_Bereich`, `WP_Waermelinie`, `WP_Waermenetz` und eine Klasse von Versorgungsgebieten. Bestandsanalyse, Baublöcke, Energiebilanz, Maßnahmen und die Ergänzungsdatei aus ADR 0001 entfallen. Die beheizten Gebäude kamen mit ADR 0004 als `WP_GebaeudeBaublock` hinzu.
 4. **Eigene Export-Konfiguration** `XWPExportConfig`, getrennt von `FHeatConfig` (nur Rechenparameter). Zwei Modi: `plan` mit allen Pflichtangaben einschließlich Beschlussdatum, `fragment` nur mit Bereich und Fachobjekten zum Einfügen in den Plan der Gemeinde.
 5. **Codes und Einheiten als Tabellen** in `mapping.py`; ein Test gleicht sie mit dem Modell von xplan-tools ab. Unbekannte Codes lösen einen Fehler aus, kein stiller Rückfall auf 9999.
 6. **Stabile IDs:** `uuid5` aus Regionalschlüssel, Objektart und einem F|Heat-Schlüssel.
-7. **Prüfung auf drei Ebenen** in einem Bericht: Struktur (xplan-tools), Schema (GML gegen die XSD, offline), Konsistenz mit dem F|Heat-Ergebnis. Geschrieben wird nur GML, das normative Format. JSON-FG, wie xplan-tools es schreibt, ist nicht gegen das offizielle JSON-Schema gültig, und die gültige Form kann xplan-tools nicht lesen; deshalb gibt es kein JSON-FG (Entscheidung 22.10.2026, siehe `docs/xwp_mapping.md`).
+7. **Prüfung auf drei Ebenen** in einem Bericht: Struktur (xplan-tools), Schema (GML gegen die XSD, offline), Konsistenz mit dem F|Heat-Ergebnis. Mit ADR 0004 kam die Ebene Konformität hinzu; eine Datei wird nur ohne Befund geschrieben, und zwar nur als GML, das normative Format (warum kein JSON-FG: ADR 0004).
 8. **Keine Eignungsstufe ohne ausdrückliche Schwellen.** Die Dichte der verschmolzenen Eignungspolygone ist nicht die Baublockdichte, auf die sich die Leitfadenschwellen beziehen.
 
 ## Folgen

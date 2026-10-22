@@ -118,7 +118,7 @@ def validate_gml(path, schema_dir) -> list[str]:
     """
     from lxml import etree
 
-    schema_dir = Path(schema_dir)
+    schema_dir = Path(schema_dir).resolve()  # the import below needs a file URI
     ns = "{urn:oasis:names:tc:entity:xmlns:xml:catalog}"
     catalog = etree.parse(str(schema_dir / "catalog.xml")).getroot()
     local = {u.get("name"): str(schema_dir / u.get("uri")) for u in catalog.iter(f"{ns}uri")}

@@ -10,7 +10,7 @@ Version 1 writes `WP_Plan` with one `WP_Bereich` (mode `plan`) or only the `WP_B
 
 ## Guiding rule
 
-F|Heat writes what it computes in the XWärmeplan standard; it is not a tool for the heat planning itself. The technical plan (Philipp Sommer, 19.10.2026) sets the scope: what F|Heat does not compute comes from `XWPExportConfig` with that plan's defaults. Nothing beyond it except the building blocks (E12): no further object types, no decisions per area, no editing of plan content. Where the technical plan and the standard disagree, the technical plan applies unless the output would not conform; then the standard applies (decisions E1–E4 below).
+F|Heat writes what it computes in the XWärmeplan standard; it is not a tool for the heat planning itself. The technical plan (Philipp Sommer, 19.10.2026) sets the scope: what F|Heat does not compute comes from `XWPExportConfig` with that plan's defaults. Nothing beyond it except the building blocks (E12): no further object types, no decisions per area, no editing of plan content. Where the technical plan and the standard disagree, the technical plan applies unless the output would not conform; then the standard applies (decisions E1–E4 and E12–E15 below). Why F|Heat keeps its internal names and writes XWärmeplan only at the edge: [ADR 0004](adr/0004-xwaermeplan-zwei-ausgaben.md).
 
 ## Sources
 
@@ -155,7 +155,7 @@ A second feature with the same key gets `#2`. Geometry `gml:id`s and the root `g
 
 ## Checks
 
-The report collects all findings instead of stopping at the first, and **files are written only when there is none**: the export writes to `<name>.partial.<suffix>` next to the target, checks, and moves the files into place only without findings, so a written file is verifiably conformant (TP "Validation and testing"):
+The report collects all findings instead of stopping at the first, and **the file is written only when there is none**: the export writes `<name>.partial.gml` next to the target, checks it, and moves it into place only without findings (`report.file`), so a written file is verifiably conformant (TP "Validation and testing"):
 
 1. **structure**: xplan-tools validates every feature (mandatory fields, code lists, extra fields) and the references. In mode fragment a stand-in for the municipality's plan takes the place of the plan outside the file, so every other reference is checked as well. Nothing is written then.
 2. **schema**: the GML against the XSD, offline through an XML catalog (`schema_dir=`, test data in `tests/fixtures/xwp/xsd-0.9.6/`). The XSD is not shipped: the repository `spezifikation` has no licence file. Without `schema_dir` the notes say so; the tests check the writer against the XSD in CI.
@@ -173,7 +173,7 @@ Not offered (decision 22.10.2026). Measured on the Burgsteinfurt example against
 - The schema refers to `https://beta.schemas.opengis.net/json-fg/geometry-objects.json`, which OGC has renamed since (JSON-FG 1.0); a check needs the older state (commit `f816002` of `opengeospatial/ogc-feat-geo-json`, 22.07.2024, the last with both `geometry-objects.json` and `link.json`).
 - xplan-tools writes the `bbox` in OGR order (`minX, maxX, minY, maxY`), not as RFC 7946 asks.
 
-A non-conformant file does not leave the export (rule "only verifiably conformant"), so the export writes GML, the normative format. JSON-FG can follow when standard and xplan-tools agree, at the latest with 0.9.7.
+A non-conformant file does not leave the export (rule "only verifiably conformant"), so the export writes GML, the normative format. JSON-FG can follow when standard and xplan-tools agree.
 
 ## Not mapped
 
@@ -186,7 +186,7 @@ Where neither the standard nor the technical plan decides:
 - **Ids from a geometry hash** for heat lines and supply areas: the WLD has no stable street id, and the standard does not regulate ids (`implementierung`, `Referenzplaene/readme.md`).
 - **`WP_Bereich` number 0, name "F|Heat"**: the XSD only asks for both; numbers start at 0 by default (XSD documentation of `nummer`).
 
-## Decisions (E1–E4)
+## Decisions (E1–E4, E12–E15)
 
 | | Technical plan | Standard | Decision | Implemented |
 | --- | --- | --- | --- | --- |

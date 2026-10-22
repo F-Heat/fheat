@@ -294,12 +294,25 @@ as well, next to the data. Chart labels are German.
 
 ### XWärmeplan export
 
-F|Heat writes its results in the German standard XWärmeplan 0.9.6 through
-[xplan-tools](https://pypi.org/project/xplan-tools/), the library of the
-XLeitstelle: the heat line density as `WP_Waermelinie`, each calculated
-network as `WP_Waermenetz`, the suitability polygons as supply areas, each
-heated building as a `WP_GebaeudeBaublock`, plus `WP_Plan` and `WP_Bereich`. Plan data F|Heat does not compute comes from
-`XWPExportConfig`:
+F|Heat has two outputs side by side; use one, the other or both:
+
+- **F|Heat output**, `save_outputs()`: every layer and table as above, with
+  the canonical column names (`output_language="raw"`) or German labels
+  (`"de"`), as GeoPackage, FlatGeobuf, GeoJSON or GML. That GML
+  (`output_format="gml"`) is plain OGR-GML of the F|Heat layers, not
+  XWärmeplan.
+- **XWärmeplan output**, `export_xwaermeplan()`: only classes and attributes
+  of the German standard XWärmeplan 0.9.6, each one backed by the XSD or the
+  feature catalogue, written through
+  [xplan-tools](https://pypi.org/project/xplan-tools/), the library of the
+  XLeitstelle. It holds the heat line density as `WP_Waermelinie`, each
+  calculated network as `WP_Waermenetz`, the suitability polygons as supply
+  areas, each heated building as a `WP_GebaeudeBaublock`, plus `WP_Plan` and
+  `WP_Bereich`. Streets, parcels, pipes, the heat source and every value
+  without an XWärmeplan attribute stay in the F|Heat output. The file is
+  written only when the checks below find nothing.
+
+Plan data F|Heat does not compute comes from `XWPExportConfig`:
 
 ```python
 import datetime
@@ -321,22 +334,45 @@ and the map features for merging into the municipality's plan, whose UUID goes
 in `plan_id=` (optional; without it the area refers to an id derived from the
 Regionalschlüssel, named in `report.notes`). xplan-tools cannot read a fragment
 on its own, because its area points to a plan outside the file.
-`networks=[NetworkResult(state, name=...), ...]` exports several networks. The report
-collects every finding (structure, schema with `schema_dir=`, consistency with
-the F|Heat result, conformity conditions of the standard); only an export
-without findings writes the file, so a written file is verifiably conformant.
-The export writes GML only: JSON-FG as xplan-tools writes it does not validate
-against the JSON schema of XWärmeplan, and the valid form cannot be read by
-xplan-tools. Mapping, decisions and limits: [`docs/xwp_mapping.md`](docs/xwp_mapping.md).
+`networks=[NetworkResult(state, name=...), ...]` exports several networks.
 
-The extra needs **Python 3.13** and the GDAL Python binding, which PyPI has no
-wheel for. On Linux: `apt install gdal-bin libgdal-dev`, then
-`pip install numpy setuptools wheel`,
-`pip install --no-build-isolation "gdal==$(gdal-config --version)"` and
-`pip install -e ".[xwp]"`. On Windows use conda-forge (`conda install gdal`).
+The report collects every finding of four checks:
 
-Note: `output_format="gml"` of `save_outputs()` writes plain OGR-GML of the
-F|Heat layers, not XWärmeplan.
+1. **structure**: xplan-tools validates every feature (mandatory fields, code
+   lists) and the references between them;
+2. **schema**: the GML against the XSD 0.9.6, offline, when `schema_dir=`
+   names a folder with `waermeplan.xsd` and an OASIS XML catalog
+   `catalog.xml` for the imported OGC and W3C schemas (as in
+   [`tests/fixtures/xwp/xsd-0.9.6/`](tests/fixtures/xwp/xsd-0.9.6/)). F|Heat
+   does not ship the XSD, because the repository of the XLeitstelle names no
+   licence; without `schema_dir` a note says the GML was not checked;
+3. **consistency** with the F|Heat result: geometries inside the plan
+   boundary, heat demand of the heat lines and supply areas, network length,
+   every heated building in exactly one building block;
+4. **conformity**: the conditions of the standard the XSD does not enforce.
+
+Only an export without findings writes the file (`report.file`), so a written
+file is verifiably conformant; otherwise `report.issues` holds the findings
+and no file is written. `report.notes` holds hints that do not block, e.g.
+that building blocks are single buildings, whose publication the municipality
+decides (data protection). The export writes GML only: JSON-FG as xplan-tools
+writes it does not validate against the JSON schema of XWärmeplan, and the
+valid form cannot be read by xplan-tools. Mapping, decisions and limits:
+[`docs/xwp_mapping.md`](docs/xwp_mapping.md).
+
+The extra needs **Python 3.13** (xplan-tools 1.26 asks for `>=3.13,<3.14`)
+and the GDAL Python binding, which PyPI has no wheel for; its version has to
+match the GDAL library.
+
+- Linux (as the CI job `xwp`): `apt install gdal-bin libgdal-dev`, then
+  `pip install numpy setuptools wheel`,
+  `pip install --no-build-isolation "gdal==$(gdal-config --version)"` and
+  `pip install -e ".[xwp]"`.
+- Windows: GDAL and its binding from conda-forge, where xplan-tools takes them
+  itself (its pixi environment covers `linux-64` and `win-64`), e.g.
+  `conda create -n fheat-xwp -c conda-forge python=3.13 gdal`,
+  `conda activate fheat-xwp`, then `pip install -e ".[xwp]"`. F|Heat tests
+  the extra on Linux only.
 
 Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`), [`burgsteinfurt_xwp.py`](examples/burgsteinfurt_xwp.py) (the same area as XWärmeplan) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
 
@@ -353,6 +389,11 @@ Tests marked `network` require internet; `slow` tests are long-running.
 ## License
 
 Distributed under the **GNU General Public License v3.0 or later** — see [LICENSE](LICENSE).
+
+The optional extra `[xwp]` installs [xplan-tools](https://gitlab.opencode.de/xleitstelle/xplanung/xplan-tools)
+of the XLeitstelle, licensed under the **EUPL-1.2-or-later**. F|Heat neither
+ships nor modifies it. The XSD of XWärmeplan is not shipped either (see
+[XWärmeplan export](#xwärmeplan-export)).
 
 ## Funding notice
 
