@@ -5,7 +5,8 @@ ships; this file compares them with the sources that model is generated from:
 the XSD 0.9.6 for classes, multiplicities and code lists, and the feature
 catalogue (Objektartenkatalog) for the units, which the XSD does not carry.
 It also checks that every source of an attribute exists on the F|Heat side,
-so renaming a column or summary key fails here and not in the export.
+so renaming a column or summary key fails here and not in the export, and
+that every building function the NRW adapter knows has a building type.
 Needs neither xplan-tools nor GDAL, so it runs in the normal test matrix.
 """
 from __future__ import annotations
@@ -15,6 +16,7 @@ import hashlib
 import json
 import xml.etree.ElementTree as ET
 from functools import lru_cache
+from importlib.resources import files
 from pathlib import Path
 
 import pytest
@@ -22,7 +24,7 @@ import pytest
 from fheat_core.export.xwp import mapping
 from fheat_core.export.xwp.config import XWPExportConfig
 from fheat_core.export.xwp.mappers import RULES, NetworkResult
-from fheat_core.schemas import RESULT_SUMMARY_SCHEMA, PolygonsSchema, WLDSchema
+from fheat_core.schemas import RESULT_SUMMARY_SCHEMA, BuildingsSchema, PolygonsSchema, WLDSchema
 
 FIXTURES = Path(__file__).parent / "fixtures" / "xwp"
 XSD = FIXTURES / "xsd-0.9.6" / "waermeplan.xsd"
@@ -33,11 +35,12 @@ XS = "{http://www.w3.org/2001/XMLSchema}"
 XSD_BLOB = "7898e8bf809b427db4034e35820deba06c55dc6e"
 CATALOGUE_BLOB = "874124ca62a76a4d42835e265438896936d6d66d"
 
-#: class -> F|Heat schema of the layer its rows come from
+#: class -> F|Heat schema of the layer its rows come from (a building block: sums of its buildings)
 LAYER_SCHEMAS = {
     mapping.HEAT_LINE: WLDSchema,
     mapping.SUPPLY_AREA_TARGET: PolygonsSchema,
     mapping.SUPPLY_AREA_INTERIM: PolygonsSchema,
+    mapping.BUILDING_BLOCK: BuildingsSchema,
 }
 REFERENCES = {"plan", "area", "areas"}  # what builder.build_collection sets
 
@@ -57,6 +60,15 @@ def schema() -> tuple[dict, dict]:
     enums = {t.get("name"): {e.get("value") for e in t.iter(f"{XS}enumeration")}
              for t in root.findall(f"{XS}simpleType")}
     return types, enums
+
+
+@lru_cache(maxsize=None)
+def code_documentation(code_list: str) -> dict[str, str]:
+    """``{code: documentation}`` of a code list of the XSD."""
+    root = ET.parse(XSD).getroot()
+    simple_type = next(t for t in root.findall(f"{XS}simpleType") if t.get("name") == f"{code_list}Type")
+    return {e.get("value"): e.find(f"{XS}annotation/{XS}documentation").text.strip()
+            for e in simple_type.iter(f"{XS}enumeration")}
 
 
 @lru_cache(maxsize=None)
@@ -155,6 +167,34 @@ def test_codes_of_the_rules_are_codes_of_the_xsd():
     assert mapping.NO_STATEMENT_SUPPLY_TYPES <= enums["WP_WaermeversorgungsgebietTypType"]
     assert mapping.NO_STATEMENT_PROCEDURES | {mapping.SMALL_HEAT_PLANNING} <= enums["WP_VerfahrenArtType"]
     assert mapping.EXISTING in enums["WP_StatusType"]
+    assert mapping.UNKNOWN in enums["WP_GebaeudeTypType"] & enums["WP_BaualtersklasseType"]
+    assert {*mapping.FUNCTION_TYPES.values(), *mapping.BUILDING_TYPE_CODES.values()} <= enums["WP_GebaeudeTypType"]
+    assert set(mapping.AGE_PERIODS.values()) <= enums["WP_BaualtersklasseType"]
+
+
+def test_construction_periods_are_the_main_categories_of_the_xsd():
+    """``mapping.PERIOD_YEARS`` holds the years the XSD gives the main categories of WP_Baualtersklasse."""
+    def text(first, last):
+        return f"bis {last}" if first is None else f"ab {first}" if last is None else f"{first} bis {last}"
+
+    documentation = code_documentation("WP_Baualtersklasse")
+    main = {code for code in documentation if len(code) == 4 and code != mapping.UNKNOWN}
+    assert set(mapping.PERIOD_YEARS) == main
+    for code, years in mapping.PERIOD_YEARS.items():
+        assert documentation[code].removesuffix(" (Oberkategorie)") == text(*years)
+
+
+def test_lanuv_age_classes_fall_into_the_category_with_most_of_their_years():
+    """E15: a class across two categories gets the one with the larger part."""
+    assert mapping.AGE_PERIODS == {
+        "1900": "1000", "1945": "1000", "1960": "2000", "1970": "2000", "1980": "3000", "1985": "3000",
+        "1995": "4000", "2000": "4000", "2005": "4000", "2010": "4000", "2015": "4000", "2022": "5000",
+    }
+
+
+def test_every_function_of_the_nrw_adapter_has_a_building_type():
+    known = json.loads(files("fheat_nrw.data").joinpath("building_functions.json").read_text(encoding="utf-8"))
+    assert set(mapping.FUNCTION_TYPES) == set(known)
 
 
 @pytest.mark.parametrize("class_name, prop", ATTRIBUTES)

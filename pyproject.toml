@@ -76,5 +76,5 @@ Issues = "https://github.com/F-Heat/fheat/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"fheat_core.data" = ["*.csv", "*.json"]
+"fheat_core.data" = ["*.csv"]
 "fheat_nrw.data" = ["*.json", "*.csv"]

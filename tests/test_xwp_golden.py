@@ -83,14 +83,15 @@ def export(tmp_path_factory):
 
 
 def key_figures(report) -> dict:
-    """What a change of the mapping should make visible: counts, sums, the network, findings and notes."""
+    """What a change of the mapping should make visible: counts, sums, the network, the building blocks,
+    findings and notes."""
     from shapely import wkt
     from xplan_tools.interface import Datasource
 
     collection = Datasource(str(report.files["gml"])).repo().get_all()
     sums = defaultdict(float)
     for feature in collection.get_features():
-        for prop in ("waermeMenge", "laenge"):
+        for prop in ("waermeMenge", "laenge", "nutzflaeche"):
             value = getattr(feature, prop, None)
             if value is not None:
                 sums[f"{feature.get_name()}.{prop}"] += value.value
@@ -99,12 +100,18 @@ def key_figures(report) -> dict:
     for feature in collection.get_features():
         if feature.get_name() == "WP_WaermeversorgungsgebietZieljahr" and feature.eignungWaermenetz is not None:
             suitability[str(feature.eignungWaermenetz)] += 1
+    blocks = {"gebaeudetyp": defaultdict(int), "ueberwiegendBaujahr": defaultdict(int)}
+    for feature in collection.get_features():
+        if feature.get_name() == "WP_GebaeudeBaublock":
+            for prop, counts in blocks.items():
+                counts[str(getattr(feature, prop))] += 1
     return {
         "counts": dict(sorted(report.counts.items())),
         "sums": {k: round(v, 1) for k, v in sorted(sums.items())},
         "network": {"anzahlGebaeudeAnschluss": netz.anzahlGebaeudeAnschluss, "temperatur": netz.temperatur.value,
                     "flaeche_ha": round(wkt.loads(netz.position.wkt).area / 10_000, 1)},
         "eignungWaermenetz": dict(sorted(suitability.items())),
+        "baublock": {prop: dict(sorted(counts.items())) for prop, counts in blocks.items()},
         "issues": sorted(f"{i.level}: {i.feature or ''} {i.message}".strip() for i in report.issues),
         "notes": report.notes,
     }
@@ -132,3 +139,9 @@ def test_example_agrees_with_the_pipeline(export):
     assert figures["network"]["anzahlGebaeudeAnschluss"] == summary["total_buildings"]
     assert figures["sums"]["WP_WaermeversorgungsgebietZieljahr.waermeMenge"] == pytest.approx(
         state.polygons_gdf["heat_demand"].sum() / 1000, abs=0.1)
+    # every heated building lies inside the plan boundary, the parcels, so each one is a block
+    buildings = state.buildings_gdf
+    assert buildings.representative_point().within(state.parcels_gdf.union_all()).all()
+    assert figures["counts"]["WP_GebaeudeBaublock"] == len(buildings)
+    assert figures["sums"]["WP_GebaeudeBaublock.nutzflaeche"] == pytest.approx(
+        buildings["floor_area"].sum() / 10_000, abs=0.1)

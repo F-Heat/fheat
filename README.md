@@ -297,8 +297,8 @@ as well, next to the data. Chart labels are German.
 F|Heat writes its results in the German standard XWärmeplan 0.9.6 through
 [xplan-tools](https://pypi.org/project/xplan-tools/), the library of the
 XLeitstelle: the heat line density as `WP_Waermelinie`, each calculated
-network as `WP_Waermenetz`, the suitability polygons as supply areas, plus
-`WP_Plan` and `WP_Bereich`. Plan data F|Heat does not compute comes from
+network as `WP_Waermenetz`, the suitability polygons as supply areas, each
+heated building as a `WP_GebaeudeBaublock`, plus `WP_Plan` and `WP_Bereich`. Plan data F|Heat does not compute comes from
 `XWPExportConfig`:
 
 ```python

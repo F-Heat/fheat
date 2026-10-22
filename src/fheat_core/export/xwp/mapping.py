@@ -135,6 +135,44 @@ INTERIM_YEAR = {  # WP_Stuetzjahr
 }
 INTERIM_YEAR_CODE = {label: code for code, label in INTERIM_YEAR.items()}
 
+BUILDING_TYPE = {  # WP_GebaeudeTyp
+    "1000": "Wohngebäude",
+    "10001": "Einfamilienhaus",
+    "10002": "Reihenhaus",
+    "10003": "Mehrfamilienhaus (3-12 WE)",
+    "10004": "Großes Mehrfamilienhaus (>=13 WE)",
+    "2000": "Nichtwohngebäude",
+    "20001": "Bürogebäude",
+    "20002": "Handel",
+    "20003": "Beherbergung/Gaststätten",
+    "20004": "Krankenhäuser",
+    "20005": "Kultureinrichtungen",
+    "20006": "Bildungseinrichtungen",
+    "20007": "Sporteinrichtungen",
+    "20008": "Schwimmbäder",
+    "20009": "Lagergebäude",
+    "20010": "Industrie",
+    "9999": "unbekannt",
+}
+
+CONSTRUCTION_PERIOD = {  # WP_Baualtersklasse
+    "1000": "bis 1949 (OK)",
+    "10001": "vor 1919",
+    "10002": "1919 - 1949",
+    "2000": "1950 - 1969 (OK)",
+    "20001": "1950 - 1959",
+    "20002": "1960 - 1969",
+    "3000": "1970 - 1989 (OK)",
+    "30001": "1970 - 1979",
+    "30002": "1980 - 1989",
+    "4000": "1990 - 2015 (OK)",
+    "40001": "1990 - 1999",
+    "40002": "2000 - 2009",
+    "40003": "2010 - 2015",
+    "5000": "ab 2016",
+    "9999": "unbekannt",
+}
+
 #: Lower bounds of the suitability stages 1000, 2000 and 3000 (below the last: 4000)
 SUITABILITY_STAGES = ("1000", "2000", "3000", "4000")
 
@@ -154,6 +192,8 @@ CODE_LISTS = {
     "WP_WaermeversorgungsgebietTyp": SUPPLY_TYPE,
     "WP_Eignungsstufe": SUITABILITY,
     "WP_Stuetzjahr": INTERIM_YEAR,
+    "WP_GebaeudeTyp": BUILDING_TYPE,
+    "WP_Baualtersklasse": CONSTRUCTION_PERIOD,
 }
 
 
@@ -164,6 +204,104 @@ def check_code(code_list: str, code) -> str:
     if code not in codes:
         raise ValueError(f"{code!r} is not a code of {code_list} ({', '.join(codes)}).")
     return code
+
+
+# ------------------------------------------------------------------
+# Building type and construction period of a building (E14, E15)
+# ------------------------------------------------------------------
+
+UNKNOWN = "9999"  # WP_GebaeudeTyp and WP_Baualtersklasse: "unbekannt"
+
+#: ALKIS Gebäudefunktion (AX_Gebaeudefunktion, four digits) -> WP_GebaeudeTyp, by the meaning
+#: of the function; a residential building with another use (Wohngebäude mit Handel …) gets
+#: the code of that use. Every function the NRW adapter knows; the rows in docs/xwp_mapping.md.
+FUNCTION_TYPES: dict[str, str] = {
+    function: code
+    for code, functions in {
+        "1000": "1000 1010 1020 1021 1022 1023 1024 1025 1110 1210 1311 1312 3064 3066",
+        "10001": "1221 1223",
+        "10004": "1100 3052",
+        "9999": "9998",
+        "2000": (
+            "1310 1313 2000 2010 2050 2060 2074 2090 2091 2093 2094 2130 2131 2180 2220 2400 2410 "
+            "2411 2412 2420 2421 2422 2423 2424 2430 2431 2440 2441 2442 2443 2444 2450 2451 2460 "
+            "2461 2462 2463 2464 2465 2500 2501 2510 2511 2512 2513 2520 2521 2522 2523 2527 2528 "
+            "2529 2540 2560 2570 2571 2580 2590 2591 2600 2610 2611 2612 2620 2621 2622 2623 2700 "
+            "2720 2721 2723 2724 2726 2727 2728 2729 2732 2735 2740 2741 2742 3000 3040 3041 3042 "
+            "3043 3044 3045 3046 3047 3048 3050 3053 3060 3061 3062 3063 3070 3071 3072 3073 3074 "
+            "3075 3080 3081 3082 3090 3091 3092 3094 3095 3097 3098 3200 3240 3260 3261 3262 3263 "
+            "3264 3270 3271 3272 3273 3280 3281 3290"
+        ),
+        "20001": "1121 1122 2020 2030 2040 2310 3010 3011 3012 3013 3014 3015 3016 3017 3018 3019",
+        "20002": "1120 1123 1222 2051 2052 2053 2054 2055 2056",
+        "20003": "2070 2071 2072 2073 2080 2081 2082 2083",
+        "20004": "3051 3242",
+        "20005": "2092 3030 3031 3032 3033 3034 3035 3036 3037 3038 3100",
+        "20006": "2160 3020 3021 3022 3023 3024 3065",
+        "20007": "3210 3211 3212 3230",
+        "20008": "3220 3221 3222 3241",
+        "20009": "2140 2141 2142 2143 2150",
+        "20010": (
+            "1130 1131 1220 2100 2110 2111 2112 2113 2114 2120 2121 2170 2171 2172 2200 2210 2211 2212 2213 "
+            "2320"
+        ),
+    }.items()
+    for function in functions.split()
+}
+
+#: Building type of F|Heat (LANUV WG_Typ, or NWG) -> WP_GebaeudeTyp, where the function is not
+#: known. LANUV tells EFH, RH, MFH and GMFH apart by touching buildings and floor area, the
+#: subtypes 10001-10004 count dwellings, so only the main category is verifiable.
+BUILDING_TYPE_CODES = {"EFH": "1000", "RH": "1000", "MFH": "1000", "GMFH": "1000", "NWG": "2000"}
+
+#: The main categories of WP_Baualtersklasse: code -> (first year, last year), None = open
+PERIOD_YEARS = {
+    "1000": (None, 1949),
+    "2000": (1950, 1969),
+    "3000": (1970, 1989),
+    "4000": (1990, 2015),
+    "5000": (2016, None),
+}
+
+#: LANUV Baualtersklasse (the year after the type in GEBAEUDETY, F|Heat's age) -> its years
+#: (Kurzdokumentation Raumwärmebedarfsmodell NRW, version 2 of 17.12.2024, "Gebäudemerkmale" 3)
+AGE_CLASS_YEARS = {
+    "1900": (None, 1899),
+    "1945": (1900, 1945),
+    "1960": (1946, 1960),
+    "1970": (1961, 1970),
+    "1980": (1971, 1980),
+    "1985": (1981, 1985),
+    "1995": (1986, 1995),
+    "2000": (1996, 2000),
+    "2005": (2001, 2005),
+    "2010": (2006, 2010),
+    "2015": (2011, 2015),
+    "2022": (2016, None),
+}
+
+
+def construction_period(first: Optional[int], last: Optional[int]) -> str:
+    """The main category of WP_Baualtersklasse that holds most of the years ``first`` to ``last``.
+
+    None is an open end. A class that spans two categories gets the one with
+    the larger part of its years (E15); an even split is unknown.
+    """
+    def span(start, end):
+        return (-math.inf if start is None else start, math.inf if end is None else end)
+
+    start, end = span(first, last)
+    shares = {}
+    for code, period in PERIOD_YEARS.items():
+        period_start, period_end = span(*period)
+        shares[code] = min(end, period_end) - max(start, period_start) + 1
+    best = max(shares.values())
+    codes = [code for code, share in shares.items() if share == best]
+    return codes[0] if best > 0 and len(codes) == 1 else UNKNOWN
+
+
+#: LANUV age class -> main category of WP_Baualtersklasse
+AGE_PERIODS = {label: construction_period(*years) for label, years in AGE_CLASS_YEARS.items()}
 
 
 # ------------------------------------------------------------------
@@ -179,6 +317,7 @@ HEAT_NETWORK = "WP_Waermenetz"
 FINAL_ENERGY = "WP_EndenergieEnergietraeger"
 SUPPLY_AREA_TARGET = "WP_WaermeversorgungsgebietZieljahr"
 SUPPLY_AREA_INTERIM = "WP_WaermeversorgungsgebietStuetzjahr"
+BUILDING_BLOCK = "WP_GebaeudeBaublock"
 
 #: Supply area class per ``XWPExportConfig.supply_year``; the interim years
 #: are one class with the attribute ``stuetzjahr``.
@@ -226,7 +365,10 @@ class Attribute:
         if value is None:
             return None
         if self.uom is not None:
-            value = float(value)
+            try:
+                value = float(value)
+            except TypeError:  # pandas' NA
+                return None
             if not math.isfinite(value):
                 return None
             return {"value": round(value * self.factor, DECIMALS), "uom": self.uom}
@@ -302,6 +444,14 @@ CLASSES: dict[str, dict[str, Attribute]] = {
         "versorgungsart": Attribute("config", "supply_type", code_list="WP_WaermeversorgungsgebietTyp"),
         "waermeMenge": Attribute("column", cols.HEAT_DEMAND, **_HEAT),
         "stuetzjahr": Attribute("rule", "interim_year", code_list="WP_Stuetzjahr"),
+        "gehoertZuBereich": _IN_AREA,
+    },
+    BUILDING_BLOCK: {
+        "position": _GEOMETRY,
+        "baublockId": Attribute("rule", "block_id"),
+        "gebaeudetyp": Attribute("rule", "building_type", code_list="WP_GebaeudeTyp"),
+        "ueberwiegendBaujahr": Attribute("rule", "construction_period", code_list="WP_Baualtersklasse"),
+        "nutzflaeche": Attribute("column", cols.FLOOR_AREA, unit="m²", uom="ha", factor=1e-4),
         "gehoertZuBereich": _IN_AREA,
     },
 }

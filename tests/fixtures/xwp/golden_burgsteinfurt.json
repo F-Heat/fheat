@@ -1,12 +1,14 @@
 {
   "counts": {
     "WP_Bereich": 1,
+    "WP_GebaeudeBaublock": 586,
     "WP_Plan": 1,
     "WP_Waermelinie": 122,
     "WP_Waermenetz": 1,
     "WP_WaermeversorgungsgebietZieljahr": 2
   },
   "sums": {
+    "WP_GebaeudeBaublock.nutzflaeche": 12.8,
     "WP_Waermelinie.laenge": 12481.4,
     "WP_Waermelinie.waermeMenge": 15951.3,
     "WP_Waermenetz.laenge": 5171.6,
@@ -20,9 +22,30 @@
   "eignungWaermenetz": {
     "5000": 2
   },
+  "baublock": {
+    "gebaeudetyp": {
+      "1000": 516,
+      "10004": 23,
+      "2000": 24,
+      "20003": 1,
+      "20006": 3,
+      "20007": 1,
+      "20009": 8,
+      "20010": 10
+    },
+    "ueberwiegendBaujahr": {
+      "1000": 142,
+      "2000": 122,
+      "3000": 17,
+      "4000": 238,
+      "5000": 57,
+      "9999": 10
+    }
+  },
   "issues": [],
   "notes": [
     "plan boundary: the union of the parcels (no boundary passed)",
-    "heat lines cut at the plan boundary: 3; 39.9 MWh/a of their heat demand lies outside and is not exported"
+    "heat lines cut at the plan boundary: 3; 39.9 MWh/a of their heat demand lies outside and is not exported",
+    "building blocks are single buildings: whether to publish them at this resolution is the municipality's decision (data protection)"
   ]
 }

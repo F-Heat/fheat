@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Optional, Sequence, Union
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
+import shapely
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
@@ -21,6 +23,7 @@ from fheat_core.export.xwp.config import XWPExportConfig
 from fheat_core.export.xwp.mappers import (
     MIN_SEGMENT_LENGTH,
     NetworkResult,
+    map_baubloecke,
     map_plan,
     map_versorgungsgebiete,
     map_waermelinien,
@@ -47,15 +50,16 @@ def export_xwaermeplan(
 ) -> ExportReport:
     """Write the F|Heat results as XWaermeplan and report every finding.
 
-    ``state`` is the analysis (``wld_gdf``, ``polygons_gdf``, ``parcels_gdf``,
-    phase STATUS or later). ``networks`` are the calculated networks; None
-    takes ``state`` itself when it holds a network. ``path`` is one file or
+    ``state`` is the analysis (``buildings_gdf``, ``wld_gdf``, ``polygons_gdf``,
+    ``parcels_gdf``, phase STATUS or later). ``networks`` are the calculated
+    networks; None takes ``state`` itself when it holds a network. ``path`` is one file or
     several, ``.gml`` and/or ``.json`` (JSON-FG). ``boundary`` (geometry or
     GeoDataFrame in the CRS of ``state``, e.g. ``adapter.provide_boundary()``)
     is the plan area; None = the union of the parcels. Areas and heat lines
     are cut to it; a map feature wholly outside is left out and named in the
-    notes. ``schema_dir`` with the XSD of the schema version enables the
-    schema check of the GML (see :func:`writer.validate_gml`).
+    notes, and so are the heated buildings outside, which belong to no
+    building block. ``schema_dir`` with the XSD of the schema version enables
+    the schema check of the GML (see :func:`writer.validate_gml`).
 
     Only verifiably conformant data leave the export: the files are written
     only when no level (structure, consistency, conformity and, with
@@ -70,15 +74,18 @@ def export_xwaermeplan(
     area = _boundary(state, boundary, crs)
 
     heat_lines = _heat_lines(state.wld_gdf, area)
+    buildings = _buildings(state.buildings_gdf, area)
     features, left_out = _clip([
         *map_waermelinien(state.wld_gdf, area),
         *map_waermenetze(nets, config, crs),
         *map_versorgungsgebiete(state.polygons_gdf, config),
+        *map_baubloecke(state.buildings_gdf, area),
     ], area)
     records = [*map_plan(config, area), *features]
     report = ExportReport(counts=dict(Counter(r["featuretype"] for r in records)),
-                          notes=_notes(config, boundary, heat_lines, left_out))
-    findings = _consistency(records, state, nets, area, config, heat_lines) + _conformity(records, config)
+                          notes=_notes(config, boundary, heat_lines, buildings, left_out))
+    findings = (_consistency(records, state, nets, area, config, heat_lines, buildings)
+                + _conformity(records, config))
 
     collection, structure = builder.build_collection(records, config, srid)
     report.issues = structure + findings
@@ -139,7 +146,32 @@ def _heat_lines(wld: Optional[gpd.GeoDataFrame], area: BaseGeometry) -> _HeatLin
     )
 
 
-def _notes(config: XWPExportConfig, boundary, heat_lines: _HeatLines, left_out: list[str]) -> list[str]:
+@dataclass(frozen=True)
+class _Buildings:
+    """The heated buildings against the plan boundary: the points of those inside, their floor area
+    [m²] (None if one has none) and how many lie outside."""
+
+    points: np.ndarray
+    floor_area: Optional[float] = None
+    outside: int = 0
+
+
+def _buildings(buildings: Optional[gpd.GeoDataFrame], area: BaseGeometry) -> _Buildings:
+    """The heated buildings against the plan boundary, computed apart from the mapper to check it."""
+    if buildings is None or buildings.empty:
+        return _Buildings(np.array([], dtype=object))
+    heated = (pd.to_numeric(buildings[cols.HEAT_DEMAND], errors="coerce") > 0).to_numpy()
+    points = buildings.geometry[heated].representative_point().to_numpy()
+    inside = shapely.within(points, area)
+    floor_area = None
+    if cols.FLOOR_AREA in buildings.columns:
+        values = pd.to_numeric(buildings[cols.FLOOR_AREA], errors="coerce").to_numpy()[heated][inside]
+        floor_area = None if np.isnan(values).any() else float(values.sum())
+    return _Buildings(points[inside], floor_area, int((~inside).sum()))
+
+
+def _notes(config: XWPExportConfig, boundary, heat_lines: _HeatLines, buildings: _Buildings,
+           left_out: list[str]) -> list[str]:
     """What the user should know about the written plan; no findings."""
     notes = ["plan boundary: the boundary passed to the export" if boundary is not None
              else "plan boundary: the union of the parcels (no boundary passed)"]
@@ -151,6 +183,11 @@ def _notes(config: XWPExportConfig, boundary, heat_lines: _HeatLines, left_out: 
         notes.append(f"heat lines cut at the plan boundary: {heat_lines.cut}; "
                      f"{heat_lines.outside * attribute.factor:.1f} {attribute.uom} of their heat demand "
                      "lies outside and is not exported")
+    if buildings.outside:
+        notes.append(f"heated buildings outside the plan boundary, in no building block: {buildings.outside}")
+    if len(buildings.points):
+        notes.append("building blocks are single buildings: whether to publish them at this resolution is "
+                     "the municipality's decision (data protection)")
     if config.mode == "fragment":
         if not config.plan_id:
             to_plan, _ = mapping.written_from(mapping.AREA, "reference", "plan")
@@ -217,7 +254,7 @@ def _clip(records, area) -> tuple[list[dict], list[str]]:
     return kept, left_out
 
 
-def _consistency(records, state, nets, area, config, heat_lines: _HeatLines) -> list[Issue]:
+def _consistency(records, state, nets, area, config, heat_lines: _HeatLines, buildings: _Buildings) -> list[Issue]:
     """The export must agree with the F|Heat result it came from."""
     issues = []
     reach = area.buffer(BOUNDARY_TOLERANCE)
@@ -260,6 +297,22 @@ def _consistency(records, state, nets, area, config, heat_lines: _HeatLines) -> 
             issues.append(Issue("consistency", None,
                                 f"{heat} of the supply areas {exported:.3f} {attribute.uom} != heat demand "
                                 f"of the suitability polygons inside the plan boundary {expected:.3f} {attribute.uom}"))
+
+    blocks = [r for r in records if r["featuretype"] == mapping.BUILDING_BLOCK]
+    point, _ = shapely.STRtree([r["geometry"] for r in blocks]).query(buildings.points, predicate="within")
+    misplaced = int((np.bincount(point, minlength=len(buildings.points)) != 1).sum())
+    if misplaced:
+        issues.append(Issue("consistency", None, f"{misplaced} heated buildings inside the plan boundary "
+                                                 f"do not lie in exactly one {mapping.BUILDING_BLOCK}"))
+    if buildings.floor_area is not None:
+        floor, attribute = mapping.written_from(mapping.BUILDING_BLOCK, "column", cols.FLOOR_AREA)
+        exported = sum(r["properties"].get(floor, {}).get("value", 0.0) for r in blocks)
+        expected = buildings.floor_area * attribute.factor
+        rounding = len(blocks) * 10 ** -mapping.DECIMALS  # each block's value is rounded
+        if abs(exported - expected) > SUM_TOLERANCE * max(abs(expected), 1.0) + rounding:
+            issues.append(Issue("consistency", None,
+                                f"{floor} of the building blocks {exported:.6f} {attribute.uom} != floor area of the "
+                                f"heated buildings inside the plan boundary {expected:.6f} {attribute.uom}"))
     return issues
 
 

@@ -1,9 +1,9 @@
 """F|Heat results -> XWaermeplan feature records (plain dicts).
 
 One function per target class picks the F|Heat objects (rows, networks)
-and their geometry; :func:`fill` takes every attribute from the class's table
-in :mod:`fheat_core.export.xwp.mapping`, the values F|Heat derives from
-:data:`RULES`. They need no xplan-tools. A record is
+and their geometry; :func:`fill` takes every attribute
+from the class's table in :mod:`fheat_core.export.xwp.mapping`, the values
+F|Heat derives from :data:`RULES`. They need no xplan-tools. A record is
 
     {"featuretype": "WP_Waermelinie", "key": "<stable F|Heat key>",
      "geometry": <shapely geometry or None>, "geometry_property": "position",
@@ -17,10 +17,12 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import math
+import re
 from dataclasses import dataclass
 from typing import Callable, Optional, Sequence
 
 import geopandas as gpd
+import pandas as pd
 import shapely
 from shapely.geometry import MultiLineString, MultiPolygon
 from shapely.geometry.base import BaseGeometry
@@ -53,11 +55,15 @@ class NetworkResult:
 
 @dataclass
 class Source:
-    """What one feature is filled from: the config, an F|Heat row or a network, as far as the class needs them."""
+    """What one feature is filled from: the config, an F|Heat row or a network, as far as the class needs them.
+
+    A building block has its building as ``row`` and its ``key``.
+    """
 
     config: Optional[XWPExportConfig] = None
     row: Optional[dict] = None
     network: Optional[NetworkResult] = None
+    key: Optional[str] = None
 
     @property
     def summary(self) -> dict:
@@ -92,6 +98,28 @@ def _heat_fed_in(source: Source) -> float:
     return float(source.summary[cols.TOTAL_HEAT_DEMAND]) + float(source.summary.get(cols.TOTAL_LOSS) or 0.0)
 
 
+def building_type_code(building: dict) -> str:
+    """WP_GebaeudeTyp of one building: from its ALKIS function, else from its building type, else unknown."""
+    code = mapping.FUNCTION_TYPES.get(_alkis_function(building.get(cols.FUNCTION)))
+    if code is None:
+        code = mapping.BUILDING_TYPE_CODES.get(_text(building.get(cols.BUILDING_TYPE)), mapping.UNKNOWN)
+    return code
+
+
+def construction_period_code(building: dict) -> str:
+    """WP_Baualtersklasse of one building: from its construction year, else its LANUV age class, else unknown.
+
+    A building the NRW adapter merged from parts of different age classes
+    ("1945, 2022") is unknown unless the classes fall into one category.
+    """
+    year = _number(building.get(cols.CONSTRUCTION_YEAR))
+    if year is not None:
+        return mapping.construction_period(int(year), int(year))
+    age = _text(building.get(cols.AGE))
+    periods = {mapping.AGE_PERIODS.get(part.strip()) for part in age.split(",")} if age else {None}
+    return periods.pop() if len(periods) == 1 and None not in periods else mapping.UNKNOWN
+
+
 #: Values F|Heat derives, by the name the tables give as source "rule"
 RULES: dict[str, Callable[[Source], object]] = {
     "heat_fed_in": _heat_fed_in,
@@ -99,6 +127,9 @@ RULES: dict[str, Callable[[Source], object]] = {
     # decentral and hydrogen supply: F|Heat has no assessment, only the stage where none is needed
     "no_statement": lambda source: mapping.NO_STATEMENT if no_statement(source.config) else None,
     "interim_year": lambda source: mapping.INTERIM_YEAR_CODE[source.config.supply_year],
+    "block_id": lambda source: source.key,
+    "building_type": lambda source: building_type_code(source.row),
+    "construction_period": lambda source: construction_period_code(source.row),
 }
 
 
@@ -258,6 +289,37 @@ def map_versorgungsgebiete(polygons_gdf: Optional[gpd.GeoDataFrame], config: XWP
 
 
 # ------------------------------------------------------------------
+# Building blocks (WPG Anlage 2 I.2.5, I.2.6)
+# ------------------------------------------------------------------
+
+def map_baubloecke(buildings_gdf: Optional[gpd.GeoDataFrame], boundary: BaseGeometry) -> list[dict]:
+    """One WP_GebaeudeBaublock per heated building, with its footprint.
+
+    After WPG § 3, quoted by the XSD at WP_Baublock, a Baublock is "ein
+    Gebäude oder mehrere Gebäude oder Liegenschaften" (E13). A heated
+    building (heat demand > 0) counts when its representative point lies
+    inside ``boundary``; its footprint is cut to it. The key, also written
+    as ``baublockId``, is the hash of the area (S8). WP_EnergieBaublock is
+    not written: its heat demand is "Erzeugernutzwärme", F|Heat's is useful
+    heat (LANUV "Nutzenergie").
+    """
+    if buildings_gdf is None or buildings_gdf.empty:
+        return []
+    demand = pd.to_numeric(buildings_gdf[cols.HEAT_DEMAND], errors="coerce")
+    heated = buildings_gdf[(demand > 0).to_numpy()]
+    heated = heated[heated.representative_point().within(boundary).to_numpy()]
+    records = []
+    for row in heated.to_dict("records"):
+        footprint = row.pop(heated.geometry.name)
+        area = polygonal(footprint if boundary.covers(footprint) else footprint.intersection(boundary))
+        if area is None:
+            continue
+        source = Source(row=row, key=geometry_key(area))
+        records.append(_record(mapping.BUILDING_BLOCK, source.key, area, fill(mapping.BUILDING_BLOCK, source)))
+    return records
+
+
+# ------------------------------------------------------------------
 # Geometry helpers
 # ------------------------------------------------------------------
 
@@ -306,3 +368,16 @@ def _number(value) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return value if math.isfinite(value) else None
+
+
+def _text(value) -> Optional[str]:
+    """A text value stripped; None for a missing one."""
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return None
+    return str(value).strip() or None
+
+
+def _alkis_function(value) -> Optional[str]:
+    """The four digits of an ALKIS Gebäudefunktion, also in the CityGML form "31001_1010"."""
+    match = re.fullmatch(r"(?:\d+_)?(\d{4})", _text(value) or "")
+    return match.group(1) if match else None

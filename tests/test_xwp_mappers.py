@@ -8,13 +8,17 @@ from collections import defaultdict
 from pathlib import Path
 
 import geopandas as gpd
+import pandas as pd
 import pytest
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 
 from fheat_core import columns as cols
 from fheat_core.export.xwp import NetworkResult, XWPExportConfig, mapping
 from fheat_core.export.xwp.mappers import (
+    building_type_code,
+    construction_period_code,
     geometry_key,
+    map_baubloecke,
     map_plan,
     map_versorgungsgebiete,
     map_waermelinien,
@@ -203,6 +207,74 @@ class TestVersorgungsgebiete:
         assert suitability_stage(500.0, None) is None
 
 
+class TestBaubloecke:
+    BOUNDARY = box(-100, -100, 200, 100)
+
+    @pytest.fixture
+    def buildings(self):
+        """Two heated houses, an unheated shed and a heated hall."""
+        return gpd.GeoDataFrame({
+            cols.HEAT_DEMAND: [10_000.0, 20_000.0, 0.0, 50_000.0],
+            cols.FUNCTION: ["31001_1010", "31001_1010", "31001_2463", "31001_2143"],
+            cols.BUILDING_TYPE: ["EFH", "EFH", "NWG", "NWG"],
+            cols.AGE: ["1945", "1960", "1960", "2022"],
+            cols.FLOOR_AREA: [100.0, 150.0, 20.0, 400.0],
+        }, geometry=[box(1, 1, 9, 9), box(11, 1, 19, 9), box(1, 12, 4, 15), box(50, 0, 70, 20)], crs=CRS)
+
+    def test_every_heated_building_is_a_block_with_its_footprint(self, buildings):
+        house, _, hall = map_baubloecke(buildings, self.BOUNDARY)
+        assert house["featuretype"] == "WP_GebaeudeBaublock"
+        assert house["geometry"].equals(MultiPolygon([box(1, 1, 9, 9)]))
+        assert house["key"] == geometry_key(MultiPolygon([box(1, 1, 9, 9)]))
+        assert house["properties"] == {
+            "baublockId": house["key"], "gebaeudetyp": "1000", "ueberwiegendBaujahr": "1000",
+            "nutzflaeche": {"value": 0.01, "uom": "ha"},
+        }
+        assert (hall["properties"]["gebaeudetyp"], hall["properties"]["ueberwiegendBaujahr"]) == ("20009", "5000")
+
+    def test_a_footprint_is_cut_to_the_boundary_and_buildings_outside_are_left_out(self, buildings):
+        [house] = map_baubloecke(buildings, box(-100, -100, 7, 100))
+        assert house["geometry"].equals(MultiPolygon([box(1, 1, 7, 9)]))
+        assert house["properties"]["nutzflaeche"]["value"] == 0.01  # the building's, not cut
+
+    @pytest.mark.parametrize("missing", [float("nan"), pd.NA])
+    def test_no_floor_area_without_one(self, buildings, missing):
+        buildings[cols.FLOOR_AREA] = buildings[cols.FLOOR_AREA].astype("Float64")
+        buildings.loc[0, cols.FLOOR_AREA] = missing
+        house, *_ = map_baubloecke(buildings, self.BOUNDARY)
+        assert "nutzflaeche" not in house["properties"]
+
+    def test_no_buildings(self):
+        assert map_baubloecke(None, self.BOUNDARY) == []
+
+    @pytest.mark.parametrize("function, building_type, code", [
+        ("31001_1010", "MFH", "1000"),    # the function first
+        ("1123", "EFH", "20002"),         # Wohn- und Geschäftsgebäude
+        ("9998", "EFH", "9999"),          # nach Quellenlage nicht zu spezifizieren
+        ("31001_3021", "NWG", "20006"),
+        ("31001_2463", None, "2000"),
+        (None, "GMFH", "1000"),           # LANUV: a residential type, the subtype counts no dwellings
+        ("Wohnhaus", "NWG", "2000"),      # not an ALKIS code
+        (float("nan"), float("nan"), "9999"),
+        (None, "HH", "9999"),
+    ])
+    def test_building_type(self, function, building_type, code):
+        assert building_type_code({cols.FUNCTION: function, cols.BUILDING_TYPE: building_type}) == code
+
+    @pytest.mark.parametrize("year, age, code", [
+        (1975, "1945", "3000"),    # the construction year first
+        (1949, None, "1000"),
+        (2016, None, "5000"),
+        (None, "1995", "4000"),    # 1986-1995: six years in 1990-2015
+        (None, "1945, 1900", "1000"),
+        (None, "1945, 2022", "9999"),
+        (None, "1955", "9999"),    # no LANUV class
+        (None, None, "9999"),
+    ])
+    def test_construction_period(self, year, age, code):
+        assert construction_period_code({cols.CONSTRUCTION_YEAR: year, cols.AGE: age}) == code
+
+
 class TestPlan:
     def test_plan_and_area(self, config):
         plan, bereich = map_plan(config, box(0, 0, 10, 10))
@@ -235,6 +307,8 @@ class TestTable:
                                geometry=[LineString([(0, 0), (100, 0)])], crs=CRS)
         polygons = gpd.GeoDataFrame({cols.HEAT_DEMAND: [500_000.0], cols.HEAT_DEMAND_DENSITY: [500.0]},
                                     geometry=[box(0, 0, 100, 100)], crs=CRS)
+        buildings = gpd.GeoDataFrame({cols.HEAT_DEMAND: [10_000.0], cols.FLOOR_AREA: [100.0]},
+                                     geometry=[box(1, 1, 9, 9)], crs=CRS)
         records = [
             *map_plan(config, box(0, 0, 10, 10)),
             *map_waermelinien(wld),
@@ -242,6 +316,7 @@ class TestTable:
                              dataclasses.replace(config, source_energy_carrier="72002"), CRS),
             *map_versorgungsgebiete(polygons, dataclasses.replace(config, suitability_thresholds=(415, 175, 70))),
             *map_versorgungsgebiete(polygons, dataclasses.replace(config, supply_year="2035")),
+            *map_baubloecke(buildings, box(0, 0, 100, 100)),
         ]
         written = defaultdict(set)
         for record in records:

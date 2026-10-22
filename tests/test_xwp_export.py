@@ -12,6 +12,7 @@ from shapely.geometry import box
 pytest.importorskip("xplan_tools")
 pytestmark = pytest.mark.xwp
 
+from fheat_core import columns as cols  # noqa: E402
 from fheat_core.config import FHeatConfig  # noqa: E402
 from fheat_core.export.xwp import NetworkResult, XWPExportConfig, export_xwaermeplan  # noqa: E402
 from fheat_core.orchestrator import FHeatOrchestrator  # noqa: E402
@@ -20,6 +21,8 @@ XSD = Path(__file__).resolve().parent / "fixtures" / "xwp" / "xsd-0.9.6"
 PLAN_ID = "6a2f41a3-c54c-4ce8-92d2-0324e1c32e22"
 # the stub street runs beyond the parcels; the plan area covers it
 AREA = box(-50, -50, 250, 100)
+PRIVACY_NOTE = ("building blocks are single buildings: whether to publish them at this resolution is the "
+                "municipality's decision (data protection)")
 
 
 @pytest.fixture
@@ -55,8 +58,9 @@ def test_plan_is_written_and_schema_valid(state, config, tmp_path):
     assert report.counts == {
         "WP_Plan": 1, "WP_Bereich": 1, "WP_Waermelinie": 1, "WP_Waermenetz": 1,
         "WP_WaermeversorgungsgebietZieljahr": len(state.polygons_gdf),
+        "WP_GebaeudeBaublock": 3,  # one per heated building
     }
-    assert report.notes == ["plan boundary: the boundary passed to the export"]
+    assert report.notes == ["plan boundary: the boundary passed to the export", PRIVACY_NOTE]
 
 
 def test_round_trip_keeps_ids_and_values(state, config, tmp_path):
@@ -105,7 +109,7 @@ def test_fragment_refers_to_the_municipality_plan(state, tmp_path):
     assert "WP_Plan" not in report.counts
     text = report.files["gml"].read_text(encoding="utf-8")
     assert f'gehoertZuPlan xlink:href="#GML_{PLAN_ID}"' in text
-    assert report.notes == ["plan boundary: the boundary passed to the export",
+    assert report.notes == ["plan boundary: the boundary passed to the export", PRIVACY_NOTE,
                             "WP_Bereich.nummer 0 has to be unique within the municipality's plan"]
 
 
@@ -191,6 +195,8 @@ def test_features_outside_the_boundary_are_left_out(state, config, tmp_path):
     assert "WP_Waermenetz" not in report.counts and "WP_WaermeversorgungsgebietZieljahr" not in report.counts
     assert ("outside the plan boundary, left out: 1 WP_Waermenetz, 1 WP_WaermeversorgungsgebietZieljahr"
             in report.notes)
+    assert "WP_GebaeudeBaublock" not in report.counts
+    assert "heated buildings outside the plan boundary, in no building block: 3" in report.notes
 
 
 def no_file_in(directory: Path) -> bool:
@@ -220,6 +226,39 @@ def test_consistency_findings_stop_the_export(state, config, tmp_path, monkeypat
     report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=AREA)
     assert not report.files and no_file_in(tmp_path)
     assert [i.level for i in report.issues] == ["consistency"] and "heat lines" in report.issues[0].message
+
+
+def test_building_block_findings_stop_the_export(state, config, tmp_path, monkeypatch):
+    from fheat_core.export.xwp import export as export_module
+    from fheat_core.export.xwp.mappers import map_baubloecke
+
+    # a mapper that loses the last block
+    monkeypatch.setattr(export_module, "map_baubloecke", lambda *args: map_baubloecke(*args)[:-1])
+    report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=AREA)
+    assert not report.files and no_file_in(tmp_path)
+    assert [i.level for i in report.issues] == ["consistency"]
+    assert report.issues[0].message == ("1 heated buildings inside the plan boundary do not lie in exactly one "
+                                        "WP_GebaeudeBaublock")
+
+
+def test_floor_area_findings_stop_the_export(state, config, tmp_path, monkeypatch):
+    from fheat_core.export.xwp import export as export_module
+    from fheat_core.export.xwp.mappers import map_baubloecke
+
+    state.buildings_gdf[cols.FLOOR_AREA] = 120.0
+    assert export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=AREA).ok
+
+    def wrong_area(*args):  # a mapper that loses the unit conversion
+        records = map_baubloecke(*args)
+        for r in records:
+            r["properties"]["nutzflaeche"]["value"] *= 10_000
+        return records
+
+    monkeypatch.setattr(export_module, "map_baubloecke", wrong_area)
+    report = export_xwaermeplan(state, config, tmp_path / "other.gml", boundary=AREA)
+    assert not report.files and not (tmp_path / "other.gml").exists()
+    assert [i.level for i in report.issues] == ["consistency"]
+    assert report.issues[0].message.startswith("nutzflaeche of the building blocks 360.000000 ha != floor area")
 
 
 @pytest.mark.parametrize("change, missing", [
