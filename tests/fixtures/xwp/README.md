@@ -31,7 +31,6 @@ Zeilenenden auf LF vereinheitlicht, sonst unverändert.
 
 | Datei | Quelle im Repo `spezifikation` (Stand `main`, Commit `b98b837`, 13.10.2026) | Stand |
 |---|---|---|
-| `json-0.9.6/features.json`, `json-0.9.6/featurecollection.json` | `json/0.9.6/` | heruntergeladen mit CRLF (Git-Blob der Datei `96867ad…` bzw. `10b98aa…`), auf LF vereinheitlicht, sonst unverändert |
 | `oak-0.9.6-einheiten.json` | `objektartenkatalog/XWaermeplan096.zip`, Git-Blob `874124ca62a76a4d42835e265438896936d6d66d` | erzeugt mit `python scripts/extract_xwp_units.py <ZIP> tests/fixtures/xwp/oak-0.9.6-einheiten.json` |
 
 `oak-0.9.6-einheiten.json` enthält Klasse → Attribut → Maßeinheit aus den Paketen `WP_Basisobjekte`, `WP_Raumobjekte` und `WP_Reporting`; die übrigen Pakete im ZIP sind veraltet. Die XSD selbst führt keine Einheiten. Im Katalog fehlt bei `°C` das Grad-Zeichen (U+FFFD); das Skript setzt es wieder ein (`REPAIRS`). Nicht von Hand ändern.

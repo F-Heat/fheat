@@ -1,4 +1,4 @@
-"""Entry point of the XWaermeplan export: F|Heat state -> GML / JSON-FG.
+"""Entry point of the XWaermeplan export: F|Heat state -> GML.
 
 A one-way adapter: reads finished pipeline states, never changes them.
 """
@@ -42,7 +42,7 @@ SUM_TOLERANCE = 1e-6       # relative, for the heat demand totals
 def export_xwaermeplan(
     state: PipelineState,
     config: XWPExportConfig,
-    path: Union[PathLike, Sequence[PathLike]],
+    path: PathLike,
     *,
     networks: Optional[Sequence[Union[NetworkResult, PipelineState]]] = None,
     boundary=None,
@@ -52,8 +52,8 @@ def export_xwaermeplan(
 
     ``state`` is the analysis (``buildings_gdf``, ``wld_gdf``, ``polygons_gdf``,
     ``parcels_gdf``, phase STATUS or later). ``networks`` are the calculated
-    networks; None takes ``state`` itself when it holds a network. ``path`` is one file or
-    several, ``.gml`` and/or ``.json`` (JSON-FG). ``boundary`` (geometry or
+    networks; None takes ``state`` itself when it holds a network. ``path`` is
+    the ``.gml`` file; JSON-FG is not offered (see :mod:`writer`). ``boundary`` (geometry or
     GeoDataFrame in the CRS of ``state``, e.g. ``adapter.provide_boundary()``)
     is the plan area; None = the union of the parcels. Areas and heat lines
     are cut to it; a map feature wholly outside is left out and named in the
@@ -61,13 +61,12 @@ def export_xwaermeplan(
     building block. ``schema_dir`` with the XSD of the schema version enables
     the schema check of the GML (see :func:`writer.validate_gml`).
 
-    Only verifiably conformant data leave the export: the files are written
+    Only verifiably conformant data leave the export: the file is written
     only when no level (structure, consistency, conformity and, with
     ``schema_dir``, schema) has a finding; otherwise the report holds the
     findings and no file is written. Needs the extra ``[xwp]`` (xplan-tools).
     """
-    paths = [path] if isinstance(path, (str, Path)) else list(path)
-    formats = [writer.format_of(p) for p in paths]
+    path = writer.gml_path(path)
     crs = _crs(state)
     srid = crs.to_epsg()
     nets = named(_networks(state, networks))
@@ -92,25 +91,23 @@ def export_xwaermeplan(
     if collection is None or report.issues:
         return report
 
-    staged = {fmt: writer.write(collection, _staging(Path(p))) for p, fmt in zip(paths, formats)}
+    staged = writer.write(collection, _staging(path))
     try:
-        if schema_dir is not None and "gml" in staged:
+        if schema_dir is not None:
             report.schema_checked = True
-            report.issues += [Issue("schema", None, m) for m in writer.validate_gml(staged["gml"], schema_dir)]
-        elif "gml" in staged:
+            report.issues += [Issue("schema", None, m) for m in writer.validate_gml(staged, schema_dir)]
+        else:
             report.notes.append("GML not checked against the XSD (no schema_dir given)")
         if not report.issues:
-            for p, fmt in zip(paths, formats):
-                os.replace(staged[fmt], p)
-                report.files[fmt] = Path(p)
+            os.replace(staged, path)
+            report.file = path
     finally:
-        for p in staged.values():
-            p.unlink(missing_ok=True)
+        staged.unlink(missing_ok=True)
     return report
 
 
 def _staging(path: Path) -> Path:
-    """Where a file is written before the checks: next to its target, same suffix (it picks the format)."""
+    """Where the file is written before the checks: next to its target."""
     return path.with_name(f"{path.stem}.partial{path.suffix}")
 
 

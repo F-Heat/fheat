@@ -3,9 +3,8 @@
 Ablauf:
     1. Analyse des Stadtteils (download, adjust, status) wie in burgsteinfurt.py
     2. Netzplanung im Planungsgebiet mit Wärmequelle (network, results)
-    3. XWärmeplan schreiben: waermeplan.gml (normativ, gegen die XSD prüfbar) und
-       waermeplan.json (JSON-FG, wie xplan-tools es schreibt), dazu der Prüfbericht
-       waermeplan_pruefbericht.json
+    3. XWärmeplan schreiben: waermeplan.gml (gegen die XSD prüfbar), dazu der
+       Prüfbericht waermeplan_pruefbericht.json
 
 Ohne Beschlussdatum (Entwurf) stattdessen mode="fragment", wenn bekannt mit der
 UUID des Wärmeplans der Gemeinde (plan_id=...): Dann entstehen nur Bereich und
@@ -65,15 +64,14 @@ xwp = XWPExportConfig(
 )
 report = export_xwaermeplan(
     orch.state, xwp,
-    [OUTPUT_DIR / "waermeplan.gml", OUTPUT_DIR / "waermeplan.json"],
+    OUTPUT_DIR / "waermeplan.gml",
     networks=[NetworkResult(orch.state, name="Netz Zentrum")],
     boundary=adapter.provide_boundary(),
 )
 (OUTPUT_DIR / "waermeplan_pruefbericht.json").write_text(
     json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
 )
-for fmt, path in report.files.items():
-    logging.info("%s → %s", fmt, path)
+logging.info("GML → %s", report.file)
 for name, count in sorted(report.counts.items()):
     logging.info("  %-36s %5d", name, count)
 logging.info("ohne Befund: %s", "ja" if report.ok else f"nein, {len(report.issues)} Befunde")

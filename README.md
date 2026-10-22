@@ -312,7 +312,7 @@ config = XWPExportConfig(
     base_year=2022,
     decision_date=datetime.date(2026, 6, 30),
 )
-report = export_xwaermeplan(orch.state, config, ["output/waermeplan.gml", "output/waermeplan.json"])
+report = export_xwaermeplan(orch.state, config, "output/waermeplan.gml")
 print(report.ok, report.counts, report.issues)
 ```
 
@@ -324,9 +324,10 @@ on its own, because its area points to a plan outside the file.
 `networks=[NetworkResult(state, name=...), ...]` exports several networks. The report
 collects every finding (structure, schema with `schema_dir=`, consistency with
 the F|Heat result, conformity conditions of the standard); only an export
-without findings writes files, so a written file is verifiably conformant. GML is
-the normative format; JSON-FG is written as xplan-tools writes it. Mapping,
-decisions and limits: [`docs/xwp_mapping.md`](docs/xwp_mapping.md).
+without findings writes the file, so a written file is verifiably conformant.
+The export writes GML only: JSON-FG as xplan-tools writes it does not validate
+against the JSON schema of XWärmeplan, and the valid form cannot be read by
+xplan-tools. Mapping, decisions and limits: [`docs/xwp_mapping.md`](docs/xwp_mapping.md).
 
 The extra needs **Python 3.13** and the GDAL Python binding, which PyPI has no
 wheel for. On Linux: `apt install gdal-bin libgdal-dev`, then

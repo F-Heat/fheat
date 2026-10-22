@@ -77,7 +77,7 @@ def export(tmp_path_factory):
         plan_name="Wärmeplan Burgsteinfurt (Test)", municipality_name="Steinfurt",
         municipality_key="05566084", base_year=2022, decision_date=datetime.date(2026, 6, 30),
     )
-    report = export_xwaermeplan(state, config, [tmp / "plan.gml", tmp / "plan.json"],
+    report = export_xwaermeplan(state, config, tmp / "plan.gml",
                                 networks=[NetworkResult(state, name="Netz Zentrum")], schema_dir=XSD)
     return state, report
 
@@ -88,7 +88,7 @@ def key_figures(report) -> dict:
     from shapely import wkt
     from xplan_tools.interface import Datasource
 
-    collection = Datasource(str(report.files["gml"])).repo().get_all()
+    collection = Datasource(str(report.file)).repo().get_all()
     sums = defaultdict(float)
     for feature in collection.get_features():
         for prop in ("waermeMenge", "laenge", "nutzflaeche"):

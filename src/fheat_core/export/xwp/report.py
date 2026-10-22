@@ -22,7 +22,7 @@ class Issue:
 
 @dataclass
 class ExportReport:
-    files: dict[str, Path] = field(default_factory=dict)   # format ("gml", "jsonfg") -> written file; {} with findings
+    file: Optional[Path] = None                             # the written GML; None with findings
     counts: dict[str, int] = field(default_factory=dict)   # feature type -> number of features
     issues: list[Issue] = field(default_factory=list)
     schema_checked: bool = False                            # False: no XSD given, level "schema" skipped
@@ -35,7 +35,7 @@ class ExportReport:
     def to_dict(self) -> dict:
         return {
             "ok": self.ok,
-            "files": {fmt: str(path) for fmt, path in self.files.items()},
+            "file": str(self.file) if self.file is not None else None,
             "counts": dict(self.counts),
             "schema_checked": self.schema_checked,
             "issues": [{"level": i.level, "feature": i.feature, "message": i.message} for i in self.issues],

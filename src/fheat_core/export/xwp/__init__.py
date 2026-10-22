@@ -3,8 +3,8 @@
 A one-way adapter on xplan-tools, the library of the XLeitstelle: the
 mappers turn heat lines, networks, suitability polygons and the heated
 buildings into feature records, xplan-tools builds and checks the models
-and writes GML and JSON-FG. Importing this package needs no xplan-tools;
-only :func:`export_xwaermeplan` does.
+and writes GML. Importing this package needs no xplan-tools; only
+:func:`export_xwaermeplan` does.
 
     from fheat_core.export.xwp import XWPExportConfig, export_xwaermeplan
 

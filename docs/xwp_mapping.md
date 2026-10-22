@@ -6,7 +6,7 @@ Every exported class has a table of its attributes in `mapping.py` (`CLASSES`): 
 
 Three tests keep the table honest: `tests/test_xwp_mapping.py` against the model of xplan-tools 1.26; `tests/test_xwp_evidence.py` against the original of the XLeitstelle (XSD and feature catalogue, without xplan-tools) and against F|Heat, every source has to exist in the F|Heat schemas (`schemas.py`), so a renamed column fails a test before an export; `tests/test_xwp_mappers.py` that the records hold exactly the attributes of the table and that the export reads no column or summary key as text.
 
-Version 1 writes `WP_Plan` with one `WP_Bereich` (mode `plan`) or only the `WP_Bereich` (mode `fragment`), plus `WP_Waermelinie`, `WP_Waermenetz`, one class of supply areas and the heated buildings as `WP_GebaeudeBaublock` (E12). GML is checked against the XSD. JSON-FG is written as xplan-tools writes it (measures as `{value, uom}`, references as bare UUIDs); that does not validate against the official JSON schema yet.
+Version 1 writes `WP_Plan` with one `WP_Bereich` (mode `plan`) or only the `WP_Bereich` (mode `fragment`), plus `WP_Waermelinie`, `WP_Waermenetz`, one class of supply areas and the heated buildings as `WP_GebaeudeBaublock` (E12). The export writes GML only, checked against the XSD; JSON-FG is not offered (see "JSON-FG" below).
 
 ## Guiding rule
 
@@ -164,6 +164,17 @@ The report collects all findings instead of stopping at the first, and **files a
 
 Besides the findings the report carries **notes**, which do not make it fail: which plan boundary was used (passed or the union of the parcels), how many heat lines were cut at it with the heat demand outside, which map features lie wholly outside it and were left out, how many heated buildings lie outside it and belong to no building block, that building blocks are single buildings (data protection), whether the GML was checked against the XSD, and, in mode fragment, the derived plan id and that `WP_Bereich.nummer` has to be unique within the municipality's plan (XSD documentation of `nummer`).
 
+## JSON-FG
+
+Not offered (decision 22.10.2026). Measured on the Burgsteinfurt example against the JSON schema of XWärmeplan 0.9.6 (`json/0.9.6/` of the repository `spezifikation`) with the JSON-FG schemas it refers to:
+
+- JSON-FG as xplan-tools 1.26 writes it has 1669 findings of two kinds: measures as `{value, uom}` instead of a number (956), references as a bare UUID instead of a link object (713).
+- With both rewritten the file has no finding, but xplan-tools 1.26 can read it no more: it accepts neither numbers for measures nor link objects for references. So a schema-valid file could not be imported by the tools of the XLeitstelle.
+- The schema refers to `https://beta.schemas.opengis.net/json-fg/geometry-objects.json`, which OGC has renamed since (JSON-FG 1.0); a check needs the older state (commit `f816002` of `opengeospatial/ogc-feat-geo-json`, 22.07.2024, the last with both `geometry-objects.json` and `link.json`).
+- xplan-tools writes the `bbox` in OGR order (`minX, maxX, minY, maxY`), not as RFC 7946 asks.
+
+A non-conformant file does not leave the export (rule "only verifiably conformant"), so the export writes GML, the normative format. JSON-FG can follow when standard and xplan-tools agree, at the latest with 0.9.7.
+
 ## Not mapped
 
 No XWärmeplan slot: nominal diameters, flow velocities, volume flows, simultaneity factor, heat losses per edge, the hourly load profile. They stay in the F|Heat GeoPackage and tables (TP). Out of scope for version 1 (TP "Summary"): the rest of the stock analysis (`WP_EnergieBaublock`, see above), energy balance, aggregates, measures, the heat source (`source_gdf`; XSD 0.9.6 has no class for a feed-in point or a generation plant).
@@ -198,5 +209,5 @@ Nothing.
 
 - The GML writer takes the envelope of the plan geometry and fails without a `WP_Plan`; for a fragment F\|Heat builds the root and lets xplan-tools serialise each feature.
 - xplan-tools reads a file only as a whole collection and rejects a fragment: `gehoertZuPlan` points outside the file, and a mandatory reference is never dropped, not even with `DROP_INVALID_REFS`. A fragment is meant for merging into the municipality's plan, not for reading on its own; `writer.read_features` reads its features one by one with the models of xplan-tools (used by the round-trip test).
-- `schemaLocation` points to `xsd/waermeplan.xsd` on `main`, which is 0.9.7 since 13.10.2026, and JSON-FG's `describedby` to `json/0.9/`, which does not exist; both are rewritten to the 0.9.6 paths.
+- `schemaLocation` points to `xsd/waermeplan.xsd` on `main`, which is 0.9.7 since 13.10.2026; it is rewritten to the 0.9.6 path.
 - `BaseCollection.from_features` needs the features as a dict; `repo_factory` is deprecated in favour of `Datasource(...).repo()`.

@@ -18,7 +18,7 @@ ADR 0001 hat XWärmeplan mit eigenem, aus der XSD generiertem Modell und eigenen
 4. **Eigene Export-Konfiguration** `XWPExportConfig`, getrennt von `FHeatConfig` (nur Rechenparameter). Zwei Modi: `plan` mit allen Pflichtangaben einschließlich Beschlussdatum, `fragment` nur mit Bereich und Fachobjekten zum Einfügen in den Plan der Gemeinde.
 5. **Codes und Einheiten als Tabellen** in `mapping.py`; ein Test gleicht sie mit dem Modell von xplan-tools ab. Unbekannte Codes lösen einen Fehler aus, kein stiller Rückfall auf 9999.
 6. **Stabile IDs:** `uuid5` aus Regionalschlüssel, Objektart und einem F|Heat-Schlüssel.
-7. **Prüfung auf drei Ebenen** in einem Bericht: Struktur (xplan-tools), Schema (GML gegen die XSD, offline), Konsistenz mit dem F|Heat-Ergebnis. GML ist das normative Format; JSON-FG wird so geschrieben, wie xplan-tools es schreibt, und ist nicht gegen das offizielle JSON-Schema gültig.
+7. **Prüfung auf drei Ebenen** in einem Bericht: Struktur (xplan-tools), Schema (GML gegen die XSD, offline), Konsistenz mit dem F|Heat-Ergebnis. Geschrieben wird nur GML, das normative Format. JSON-FG, wie xplan-tools es schreibt, ist nicht gegen das offizielle JSON-Schema gültig, und die gültige Form kann xplan-tools nicht lesen; deshalb gibt es kein JSON-FG (Entscheidung 22.10.2026, siehe `docs/xwp_mapping.md`).
 8. **Keine Eignungsstufe ohne ausdrückliche Schwellen.** Die Dichte der verschmolzenen Eignungspolygone ist nicht die Baublockdichte, auf die sich die Leitfadenschwellen beziehen.
 
 ## Folgen
