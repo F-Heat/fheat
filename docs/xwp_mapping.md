@@ -76,7 +76,8 @@ One per `NetworkResult` (a pipeline state in phase RESULTS).
 | `position` | geometry | cut to the plan boundary: the polygons are parcels buffered by `buffer_distance` | XSD 1..1 MultiSurface; TP "Consistency" |
 | `versorgungsart` | `supply_type`, the same for every area | default 40001 Prüfgebiet Wärmenetz; F\|Heat makes no decision per area | XSD `WP_WaermeversorgungsgebietTypType`, 1..1; TP |
 | `waermeMenge` | `heat_demand` (kWh/a) | ÷ 1000 → MWh/a | XSD 0..1; OAK MWh/a; TP |
-| `eignungWaermenetz` (target year only) | `heat_demand_density` with `suitability_thresholds` | not written by default, see below | XSD `WP_EignungsstufeType`, 0..1 ("only optional in the small heat planning"); TP; to be replaced by E2 |
+| `eignungDezentraleVersorgung`, `eignungWasserstoffnetz` (target year only) | rule "no_statement" | 5000 for a Prüfgebiet or the simplified procedure (E2), else not written: F\|Heat does not assess decentral or hydrogen supply | XSD `WP_EignungsstufeType`, 0..1, conformity condition "only optional in the small heat planning"; E2 |
+| `eignungWaermenetz` (target year only) | rule "suitability": `heat_demand_density` with `suitability_thresholds` | 5000 for a Prüfgebiet or the simplified procedure (E2); otherwise the stage from the thresholds, not written without them, see below | XSD `WP_EignungsstufeType`, 0..1, same condition; TP; E2 |
 
 **Why no suitability from the density by default.** The suitability polygons are dissolved, buffered parcels, so their heat demand density is far below the block density the guideline thresholds refer to. In the Burgsteinfurt example one polygon covers 119 of 151 ha with 132 MWh/(ha·a); with the KEA-BW thresholds (415/175/70) the area of the 5.2 km network would be "wahrscheinlich ungeeignet".
 
@@ -95,13 +96,14 @@ A second feature with the same key gets `#2`. Geometry `gml:id`s and the root `g
 
 ## Checks
 
-The report collects all findings instead of stopping at the first (TP "Validation and testing"):
+The report collects all findings instead of stopping at the first, and **files are written only when there is none**: the export writes to `<name>.partial.<suffix>` next to the target, checks, and moves the files into place only without findings, so a written file is verifiably conformant (TP "Validation and testing"):
 
 1. **structure**: xplan-tools validates every feature (mandatory fields, code lists, extra fields) and the references. In mode fragment a stand-in for the municipality's plan takes the place of the plan outside the file, so every other reference is checked as well. Nothing is written then.
-2. **schema**: the written GML against the XSD, offline through an XML catalog (`schema_dir=`, test data in `tests/fixtures/xwp/xsd-0.9.6/`).
-3. **consistency**: valid, non-empty geometries inside the plan boundary (0.5 m tolerance); the heat lines carry the heat demand of the street segments inside the plan boundary (computed apart from the mapper); `laenge` of a network equals its route length; the supply areas carry the heat demand of the suitability polygons. A geographic CRS is rejected before anything is built.
+2. **schema**: the GML against the XSD, offline through an XML catalog (`schema_dir=`, test data in `tests/fixtures/xwp/xsd-0.9.6/`). The XSD is not shipped: the repository `spezifikation` has no licence file. Without `schema_dir` the notes say so; the tests check the writer against the XSD in CI.
+3. **consistency**: valid, non-empty geometries inside the plan boundary (0.5 m tolerance); the heat lines carry the heat demand of the street segments inside the plan boundary (computed apart from the mapper); `laenge` of a network equals its route length; the supply areas carry the heat demand of the suitability polygons inside the plan boundary. A geographic CRS is rejected before anything is built.
+4. **conformity**: the conformity conditions of the XSD documentation the schema does not enforce (`mapping.CONFORMITY`): the three suitability stages of a target-year area outside the small heat planning (`verfahrensart` 2000), `medium` and `temperatur` of an existing network (`status` 1000).
 
-Besides the findings the report carries **notes**, which do not make it fail: which plan boundary was used (passed or the union of the parcels), how many heat lines were cut at it with the heat demand outside, and, in mode fragment, the derived plan id and that `WP_Bereich.nummer` has to be unique within the municipality's plan (XSD documentation of `nummer`).
+Besides the findings the report carries **notes**, which do not make it fail: which plan boundary was used (passed or the union of the parcels), how many heat lines were cut at it with the heat demand outside, which map features lie wholly outside it and were left out, whether the GML was checked against the XSD, and, in mode fragment, the derived plan id and that `WP_Bereich.nummer` has to be unique within the municipality's plan (XSD documentation of `nummer`).
 
 ## Not mapped
 
@@ -119,7 +121,7 @@ Where neither the standard nor the technical plan decides:
 | | Technical plan | Standard | Decision | Implemented |
 | --- | --- | --- | --- | --- |
 | E1 Version | 0.9.5 with xplan-tools 1.20 on Python 3.12 | 0.9.6 is the newest version xplan-tools supports (1.26.0), 0.9.7 the newest of the standard | 0.9.6 with xplan-tools 1.26 on Python 3.13 (ADR 0002); 0.9.7 once xplan-tools supports it | yes |
-| E2 Suitability from thresholds | stage from the heat demand density, thresholds in the config | code 5000 means "no statement necessary or possible (… supply type Prüfgebiet)" | supply type Prüfgebiet (4000, 40001–40003) → 5000 in `eignungDezentraleVersorgung`, `eignungWaermenetz`, `eignungWasserstoffnetz`; thresholds only for other supply types; option stays, off by default | no |
+| E2 Suitability from thresholds | stage from the heat demand density, thresholds in the config | code 5000 means "no statement necessary or possible (either simplified procedure or supply type Prüfgebiet)" | supply type Prüfgebiet (4000, 40001–40003) or simplified procedure (`verfahrensart` 3000) → 5000 in `eignungDezentraleVersorgung`, `eignungWaermenetz`, `eignungWasserstoffnetz`; thresholds only otherwise; option stays, off by default. Other supply types outside the small heat planning need all three stages, which F\|Heat cannot give; the conformity check stops such an export | yes |
 | E3 Energy carrier of the source | code from the config, quantity from F\|Heat | `eeNachEnergietraeger` is described "for status Bestehend" without a conformity condition | no conflict: written when the config names a carrier, else not | yes |
 | E4 Network area | buffer around all edges, dissolved, width configurable, default `buffer_distance` | only asks for a MultiSurface | buffer around all edges of `net_gdf` (route, house and source connections), dissolved, cut to the plan boundary; width `network_buffer`, default the calculation's `buffer_distance` (50 m); no planning area | yes |
 

@@ -63,10 +63,12 @@ class XWPExportConfig:
     supply_year: str = "zieljahr"                # "zieljahr" or the interim year "2030", "2035", "2040"
     # Lower bounds of the eignungWaermenetz stages 1000/2000/3000 for the heat
     # demand density [MWh/(ha·a)], descending; below the last: 4000, e.g.
-    # (415, 175, 70) after the KEA-BW guideline. None = no eignungWaermenetz:
-    # the suitability polygons are buffered and dissolved parcels, so their
-    # density is not the block density the guideline thresholds refer to
-    # (Burgsteinfurt: the whole network area gets 132 MWh/(ha·a)).
+    # (415, 175, 70) after the KEA-BW guideline. Only for supply types other
+    # than Prüfgebiet outside the simplified procedure; there every stage is
+    # 5000 "no statement" (E2). None = no eignungWaermenetz: the suitability
+    # polygons are buffered and dissolved parcels, so their density is not the
+    # block density the guideline thresholds refer to (Burgsteinfurt: the
+    # whole network area gets 132 MWh/(ha·a)).
     suitability_thresholds: Optional[tuple[float, float, float]] = None
 
     _MODES: ClassVar[frozenset] = frozenset({"plan", "fragment"})

@@ -159,16 +159,28 @@ class TestVersorgungsgebiete:
             cols.HEAT_DEMAND_DENSITY: [500.0, 40.0],
         }, geometry=[box(0, 0, 100, 100), box(200, 0, 300, 100)], crs=CRS)
 
-    def test_target_year_without_suitability_by_default(self, config, polygons):
-        first, second = map_versorgungsgebiete(polygons, config)
+    def test_pruefgebiet_needs_no_suitability_statement(self, config, polygons):
+        first, _ = map_versorgungsgebiete(polygons, dataclasses.replace(config, suitability_thresholds=(415, 175, 70)))
         assert first["featuretype"] == "WP_WaermeversorgungsgebietZieljahr"
-        assert first["properties"] == {"versorgungsart": "40001", "waermeMenge": {"value": 500.0, "uom": "MWh/a"}}
-        assert "eignungWaermenetz" not in second["properties"]
+        assert first["properties"] == {
+            "versorgungsart": "40001", "waermeMenge": {"value": 500.0, "uom": "MWh/a"},
+            "eignungDezentraleVersorgung": "5000", "eignungWaermenetz": "5000", "eignungWasserstoffnetz": "5000",
+        }
+
+    def test_simplified_procedure_needs_no_suitability_statement(self, config, polygons):
+        first, _ = map_versorgungsgebiete(polygons, dataclasses.replace(config, supply_type="1000", procedure="3000"))
+        assert {first["properties"][k] for k in ("eignungDezentraleVersorgung", "eignungWaermenetz",
+                                                 "eignungWasserstoffnetz")} == {"5000"}
 
     def test_suitability_proposed_with_thresholds(self, config, polygons):
-        config = dataclasses.replace(config, suitability_thresholds=(415, 175, 70))
+        config = dataclasses.replace(config, supply_type="1000", suitability_thresholds=(415, 175, 70))
         first, second = map_versorgungsgebiete(polygons, config)
         assert (first["properties"]["eignungWaermenetz"], second["properties"]["eignungWaermenetz"]) == ("1000", "4000")
+        assert "eignungDezentraleVersorgung" not in first["properties"]
+
+    def test_no_suitability_without_thresholds(self, config, polygons):
+        first, _ = map_versorgungsgebiete(polygons, dataclasses.replace(config, supply_type="1000"))
+        assert not any(k.startswith("eignung") for k in first["properties"])
 
     def test_one_supply_type_for_every_area(self, config, polygons):
         config = dataclasses.replace(config, supply_type="1000")

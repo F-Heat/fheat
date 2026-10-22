@@ -5,10 +5,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-#: structure: fields, code lists, units, references (xplan-tools) — nothing is written then
-#: schema: the written GML against the XSD
+#: structure: fields, code lists, units, references (xplan-tools)
+#: schema: the GML against the XSD (with schema_dir)
 #: consistency: the export against the F|Heat result it came from
-LEVELS = ("structure", "schema", "consistency")
+#: conformity: the conformity conditions of the schema documentation (mapping.CONFORMITY)
+#: A finding on any level means no file is written.
+LEVELS = ("structure", "schema", "consistency", "conformity")
 
 
 @dataclass(frozen=True)
@@ -20,7 +22,7 @@ class Issue:
 
 @dataclass
 class ExportReport:
-    files: dict[str, Path] = field(default_factory=dict)   # format ("gml", "jsonfg") -> written file
+    files: dict[str, Path] = field(default_factory=dict)   # format ("gml", "jsonfg") -> written file; {} with findings
     counts: dict[str, int] = field(default_factory=dict)   # feature type -> number of features
     issues: list[Issue] = field(default_factory=list)
     schema_checked: bool = False                            # False: no XSD given, level "schema" skipped

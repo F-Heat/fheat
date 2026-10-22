@@ -17,7 +17,9 @@
     "temperatur": 80.0,
     "flaeche_ha": 36.4
   },
-  "eignungWaermenetz": {},
+  "eignungWaermenetz": {
+    "5000": 2
+  },
   "issues": [],
   "notes": [
     "plan boundary: the union of the parcels (no boundary passed)",

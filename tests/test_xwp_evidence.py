@@ -141,6 +141,22 @@ def test_units_equal_the_feature_catalogue(class_name, prop):
     assert mapping.CLASSES[class_name][prop].uom == catalogue()["units"][class_name][prop]
 
 
+@pytest.mark.parametrize("condition", mapping.CONFORMITY, ids=lambda c: c.class_name)
+def test_conformity_conditions_name_optional_written_attributes(condition):
+    """A condition makes attributes mandatory that the XSD leaves optional, and the export can write them."""
+    for name in condition.attributes:
+        assert name in mapping.CLASSES[condition.class_name]
+        assert properties(condition.class_name)[name][0] == 0
+
+
+def test_codes_of_the_rules_are_codes_of_the_xsd():
+    _, enums = schema()
+    assert mapping.NO_STATEMENT in enums["WP_EignungsstufeType"]
+    assert mapping.NO_STATEMENT_SUPPLY_TYPES <= enums["WP_WaermeversorgungsgebietTypType"]
+    assert mapping.NO_STATEMENT_PROCEDURES | {mapping.SMALL_HEAT_PLANNING} <= enums["WP_VerfahrenArtType"]
+    assert mapping.EXISTING in enums["WP_StatusType"]
+
+
 @pytest.mark.parametrize("class_name, prop", ATTRIBUTES)
 def test_sources_exist_in_fheat(class_name, prop):
     attribute = mapping.CLASSES[class_name][prop]

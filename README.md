@@ -323,7 +323,8 @@ Regionalschlüssel, named in `report.notes`). xplan-tools cannot read a fragment
 on its own, because its area points to a plan outside the file.
 `networks=[NetworkResult(state, name=...), ...]` exports several networks. The report
 collects every finding (structure, schema with `schema_dir=`, consistency with
-the F|Heat result); nothing is written when a feature cannot be built. GML is
+the F|Heat result, conformity conditions of the standard); only an export
+without findings writes files, so a written file is verifiably conformant. GML is
 the normative format; JSON-FG is written as xplan-tools writes it. Mapping,
 decisions and limits: [`docs/xwp_mapping.md`](docs/xwp_mapping.md).
 

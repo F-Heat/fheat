@@ -184,20 +184,78 @@ def test_analysis_only_has_no_network(state, config, tmp_path):
     assert "WP_Waermenetz" not in report.counts
 
 
-def test_consistency_findings_are_reported(state, config, tmp_path):
+def test_features_outside_the_boundary_are_left_out(state, config, tmp_path):
     # a plan boundary beside the analysis: the supply area and the network lie outside it
     report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=box(170, -50, 250, 100))
-    assert report.files and not report.ok
-    assert {i.level for i in report.issues} == {"consistency"}
-    assert any("outside the plan boundary" in i.message for i in report.issues)
+    assert report.ok, report.issues
+    assert "WP_Waermenetz" not in report.counts and "WP_WaermeversorgungsgebietZieljahr" not in report.counts
+    assert ("outside the plan boundary, left out: 1 WP_Waermenetz, 1 WP_WaermeversorgungsgebietZieljahr"
+            in report.notes)
+
+
+def no_file_in(directory: Path) -> bool:
+    """No export file in ``directory``, not even a partial one (the state fixture writes into ``out/``)."""
+    return not any(p.suffix in (".gml", ".json") for p in directory.iterdir())
 
 
 def test_structure_findings_stop_the_export(state, config, tmp_path):
     config.procedure = "9999"  # past the config check: a code the schema does not know
     report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=AREA)
-    assert not report.files and not (tmp_path / "plan.gml").exists()
+    assert not report.files and no_file_in(tmp_path)
     assert [(i.level, i.feature.split()[0]) for i in report.issues] == [("structure", "WP_Plan")]
     assert "verfahrensart" in report.issues[0].message
+
+
+def test_consistency_findings_stop_the_export(state, config, tmp_path, monkeypatch):
+    from fheat_core.export.xwp import export as export_module
+
+    def wrong_heat(wld_gdf, boundary=None):  # a mapper that loses the unit conversion
+        records = map_waermelinien(wld_gdf, boundary)
+        for r in records:
+            r["properties"]["waermeMenge"]["value"] *= 1000
+        return records
+
+    from fheat_core.export.xwp.mappers import map_waermelinien
+    monkeypatch.setattr(export_module, "map_waermelinien", wrong_heat)
+    report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=AREA)
+    assert not report.files and no_file_in(tmp_path)
+    assert [i.level for i in report.issues] == ["consistency"] and "heat lines" in report.issues[0].message
+
+
+@pytest.mark.parametrize("change, missing", [
+    ({"supply_type": "1000"}, "eignungDezentraleVersorgung, eignungWaermenetz, eignungWasserstoffnetz"),
+    ({"supply_type": "1000", "suitability_thresholds": (415, 175, 70)}, "eignungDezentraleVersorgung"),
+    ({"network_status": "1000"}, "temperatur"),
+])
+def test_conformity_findings_stop_the_export(state, config, tmp_path, change, missing):
+    state.result_summary = {k: v for k, v in state.result_summary.items() if k != "supply_temperature_c"}
+    report = export_xwaermeplan(state, dataclasses.replace(config, **change), [tmp_path / "plan.gml",
+                                tmp_path / "plan.json"], boundary=AREA)
+    assert not report.files and no_file_in(tmp_path)
+    assert {i.level for i in report.issues} == {"conformity"}
+    assert report.issues[0].message.startswith(missing)
+
+
+def test_conformity_allows_the_small_heat_planning_without_suitability(state, config, tmp_path):
+    config = dataclasses.replace(config, supply_type="1000", procedure="2000")
+    report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=AREA)
+    assert report.ok, report.issues
+
+
+def test_schema_findings_stop_the_export(state, config, tmp_path, monkeypatch):
+    from fheat_core.export.xwp import writer
+
+    monkeypatch.setattr(writer, "validate_gml", lambda path, schema_dir: ["line 1: not valid"])
+    report = export_xwaermeplan(state, config, [tmp_path / "plan.gml", tmp_path / "plan.json"],
+                                schema_dir=XSD, boundary=AREA)
+    assert not report.files and no_file_in(tmp_path)
+    assert [i.level for i in report.issues] == ["schema"]
+
+
+def test_without_schema_dir_the_notes_say_so(state, config, tmp_path):
+    report = export_xwaermeplan(state, config, tmp_path / "plan.gml", boundary=AREA)
+    assert report.ok and not report.schema_checked
+    assert report.notes[-1] == "GML not checked against the XSD (no schema_dir given)"
 
 
 def test_features_are_cut_to_the_parcels_by_default(state, config, tmp_path):

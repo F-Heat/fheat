@@ -75,6 +75,18 @@ def suitability_stage(heat_demand_density, thresholds: Optional[tuple[float, flo
     return mapping.SUITABILITY_STAGES[-1]
 
 
+def no_statement(config: XWPExportConfig) -> bool:
+    """No suitability statement is needed: supply type Prüfgebiet or the simplified procedure."""
+    return config.supply_type in mapping.NO_STATEMENT_SUPPLY_TYPES or config.procedure in mapping.NO_STATEMENT_PROCEDURES
+
+
+def _suitability(source: Source) -> Optional[str]:
+    """The stage for a heat network: no statement where none is needed, else from the thresholds, if set."""
+    if no_statement(source.config):
+        return mapping.NO_STATEMENT
+    return suitability_stage(source.row.get(cols.HEAT_DEMAND_DENSITY), source.config.suitability_thresholds)
+
+
 def _heat_fed_in(source: Source) -> float:
     """Heat fed into the network: demand of the connected buildings plus the losses [MWh/a]."""
     return float(source.summary[cols.TOTAL_HEAT_DEMAND]) + float(source.summary.get(cols.TOTAL_LOSS) or 0.0)
@@ -83,8 +95,9 @@ def _heat_fed_in(source: Source) -> float:
 #: Values F|Heat derives, by the name the tables give as source "rule"
 RULES: dict[str, Callable[[Source], object]] = {
     "heat_fed_in": _heat_fed_in,
-    "suitability": lambda source: suitability_stage(
-        source.row.get(cols.HEAT_DEMAND_DENSITY), source.config.suitability_thresholds),
+    "suitability": _suitability,
+    # decentral and hydrogen supply: F|Heat has no assessment, only the stage where none is needed
+    "no_statement": lambda source: mapping.NO_STATEMENT if no_statement(source.config) else None,
     "interim_year": lambda source: mapping.INTERIM_YEAR_CODE[source.config.supply_year],
 }
 
@@ -192,17 +205,23 @@ def map_waermelinien(wld_gdf: Optional[gpd.GeoDataFrame], boundary: Optional[Bas
 # Heat networks (WPG Anlage 2 I.2.8 a)
 # ------------------------------------------------------------------
 
+def named(networks: Sequence[NetworkResult]) -> list[NetworkResult]:
+    """The networks with name and key: without a name "Netz <n>", without a key the name, else "N<nn>"."""
+    return [
+        dataclasses.replace(net, name=net.name or f"Netz {i}", key=net.key or net.name or f"N{i:02d}")
+        for i, net in enumerate(networks, start=1)
+    ]
+
+
 def map_waermenetze(networks: Sequence[NetworkResult], config: XWPExportConfig, crs) -> list[dict]:
-    """One heat network per calculated network.
+    """One heat network per calculated network, keyed as in :func:`named`.
 
     The area is a buffer of ``config.resolved_network_buffer`` around every
     edge of the network (route, house and source connections), dissolved, as
-    in the technical plan. Without a name a network is "Netz <n>", without
-    a key it takes its name, else "N<nn>".
+    in the technical plan.
     """
     records = []
-    for i, net in enumerate(networks, start=1):
-        net = dataclasses.replace(net, name=net.name or f"Netz {i}", key=net.key or net.name or f"N{i:02d}")
+    for net in named(networks):
         state = net.state
         if state.net_gdf is None or state.net_gdf.empty or not state.result_summary:
             raise ValueError(f"network {net.name!r} has no result (net_gdf and result_summary of phase RESULTS).")
@@ -221,8 +240,10 @@ def map_versorgungsgebiete(polygons_gdf: Optional[gpd.GeoDataFrame], config: XWP
     """One supply area per suitability polygon, class after ``config.supply_year``.
 
     Every area gets ``config.supply_type``; F|Heat makes no decision per
-    area. The target-year class gets a proposed suitability from the heat
-    demand density when ``config.suitability_thresholds`` is set.
+    area. In the target-year class every suitability stage is "no statement"
+    for a Prüfgebiet or the simplified procedure; otherwise the heat network
+    stage comes from the heat demand density when
+    ``config.suitability_thresholds`` is set.
     """
     if polygons_gdf is None or polygons_gdf.empty:
         return []

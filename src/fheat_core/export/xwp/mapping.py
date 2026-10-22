@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from fheat_core import columns as cols
 
@@ -137,6 +137,13 @@ INTERIM_YEAR_CODE = {label: code for code, label in INTERIM_YEAR.items()}
 
 #: Lower bounds of the suitability stages 1000, 2000 and 3000 (below the last: 4000)
 SUITABILITY_STAGES = ("1000", "2000", "3000", "4000")
+
+#: WP_Eignungsstufe 5000 "Keine Aussage notwendig oder möglich (entweder vereinfachtes
+#: Verfahren durchgeführt oder Versorgungsart Prüfgebiet)": the supply types and
+#: procedures after which every suitability stage is 5000
+NO_STATEMENT = "5000"
+NO_STATEMENT_SUPPLY_TYPES = frozenset({"4000", "40001", "40002", "40003"})  # Prüfgebiet
+NO_STATEMENT_PROCEDURES = frozenset({"3000"})                                # Vereinfachtes Verfahren
 
 CODE_LISTS = {
     "WP_VerfahrenArt": PROCEDURE,
@@ -285,7 +292,9 @@ CLASSES: dict[str, dict[str, Attribute]] = {
         "position": _GEOMETRY,
         "versorgungsart": Attribute("config", "supply_type", code_list="WP_WaermeversorgungsgebietTyp"),
         "waermeMenge": Attribute("column", cols.HEAT_DEMAND, **_HEAT),
+        "eignungDezentraleVersorgung": Attribute("rule", "no_statement", code_list="WP_Eignungsstufe"),
         "eignungWaermenetz": Attribute("rule", "suitability", code_list="WP_Eignungsstufe"),
+        "eignungWasserstoffnetz": Attribute("rule", "no_statement", code_list="WP_Eignungsstufe"),
         "gehoertZuBereich": _IN_AREA,
     },
     SUPPLY_AREA_INTERIM: {
@@ -304,6 +313,31 @@ CONFIG_CODE_LISTS = {
     for attribute in attributes.values()
     if attribute.source == "config" and attribute.code_list is not None
 }
+
+
+@dataclass(frozen=True)
+class Condition:
+    """A conformity condition of the schema documentation that the XSD does not enforce.
+
+    ``attributes`` of ``class_name`` are mandatory where ``applies(config, properties)`` holds.
+    """
+
+    class_name: str
+    attributes: tuple[str, ...]
+    reason: str
+    applies: Callable[[Any, dict], bool]
+
+
+SMALL_HEAT_PLANNING = "2000"  # WP_VerfahrenArt
+EXISTING = "1000"             # WP_Status
+
+CONFORMITY = (
+    Condition(SUPPLY_AREA_TARGET, ("eignungDezentraleVersorgung", "eignungWaermenetz", "eignungWasserstoffnetz"),
+              "only optional in the small heat planning (verfahrensart 2000)",
+              lambda config, properties: config.procedure != SMALL_HEAT_PLANNING),
+    Condition(HEAT_NETWORK, ("medium", "temperatur"), "mandatory for existing networks (status 1000)",
+              lambda config, properties: properties.get("status") == EXISTING),
+)
 
 
 def attributes() -> Iterator[tuple[str, str, Attribute]]:

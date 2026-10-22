@@ -4,6 +4,7 @@ A one-way adapter: reads finished pipeline states, never changes them.
 """
 from __future__ import annotations
 
+import os
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,7 @@ from fheat_core.export.xwp.mappers import (
     map_versorgungsgebiete,
     map_waermelinien,
     map_waermenetze,
+    named,
     polygonal,
 )
 from fheat_core.export.xwp.report import ExportReport, Issue
@@ -51,40 +53,58 @@ def export_xwaermeplan(
     several, ``.gml`` and/or ``.json`` (JSON-FG). ``boundary`` (geometry or
     GeoDataFrame in the CRS of ``state``, e.g. ``adapter.provide_boundary()``)
     is the plan area; None = the union of the parcels. Areas and heat lines
-    are cut to it. ``schema_dir`` with the XSD of the schema version enables
-    the schema check of the GML (see :func:`writer.validate_gml`).
+    are cut to it; a map feature wholly outside is left out and named in the
+    notes. ``schema_dir`` with the XSD of the schema version enables the
+    schema check of the GML (see :func:`writer.validate_gml`).
 
-    Nothing is written when a feature cannot be built (level "structure");
-    schema and consistency findings are reported with the written files.
-    Needs the extra ``[xwp]`` (xplan-tools).
+    Only verifiably conformant data leave the export: the files are written
+    only when no level (structure, consistency, conformity and, with
+    ``schema_dir``, schema) has a finding; otherwise the report holds the
+    findings and no file is written. Needs the extra ``[xwp]`` (xplan-tools).
     """
     paths = [path] if isinstance(path, (str, Path)) else list(path)
     formats = [writer.format_of(p) for p in paths]
     crs = _crs(state)
     srid = crs.to_epsg()
-    nets = _networks(state, networks)
+    nets = named(_networks(state, networks))
     area = _boundary(state, boundary, crs)
 
     heat_lines = _heat_lines(state.wld_gdf, area)
-    features, clipped = _clip([
+    features, left_out = _clip([
         *map_waermelinien(state.wld_gdf, area),
         *map_waermenetze(nets, config, crs),
         *map_versorgungsgebiete(state.polygons_gdf, config),
     ], area)
     records = [*map_plan(config, area), *features]
     report = ExportReport(counts=dict(Counter(r["featuretype"] for r in records)),
-                          notes=_notes(config, boundary, heat_lines))
-    consistency = clipped + _consistency(records, state, nets, area, config, heat_lines)
+                          notes=_notes(config, boundary, heat_lines, left_out))
+    findings = _consistency(records, state, nets, area, config, heat_lines) + _conformity(records, config)
 
-    collection, report.issues = builder.build_collection(records, config, srid)
-    if collection is not None:
-        for p, fmt in zip(paths, formats):
-            report.files[fmt] = writer.write(collection, p)
-        if schema_dir is not None and "gml" in report.files:
+    collection, structure = builder.build_collection(records, config, srid)
+    report.issues = structure + findings
+    if collection is None or report.issues:
+        return report
+
+    staged = {fmt: writer.write(collection, _staging(Path(p))) for p, fmt in zip(paths, formats)}
+    try:
+        if schema_dir is not None and "gml" in staged:
             report.schema_checked = True
-            report.issues += [Issue("schema", None, m) for m in writer.validate_gml(report.files["gml"], schema_dir)]
-    report.issues += consistency
+            report.issues += [Issue("schema", None, m) for m in writer.validate_gml(staged["gml"], schema_dir)]
+        elif "gml" in staged:
+            report.notes.append("GML not checked against the XSD (no schema_dir given)")
+        if not report.issues:
+            for p, fmt in zip(paths, formats):
+                os.replace(staged[fmt], p)
+                report.files[fmt] = Path(p)
+    finally:
+        for p in staged.values():
+            p.unlink(missing_ok=True)
     return report
+
+
+def _staging(path: Path) -> Path:
+    """Where a file is written before the checks: next to its target, same suffix (it picks the format)."""
+    return path.with_name(f"{path.stem}.partial{path.suffix}")
 
 
 @dataclass(frozen=True)
@@ -119,10 +139,13 @@ def _heat_lines(wld: Optional[gpd.GeoDataFrame], area: BaseGeometry) -> _HeatLin
     )
 
 
-def _notes(config: XWPExportConfig, boundary, heat_lines: _HeatLines) -> list[str]:
+def _notes(config: XWPExportConfig, boundary, heat_lines: _HeatLines, left_out: list[str]) -> list[str]:
     """What the user should know about the written plan; no findings."""
     notes = ["plan boundary: the boundary passed to the export" if boundary is not None
              else "plan boundary: the union of the parcels (no boundary passed)"]
+    if left_out:
+        counts = ", ".join(f"{n} {name}" for name, n in sorted(Counter(left_out).items()))
+        notes.append(f"outside the plan boundary, left out: {counts}")
     if heat_lines.cut:
         _, attribute = mapping.written_from(mapping.HEAT_LINE, "column", cols.HEAT_DEMAND)
         notes.append(f"heat lines cut at the plan boundary: {heat_lines.cut}; "
@@ -170,16 +193,17 @@ def _boundary(state: PipelineState, boundary, crs) -> BaseGeometry:
     return area
 
 
-def _clip(records, area) -> tuple[list[dict], list[Issue]]:
-    """Cut the areas of the map features to the plan boundary.
+def _clip(records, area) -> tuple[list[dict], list[str]]:
+    """Cut the areas of the map features to the plan boundary; ``(kept, classes left out)``.
 
     The suitability polygons are parcels buffered by ``buffer_distance`` and
     the network areas buffers around routes, so at the edge of the analysis
-    they reach beyond it; a plan content outside the plan makes no sense.
-    Their attributes stay those of the F|Heat result. The heat lines are cut
-    by their mapper, which recalculates length and heat demand.
+    they reach beyond it; a plan content outside the plan makes no sense, and
+    an area wholly outside is left out. Their attributes stay those of the
+    F|Heat result. The heat lines are cut by their mapper, which recalculates
+    length and heat demand.
     """
-    kept, issues = [], []
+    kept, left_out = [], []
     for r in records:
         geom = r["geometry"]
         if geom is None or geom.geom_type != "MultiPolygon" or area.covers(geom):
@@ -187,11 +211,10 @@ def _clip(records, area) -> tuple[list[dict], list[Issue]]:
             continue
         inside = polygonal(geom.intersection(area))
         if inside is None:
-            label = f"{r['featuretype']} {r['key']}"
-            issues.append(Issue("consistency", label, "lies outside the plan boundary, left out"))
+            left_out.append(r["featuretype"])
             continue
         kept.append({**r, "geometry": inside})
-    return kept, issues
+    return kept, left_out
 
 
 def _consistency(records, state, nets, area, config, heat_lines: _HeatLines) -> list[Issue]:
@@ -218,9 +241,9 @@ def _consistency(records, state, nets, area, config, heat_lines: _HeatLines) -> 
                             f"street segments inside the plan boundary {expected:.3f} {attribute.uom}"))
 
     length, attribute = mapping.written_from(mapping.HEAT_NETWORK, "summary", cols.TOTAL_ROUTE_LENGTH)
-    netz = [r for r in records if r["featuretype"] == mapping.HEAT_NETWORK]
-    for record, net in zip(netz, nets):
-        expected = float(net.state.result_summary[cols.TOTAL_ROUTE_LENGTH]) * attribute.factor
+    by_key = {net.key: net for net in nets}
+    for record in (r for r in records if r["featuretype"] == mapping.HEAT_NETWORK):
+        expected = float(by_key[record["key"]].state.result_summary[cols.TOTAL_ROUTE_LENGTH]) * attribute.factor
         exported = record["properties"].get(length, {}).get("value")
         if exported is None or abs(exported - expected) > 1e-6:
             issues.append(Issue("consistency", f"{mapping.HEAT_NETWORK} {record['key']}",
@@ -231,9 +254,24 @@ def _consistency(records, state, nets, area, config, heat_lines: _HeatLines) -> 
         heat, attribute = mapping.written_from(config.supply_area_class, "column", cols.HEAT_DEMAND)
         areas = [r for r in records if r["featuretype"] == config.supply_area_class]
         exported = sum(r["properties"].get(heat, {}).get("value", 0.0) for r in areas)
-        expected = float(polygons[cols.HEAT_DEMAND].fillna(0.0).sum()) * attribute.factor
+        inside = polygons.geometry.intersection(area).area > 0
+        expected = float(polygons.loc[inside, cols.HEAT_DEMAND].fillna(0.0).sum()) * attribute.factor
         if abs(exported - expected) > SUM_TOLERANCE * max(abs(expected), 1.0) + 1e-3:
             issues.append(Issue("consistency", None,
-                                f"{heat} of the supply areas {exported:.3f} {attribute.uom} != "
-                                f"heat demand of the suitability polygons {expected:.3f} {attribute.uom}"))
+                                f"{heat} of the supply areas {exported:.3f} {attribute.uom} != heat demand "
+                                f"of the suitability polygons inside the plan boundary {expected:.3f} {attribute.uom}"))
+    return issues
+
+
+def _conformity(records, config: XWPExportConfig) -> list[Issue]:
+    """The conformity conditions of the schema documentation (``mapping.CONFORMITY``)."""
+    issues = []
+    for condition in mapping.CONFORMITY:
+        for r in (r for r in records if r["featuretype"] == condition.class_name):
+            if not condition.applies(config, r["properties"]):
+                continue
+            missing = [name for name in condition.attributes if name not in r["properties"]]
+            if missing:
+                issues.append(Issue("conformity", f"{r['featuretype']} {r['key']}",
+                                    f"{', '.join(missing)} missing: {condition.reason}"))
     return issues
