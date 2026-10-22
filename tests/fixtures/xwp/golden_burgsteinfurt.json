@@ -1,0 +1,26 @@
+{
+  "counts": {
+    "WP_Bereich": 1,
+    "WP_Plan": 1,
+    "WP_Waermelinie": 122,
+    "WP_Waermenetz": 1,
+    "WP_WaermeversorgungsgebietZieljahr": 2
+  },
+  "sums": {
+    "WP_Waermelinie.laenge": 12648.9,
+    "WP_Waermelinie.waermeMenge": 15991.2,
+    "WP_Waermenetz.laenge": 5171.6,
+    "WP_WaermeversorgungsgebietZieljahr.waermeMenge": 15958.7
+  },
+  "network": {
+    "anzahlGebaeudeAnschluss": 294,
+    "temperatur": 80.0,
+    "flaeche_ha": 36.4
+  },
+  "eignungWaermenetz": {},
+  "issues": [
+    "consistency: WP_Waermelinie 59485e1bf8756309 geometry reaches beyond the plan boundary",
+    "consistency: WP_Waermelinie 9d344c19f7685a49 geometry reaches beyond the plan boundary",
+    "consistency: WP_Waermelinie f5998ee505b51568 geometry reaches beyond the plan boundary"
+  ]
+}

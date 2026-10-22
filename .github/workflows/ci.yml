@@ -117,3 +117,38 @@ jobs:
 
       - name: Expert-Modus-Tests ausführen
         run: python -m pytest tests/test_network_expert.py -v
+
+  xwp:
+    # XWärmeplan-Export (fheat_core/export/xwp) auf xplan-tools, dem Werkzeug
+    # der XLeitstelle. Eigener Job, weil xplan-tools ab 1.21 Python 3.13 und
+    # die GDAL-Python-Bindung verlangt, für die es kein Wheel auf PyPI gibt;
+    # der Hauptlauf überspringt die Tests mit Marker xwp. Die Bindung muss zur
+    # System-GDAL passen und wird mit numpy-Unterstützung gebaut.
+    name: XWärmeplan-Export (xplan-tools, Python 3.13)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v7
+
+      - name: Python 3.13 einrichten
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: GDAL installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gdal-bin libgdal-dev
+
+      - name: Projekt mit xplan-tools installieren
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy setuptools wheel
+          python -m pip install --no-build-isolation "gdal==$(gdal-config --version)"
+          python -m pip install --editable ".[full,dev,xwp]"
+
+      - name: XWärmeplan-Tests ausführen
+        run: python -m pytest -m xwp -v

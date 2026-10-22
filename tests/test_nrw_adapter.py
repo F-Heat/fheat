@@ -503,6 +503,13 @@ class TestBundledReferenceData:
         bbox = cities["bbox"].iloc[0]
         assert len(bbox) == 4
 
+    def test_municipality_key_is_the_eight_digit_ags(self):
+        # cities.csv stores gmdschl without the leading 0 of the NRW state code
+        assert NRWDataAdapter(city_name="Burgsteinfurt").municipality_key == "05566084"
+        assert NRWDataAdapter(municipality_name="Steinfurt").municipality_key == "05566084"
+        assert NRWDataAdapter(district_key=55190).municipality_key == "05566084"
+        assert NRWDataAdapter(city_name="Münster").municipality_key == "05515000"
+
     def test_custom_heat_demand_actually_fires(self):
         """End-to-end guard: with real reference data the age-class merge produces
         a specific heat demand (not the silent `return gdf` fallback)."""
