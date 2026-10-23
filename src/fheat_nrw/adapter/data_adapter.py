@@ -251,6 +251,12 @@ class NRWDataAdapter(DataAdapter):
         self._ensure_loaded()
         return self._source
 
+    @property
+    def municipality_key(self) -> str:
+        """Amtlicher Gemeindeschlüssel (AGS, 8 digits) of the area, from cities.csv; no download."""
+        filtered, _ = self._select_area(self._load_cities())
+        return str(filtered["gmdschl"].iloc[0]).zfill(8)
+
     def provide_boundary(self) -> gpd.GeoDataFrame:
         """Outline of the downloaded municipality or district (union of its parcels)."""
         self._ensure_loaded()

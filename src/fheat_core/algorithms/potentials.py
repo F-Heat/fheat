@@ -107,13 +107,13 @@ def potential_summary(
     if blocks is not None and not blocks.empty and buildings is not None and not buildings.empty:
         rows = _block_row_of(buildings, blocks).dropna().unique().astype(int)
         mine = blocks.loc[rows]
-        for key, column in (("ong_potential_mwh_a", cols.ONG_POTENTIAL_MWH),
-                            ("mtg_potential_mwh_a", cols.MTG_POTENTIAL_MWH)):
+        for key, column in ((cols.TOTAL_ONG_POTENTIAL, cols.ONG_POTENTIAL_MWH),
+                            (cols.TOTAL_MTG_POTENTIAL, cols.MTG_POTENTIAL_MWH)):
             if column in mine.columns and mine[column].notna().any():
                 out[key] = round(float(mine[column].sum()), 3)
     if deep is not None and not deep.empty and cols.DEEP_POTENTIAL_MWH in deep.columns:
-        out["deep_potential_max_mwh_a"] = round(float(deep[cols.DEEP_POTENTIAL_MWH].max()), 3)
+        out[cols.MAX_DEEP_POTENTIAL] = round(float(deep[cols.DEEP_POTENTIAL_MWH].max()), 3)
     if solar is not None and not solar.empty and cols.SOLAR_FLAT_PLATE_MWH in solar.columns:
-        out["solar_thermal_flat_plate_mwh_a"] = round(float(solar[cols.SOLAR_FLAT_PLATE_MWH].sum()), 3)
-        out["solar_thermal_area_m2"] = round(float(solar[cols.SOLAR_USABLE_AREA].sum()), 1)
+        out[cols.TOTAL_SOLAR_THERMAL_FLAT_PLATE] = round(float(solar[cols.SOLAR_FLAT_PLATE_MWH].sum()), 3)
+        out[cols.TOTAL_SOLAR_THERMAL_AREA] = round(float(solar[cols.SOLAR_USABLE_AREA].sum()), 1)
     return out

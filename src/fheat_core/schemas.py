@@ -85,8 +85,6 @@ BuildingsSchema = FrameSchema(
         cols.AGE: "str",
         cols.CONSTRUCTION_CLASS: "str",
         cols.CONSTRUCTION_YEAR: "int",
-        cols.PARCEL_YEAR: "int",
-        cols.XWP_BUILDING_TYPE: "str",
         cols.BLOCK_ID: "str",
         cols.HEAT_DEMAND_DATASET: "float",
         cols.HEAT_DEMAND_CALCULATED: "float",
@@ -134,6 +132,9 @@ WLDSchema = FrameSchema(
         cols.LENGTH: "float",
         cols.HEAT_LINE_DENSITY: "float",
         cols.CONNECTED_IDS: "str",
+    },
+    optional_columns={
+        cols.HEAT_DEMAND: "float",  # written by the status step; the density is demand / length
     },
     geometry_type="LineString",
     allow_empty=True,
@@ -329,31 +330,31 @@ SolarThermalSchema = FrameSchema(
 class ResultSummarySchema:
     name: str = "ResultSummary"
     required_keys: tuple = (
-        "total_heat_demand_mwh_a",
-        "total_buildings",
-        "total_power_glf_kw",
-        "glf",
-        "total_network_length_m",
-        "total_loss_mwh_a",
-        "supply_temperature_c",
-        "return_temperature_c",
-        "total_house_connection_length_m",
-        "total_route_length_m",
-        "total_loss_extra_insulation_mwh_a",
+        cols.TOTAL_HEAT_DEMAND,
+        cols.TOTAL_BUILDINGS,
+        cols.TOTAL_POWER_GLF,
+        cols.GLF,
+        cols.TOTAL_NETWORK_LENGTH,
+        cols.TOTAL_LOSS,
+        cols.SUPPLY_TEMPERATURE,
+        cols.RETURN_TEMPERATURE,
+        cols.TOTAL_HOUSE_CONNECTION_LENGTH,
+        cols.TOTAL_ROUTE_LENGTH,
+        cols.TOTAL_LOSS_EXTRA_INSULATION,
     )
     # Present only when the net carries civil cost factors / pipe costs
     # (left out rather than set to 0, see steps/results.py).
     optional_keys: tuple = (
-        "civil_cost_share",
-        "total_pipe_cost_eur",
-        "total_civil_cost_eur",
-        "mean_civil_cost_factor",
+        cols.CIVIL_COST_SHARE,
+        cols.TOTAL_PIPE_COST,
+        cols.TOTAL_CIVIL_COST,
+        cols.MEAN_CIVIL_COST_FACTOR,
         # Present only when the adapter provides the potential layer
-        "ong_potential_mwh_a",
-        "mtg_potential_mwh_a",
-        "deep_potential_max_mwh_a",
-        "solar_thermal_flat_plate_mwh_a",
-        "solar_thermal_area_m2",
+        cols.TOTAL_ONG_POTENTIAL,
+        cols.TOTAL_MTG_POTENTIAL,
+        cols.MAX_DEEP_POTENTIAL,
+        cols.TOTAL_SOLAR_THERMAL_FLAT_PLATE,
+        cols.TOTAL_SOLAR_THERMAL_AREA,
     )
 
     def validate(self, summary) -> None:

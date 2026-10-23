@@ -221,61 +221,6 @@ class FHeatOrchestrator:
         )
         return saved
 
-    def save_xwp(self, networks=None, supplement=None) -> dict[str, Path]:
-        """Write the XWaermeplan export to output_dir (needs ``config.xwp``).
-
-        Writes ``xwaermeplan.gml``, ``xwaermeplan.json`` (JSON-FG),
-        ``xwaermeplan.gpkg`` (formats of ``config.xwp.formats``) and
-        ``xwaermeplan_pruefbericht.json``: validity, findings, coverage per
-        feature type (automatic, proposal, supplemented, empty) and the
-        missing mandatory attributes. Returns the paths under the keys
-        ``xwp_gml``, ``xwp_jsonfg``, ``xwp_gpkg`` and ``xwp_report``.
-
-        ``networks``: the calculated networks, as PipelineState or
-        :class:`fheat_core.xwp.mapping.NetworkInput`; None = the network of
-        this state, if there is one. ``supplement``: the planner's supplement
-        file(s) (.gpkg and/or .xlsx, see :meth:`save_xwp_template`).
-        Needs the analysis results (phase STATUS); the files are written
-        even while the plan still has gaps, the report lists them.
-        """
-        from fheat_core.xwp.export import export_xwp
-
-        return export_xwp(self._out_dir, supplement=supplement, **self._xwp_inputs(networks))
-
-    def save_xwp_template(self, networks=None) -> dict[str, Path]:
-        """Write the supplement template ``xwp_ergaenzung.gpkg`` (and ``.xlsx`` with openpyxl) to output_dir.
-
-        Keys of the returned dict: ``xwp_template_gpkg``, ``xwp_template_xlsx``.
-        """
-        from fheat_core.xwp.export import export_template
-
-        return export_template(self._out_dir, **self._xwp_inputs(networks))
-
-    def _xwp_inputs(self, networks) -> dict:
-        from fheat_core.xwp.mapping import NetworkInput
-
-        if self.config.xwp is None:
-            raise ValueError("save_xwp needs FHeatConfig.xwp (plan metadata of the XWaermeplan export).")
-        state = self.state
-        if state.buildings_gdf is None or state.wld_gdf is None:
-            raise PipelineInputError("The XWaermeplan export needs the analysis results; run the STATUS step first.")
-        if networks is None:
-            networks = [state] if state.net_gdf is not None else []
-        inputs = [
-            n if isinstance(n, NetworkInput) else NetworkInput(n, supply_temperature=self.config.supply_temperature)
-            for n in networks
-        ]
-        return dict(
-            buildings=state.buildings_gdf,
-            wld=state.wld_gdf,
-            config=self.config.xwp,
-            parcels=state.parcels_gdf,
-            streets=state.streets_gdf,
-            boundary=self.adapter.provide_boundary(),
-            data_year=self.config.year,
-            networks=inputs,
-        )
-
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

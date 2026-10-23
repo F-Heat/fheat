@@ -31,9 +31,7 @@ FLOOR_AREA = "floor_area"            # net floor area [m²]
 AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
 CONSTRUCTION_YEAR = "construction_year"    # year of construction, where the source knows it
-PARCEL_YEAR = "parcel_year"                # NRW: year of the parcel's validFrom (BAK input; a proxy, not the construction year)
-BLOCK_ID = "block_id"                      # building block of the source (NRW: LANUV Block_ID), for XWaermeplan
-XWP_BUILDING_TYPE = "xwp_building_type"    # code of WP_GebaeudeTyp (XWaermeplan), see fheat_core/xwp/mapping/building_type.py
+BLOCK_ID = "block_id"                      # building block of the source (NRW: LANUV Block_ID)
 # Both heat demand values, so FHeatConfig.heat_demand_basis can choose which
 # one becomes HEAT_DEMAND (see steps/adjust.py).
 HEAT_DEMAND_DATASET = "heat_demand_dataset"        # as delivered by the data source [kWh/a]
@@ -195,6 +193,33 @@ TOTAL_EXTRA_INSULATION = "total_extra_insulation"  # total (extra insulation)
 
 
 # ============================================================
+# Result summary — keys of PipelineState.result_summary
+# (the simultaneity factor of the network is the key GLF)
+# ============================================================
+
+TOTAL_HEAT_DEMAND = "total_heat_demand_mwh_a"                      # heat demand of the connected buildings [MWh/a]
+TOTAL_BUILDINGS = "total_buildings"                                # connected buildings
+TOTAL_POWER_GLF = "total_power_glf_kw"                             # thermal power with simultaneity factor [kW]
+TOTAL_NETWORK_LENGTH = "total_network_length_m"                    # all edges [m]
+TOTAL_HOUSE_CONNECTION_LENGTH = "total_house_connection_length_m"  # house connections [m]
+TOTAL_ROUTE_LENGTH = "total_route_length_m"                        # route without house connections [m]
+TOTAL_LOSS = "total_loss_mwh_a"                                    # heat loss of the network [MWh/a]
+TOTAL_LOSS_EXTRA_INSULATION = "total_loss_extra_insulation_mwh_a"  # heat loss with extra insulation [MWh/a]
+SUPPLY_TEMPERATURE = "supply_temperature_c"                        # supply temperature [°C]
+RETURN_TEMPERATURE = "return_temperature_c"                        # return temperature [°C]
+CIVIL_COST_SHARE = "civil_cost_share"                              # civil works share of the pipe costs (config)
+TOTAL_PIPE_COST = "total_pipe_cost_eur"                            # pipe investment [€]
+TOTAL_CIVIL_COST = "total_civil_cost_eur"                          # civil works part of the pipe investment [€]
+MEAN_CIVIL_COST_FACTOR = "mean_civil_cost_factor"                  # civil works factor, weighted by length
+# present only when the adapter provides the potential layer (algorithms/potentials.py)
+TOTAL_ONG_POTENTIAL = "ong_potential_mwh_a"                        # shallow geothermal of the blocks of the connected buildings [MWh/a]
+TOTAL_MTG_POTENTIAL = "mtg_potential_mwh_a"                        # medium-deep geothermal (probes) of these blocks [MWh/a]
+MAX_DEEP_POTENTIAL = "deep_potential_max_mwh_a"                    # largest doublet cell around the area (P50) [MWh/a]
+TOTAL_SOLAR_THERMAL_FLAT_PLATE = "solar_thermal_flat_plate_mwh_a"  # ground-mounted solar thermal around the area, flat plate [MWh/a]
+TOTAL_SOLAR_THERMAL_AREA = "solar_thermal_area_m2"                 # its usable area [m²]
+
+
+# ============================================================
 # Units (metadata)
 # ============================================================
 
@@ -288,8 +313,6 @@ LABELS_DE: dict[str, str] = {
     AGE: "Alter",
     CONSTRUCTION_CLASS: "BAK",
     CONSTRUCTION_YEAR: "Baujahr",
-    PARCEL_YEAR: "Jahr_Flurstueck",
-    XWP_BUILDING_TYPE: "Gebaeudetyp_XWP",
     BLOCK_ID: "Block_ID",
     # same names as the attributes of the former QGIS plugin
     HEAT_DEMAND_DATASET: "RW_WW [kWh/a]",
@@ -386,26 +409,26 @@ LABELS_DE: dict[str, str] = {
 
 # German labels for the keys of ``PipelineState.result_summary`` (table export).
 SUMMARY_LABELS_DE: dict[str, str] = {
-    "total_heat_demand_mwh_a": "Gesamtwärmebedarf [MWh/a]",
-    "total_buildings": "Angeschlossene Gebäude",
-    "total_power_glf_kw": "Thermische Leistung (GLF) [kW]",
-    "glf": "Gleichzeitigkeitsfaktor",
-    "total_network_length_m": "Netzlänge [m]",
-    "total_house_connection_length_m": "Hausanschlusslänge [m]",
-    "total_route_length_m": "Trassenlänge [m]",
-    "total_loss_mwh_a": "Netzwärmeverlust [MWh/a]",
-    "total_loss_extra_insulation_mwh_a": "Netzwärmeverlust bei extra Dämmung [MWh/a]",
-    "supply_temperature_c": "Vorlauftemperatur [°C]",
-    "return_temperature_c": "Rücklauftemperatur [°C]",
-    "civil_cost_share": "Tiefbauanteil der Rohrkosten",
-    "total_pipe_cost_eur": "Investition Rohrleitungen [€]",
-    "total_civil_cost_eur": "davon Tiefbau [€]",
-    "mean_civil_cost_factor": "Mittlerer Tiefbaufaktor",
-    "ong_potential_mwh_a": "Potenzial oberflächennahe Geothermie der Baublöcke [MWh/a]",
-    "mtg_potential_mwh_a": "Potenzial mitteltiefe Geothermie (Sonden) der Baublöcke [MWh/a]",
-    "deep_potential_max_mwh_a": "Größtes Potenzial einer Dublette im Umkreis (P50) [MWh/a]",
-    "solar_thermal_flat_plate_mwh_a": "Freiflächen-Solarthermie im Umkreis, Flachkollektor [MWh/a]",
-    "solar_thermal_area_m2": "Nutzfläche Freiflächen-Solarthermie im Umkreis [m²]",
+    TOTAL_HEAT_DEMAND: "Gesamtwärmebedarf [MWh/a]",
+    TOTAL_BUILDINGS: "Angeschlossene Gebäude",
+    TOTAL_POWER_GLF: "Thermische Leistung (GLF) [kW]",
+    GLF: "Gleichzeitigkeitsfaktor",
+    TOTAL_NETWORK_LENGTH: "Netzlänge [m]",
+    TOTAL_HOUSE_CONNECTION_LENGTH: "Hausanschlusslänge [m]",
+    TOTAL_ROUTE_LENGTH: "Trassenlänge [m]",
+    TOTAL_LOSS: "Netzwärmeverlust [MWh/a]",
+    TOTAL_LOSS_EXTRA_INSULATION: "Netzwärmeverlust bei extra Dämmung [MWh/a]",
+    SUPPLY_TEMPERATURE: "Vorlauftemperatur [°C]",
+    RETURN_TEMPERATURE: "Rücklauftemperatur [°C]",
+    CIVIL_COST_SHARE: "Tiefbauanteil der Rohrkosten",
+    TOTAL_PIPE_COST: "Investition Rohrleitungen [€]",
+    TOTAL_CIVIL_COST: "davon Tiefbau [€]",
+    MEAN_CIVIL_COST_FACTOR: "Mittlerer Tiefbaufaktor",
+    TOTAL_ONG_POTENTIAL: "Potenzial oberflächennahe Geothermie der Baublöcke [MWh/a]",
+    TOTAL_MTG_POTENTIAL: "Potenzial mitteltiefe Geothermie (Sonden) der Baublöcke [MWh/a]",
+    MAX_DEEP_POTENTIAL: "Größtes Potenzial einer Dublette im Umkreis (P50) [MWh/a]",
+    TOTAL_SOLAR_THERMAL_FLAT_PLATE: "Freiflächen-Solarthermie im Umkreis, Flachkollektor [MWh/a]",
+    TOTAL_SOLAR_THERMAL_AREA: "Nutzfläche Freiflächen-Solarthermie im Umkreis [m²]",
 }
 
 
@@ -416,15 +439,4 @@ def to_display(df, mapping: dict[str, str] = LABELS_DE):
     are left unchanged. Returns a new object.
     """
     rename = {c: mapping[c] for c in df.columns if c in mapping}
-    return df.rename(columns=rename) if rename else df
-
-
-def from_display(df, mapping: dict[str, str] = LABELS_DE):
-    """Inverse of :func:`to_display`: German display labels back to canonical names.
-
-    For files written by ``save_outputs`` with ``output_language="de"``.
-    Columns that are no label stay unchanged. Returns a new object.
-    """
-    inverse = {label: name for name, label in mapping.items()}
-    rename = {c: inverse[c] for c in df.columns if c in inverse}
     return df.rename(columns=rename) if rename else df
