@@ -153,6 +153,21 @@ Both are loaded for the bounding box of the loaded buildings, streets and source
 
 **Open points.** The factor tables ([`fheat_nrw/civil_cost.py`](src/fheat_nrw/civil_cost.py), [`fheat_nrw/osm_surface.py`](src/fheat_nrw/osm_surface.py)) and the pipe costs are the values of the previous F|Heat version; the source of the pipe costs is still to be documented, and both are to be calibrated with values from practice. topotherm's own cost regression (`a`, `b`) is not yet aligned with `pipe_data.csv`.
 
+### Expansion potential of the pipes
+
+[`expansion_potential(net, source, pipe_info, building_power)`](src/fheat_core/algorithms/expansion.py) tells, for every pipe of a calculated net, how much building power can still be connected at it before a DN on its way to the source would have to go up to the next size, and how many buildings of `building_power` kW that is. It is computed on request from the net and never stored or exported; `mean_building_power(net)` gives the mean power of the connected buildings as a starting value.
+
+A pipe with `n` buildings of together `P` kW keeps its DN while `GLF(n + k) · (P + k · p) < C`, with `C` the capacity of the DN (its `max_volumeFlow` at the temperatures of the net's calculation). The connectable power `ΔP = k · p` is the fixed point of
+
+```
+ΔP = C / GLF(n + ΔP / p) − P
+```
+
+iterated from `ΔP = 0`: the reserve divided by today's GLF, then again with the GLF of the added buildings, until it no longer changes. It rises to the first `ΔP` at which the pipe is full, so every step stays on the safe side.
+
+- New buildings on a pipe also run through every pipe before it. All pipes are computed with the same `p`, so `expandable_power` [kW] is the smallest `ΔP` along the way to the source and `potential_buildings` is `expandable_power / p`, rounded down.
+- House connections get no values; a pipe already beyond the largest DN gets 0.
+
 ### Potential data (Potenzialdaten)
 
 Four optional layers show the planner where solar thermal and geothermal heat could come from. They are information, no input of the network calculation. The adapter provides them (`DataAdapter.fetch_geothermal_shallow`, `fetch_geothermal_blocks`, `fetch_geothermal_deep`, `fetch_solar_thermal`); the `DOWNLOADED` step puts them on the state, and `save_outputs()` writes them:
