@@ -168,6 +168,8 @@ iterated from `ΔP = 0`: the reserve divided by today's GLF, then again with the
 - New buildings on a pipe also run through every pipe before it. All pipes are computed with the same `p`, so `expandable_power` [kW] is the smallest `ΔP` along the way to the source and `potential_buildings` is `expandable_power / p`, rounded down.
 - House connections get no values; a pipe already beyond the largest DN gets 0.
 
+[`resize_pipes(net, nominal_diameter, pipe_info, supply_temperature, return_temperature, civil_cost_share)`](src/fheat_core/network/resize.py) gives edges another DN by hand, e.g. a larger one to remove such a bottleneck. Possible are the DN the sizing would choose for every edge and the larger ones (`possible_diameters(net, pipe_info)`); a smaller one is refused. Buildings, power and volume flow stay; velocity, heat losses, `pipe_cost` and `civil_cost` follow the new DN with the formulas of the network step, the civil works factor of each edge stays.
+
 ### Potential data (Potenzialdaten)
 
 Four optional layers show the planner where solar thermal and geothermal heat could come from. They are information, no input of the network calculation. The adapter provides them (`DataAdapter.fetch_geothermal_shallow`, `fetch_geothermal_blocks`, `fetch_geothermal_deep`, `fetch_solar_thermal`); the `DOWNLOADED` step puts them on the state, and `save_outputs()` writes them:

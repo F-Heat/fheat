@@ -32,21 +32,35 @@ def calculate_diameter_velocity_loss(
     pipe_info: pd.DataFrame,
     edge_type: str,
 ) -> tuple[float, float, float, float]:
+    return calculate_velocity_loss(volumeflow, htemp, ltemp, length, pipe_info.iloc[pipe_index(volumeflow, pipe_info, edge_type)])
+
+
+def pipe_index(volumeflow: float, pipe_info: pd.DataFrame, edge_type: str) -> int:
+    """Row of the smallest pipe in ``pipe_info`` that carries ``volumeflow``.
+
+    House connections may use every pipe, other edges start at the third one.
+    Beyond the largest pipe it is the largest.
+    """
     start_index = 0 if edge_type == cols.EDGE_TYPE_HOUSE_CONNECTION else 2
     idx = pipe_info["max_volumeFlow"][start_index:].searchsorted(volumeflow, side="right") + start_index
-    if idx >= len(pipe_info):
-        idx = len(pipe_info) - 1
-    d_i = pipe_info["di"].iloc[idx]
-    dn = pipe_info["DN"].iloc[idx]
-    u = pipe_info["U-Value"].iloc[idx]
-    u_extra = pipe_info["U-Value_extra_insulation"].iloc[idx]
-    r = d_i / 2
+    return int(min(idx, len(pipe_info) - 1))
+
+
+def calculate_velocity_loss(
+    volumeflow: float,
+    htemp: float,
+    ltemp: float,
+    length: float,
+    pipe: pd.Series,
+) -> tuple[float, float, float, float]:
+    """DN, velocity and heat losses of an edge in the pipe ``pipe`` (a row of the pipe catalogue)."""
+    r = pipe["di"] / 2
     velocity = volumeflow * 1000 / (np.pi * pow(r, 2))
     mtemp = (htemp + ltemp) / 2
     K = mtemp - 10
-    loss = 8760 * 2 * (u * K * length) / 1000
-    loss_extra = 8760 * 2 * (u_extra * K * length) / 1000
-    return dn, velocity, loss, loss_extra
+    loss = 8760 * 2 * (pipe["U-Value"] * K * length) / 1000
+    loss_extra = 8760 * 2 * (pipe["U-Value_extra_insulation"] * K * length) / 1000
+    return pipe["DN"], velocity, loss, loss_extra
 
 
 def build_street_graph(streets_gdf: gpd.GeoDataFrame, crs) -> nx.Graph:
