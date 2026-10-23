@@ -81,6 +81,7 @@ BuildingsSchema = FrameSchema(
         cols.FUNCTION: "str",
         cols.BUILDING_TYPE: "str",
         cols.USAGE: "str",
+        cols.ADDRESS: "str",
         cols.FLOOR_AREA: "float",
         cols.AGE: "str",
         cols.CONSTRUCTION_CLASS: "str",

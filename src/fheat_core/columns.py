@@ -27,6 +27,7 @@ LOAD_PROFILE = "load_profile"        # load profile code (EFH, MFH, …)
 FUNCTION = "function"
 BUILDING_TYPE = "building_type"
 USAGE = "usage"
+ADDRESS = "address"                  # address text of the building (NRW: ALKIS lagebeztxt)
 FLOOR_AREA = "floor_area"            # net floor area [m²]
 AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
@@ -309,6 +310,7 @@ LABELS_DE: dict[str, str] = {
     FUNCTION: "Funktion",
     BUILDING_TYPE: "typ",
     USAGE: "Nutzung",
+    ADDRESS: "Adresse",
     FLOOR_AREA: "NF [m²]",
     AGE: "Alter",
     CONSTRUCTION_CLASS: "BAK",

@@ -709,3 +709,61 @@ class TestCivilLayers:
             lambda *a, **kw: gpd.GeoDataFrame({"highway": [], "surface": []}, geometry=[], crs="EPSG:4326"),
         )
         assert _loaded_adapter().fetch_osm_surface() is None
+
+
+# ---------------------------------------------------------------------------
+# _merge_buildings — only touching parts become one building
+# ---------------------------------------------------------------------------
+
+
+def test_merge_joins_touching_parts_but_keeps_separate_buildings_apart():
+    from fheat_nrw.processing import _merge_buildings
+
+    bld = gpd.GeoDataFrame(
+        {
+            "Flurstueck": ["1", "1", "1", "2"],
+            "citygml_fu": ["31001_1000"] * 4,
+            "Fortschrei": ["2020"] * 4,
+            "type": ["a"] * 4,
+            "NF": [100.0, 50.0, 80.0, 40.0],
+            "RW_WW": [1000.0, 500.0, 800.0, 400.0],
+        },
+        geometry=[box(0, 0, 10, 10), box(10, 0, 15, 10), box(40, 0, 50, 10), box(15, 0, 20, 10)],
+        crs=CRS,
+    )
+    out = _merge_buildings(bld, "RW_WW").sort_values("RW_WW").reset_index(drop=True)
+
+    # parcel 1: the touching main building and annex are one, the building 25 m away stays apart;
+    # parcel 2 touches the annex but is another parcel and stays apart
+    assert out["RW_WW"].tolist() == [400.0, 800.0, 1500.0]
+    assert (out.geometry.geom_type == "Polygon").all()
+    assert "_touch_group" not in out.columns
+
+
+def test_merge_keeps_touching_parts_with_different_addresses_apart():
+    from fheat_nrw.processing import _merge_buildings, building_addresses
+
+    bld = gpd.GeoDataFrame(
+        {
+            "Flurstueck": ["1"] * 4,
+            "citygml_fu": ["31001_1000"] * 4,
+            "Fortschrei": ["2020"] * 4,
+            "type": ["a"] * 4,
+            "RW_WW": [1000.0, 2000.0, 300.0, 50.0],
+        },
+        # No. 2 | No. 4 | annex behind No. 4 | shed behind both
+        geometry=[box(0, 0, 10, 10), box(10, 0, 20, 10), box(12, 10, 18, 15), box(5, -5, 15, 0)],
+        crs=CRS,
+    )
+    alkis = gpd.GeoDataFrame(
+        {"lagebeztxt": ["Steinstr. 2", "Steinstr. 4", None, ""]},
+        geometry=[box(0, 0, 10, 10), box(10, 0, 20, 10), box(12, 10, 18, 15), box(5, -5, 15, 0)],
+        crs=CRS,
+    )
+    addresses = building_addresses(bld, alkis)
+    assert addresses.tolist() == ["Steinstr. 2", "Steinstr. 4", "", ""]
+
+    out = _merge_buildings(bld.assign(Adresse=addresses), "RW_WW", addresses)
+    assert sorted(out["Adresse"].tolist()) == ["Steinstr. 2", "Steinstr. 4"]
+    # the annex joins No. 4; the shed touches both and joins the first, No. 2 and No. 4 stay apart
+    assert sorted(out["RW_WW"].tolist()) == [1050.0, 2300.0]

@@ -574,10 +574,22 @@ class NRWDataAdapter(DataAdapter):
             building_info_db=info_db,
             wg_demand_data=wg_demand,
             heat_attribute=self._heat_attribute,
+            addresses=self._load_addresses(raw_buildings),
         )
         self._streets = process_streets(raw_streets)
         self._parcels = parcels
         self._source = self._build_source(self._buildings.crs)
+
+    def _load_addresses(self, raw_buildings: gpd.GeoDataFrame) -> Optional[gpd.GeoDataFrame]:
+        """ALKIS address texts; without them buildings merge by touching only."""
+        if raw_buildings.empty:
+            return None
+        bbox = tuple(float(v) for v in raw_buildings.to_crs(LANDUSE_BBOX_CRS).total_bounds)
+        try:
+            return dl.get_addresses_from_wfs(dl.URL_LANDUSE, bbox, dl.LAYER_ALKIS_BUILDINGS)
+        except RuntimeError as e:
+            logger.warning("Adressen nicht geladen, Gebaeude nur nach Beruehrung zusammengefasst: %s", e)
+            return None
 
     def _load_cities(self) -> pd.DataFrame:
         df = self._read_cities_csv()

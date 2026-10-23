@@ -39,6 +39,12 @@ LAYER_PARCELS = "cp:CadastralParcel"
 # "Straßenverkehr", "Fließgewässer"). Licence: Datenlizenz Deutschland – Zero 2.0.
 URL_LANDUSE = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht"
 LAYER_LANDUSE = "ave:Nutzung"
+# ALKIS buildings of the same service; "lagebeztxt" holds the address text
+# ("Steinstr. 18, 20; Wippert 3"), empty for annexes, garages and roofs.
+# Checked 2026-10-15: a 12 x 12 km box returned all 35 798 buildings in 8 s.
+LAYER_ALKIS_BUILDINGS = "ave:GebaeudeBauwerk"
+ADDRESS_COLUMN = "lagebeztxt"
+
 # GD NRW "INSPIRE IS GT 50" (shallow geothermal, scale 1:50,000). Checked
 # 2026-10-19 (docs/potenzialdaten.md): "capacity" is the thermal conductivity
 # for borehole heat exchangers (EWS, unit "W/m*K", "vext_scalar" = probe length
@@ -208,6 +214,20 @@ def get_landuse_from_wfs(wfs_url: str, bbox, layer_name: str, timeout: int = HTT
         return gpd.read_file(response)
     except Exception as e:
         raise RuntimeError(f"WFS-Anfrage (Nutzung) an '{wfs_url}' fehlgeschlagen: {e}") from e
+
+
+def get_addresses_from_wfs(wfs_url: str, bbox, layer_name: str, timeout: int = HTTP_TIMEOUT) -> gpd.GeoDataFrame:
+    """ALKIS building outlines with their address text in a bbox (EPSG:25832)."""
+    try:
+        wfs = WebFeatureService(wfs_url, version=WFS_VERSION, timeout=timeout)
+        response = wfs.getfeature(typename=layer_name, outputFormat=WFS_OUTPUT_FORMAT, bbox=bbox)
+        response.seek(0)
+        gdf = gpd.read_file(response)
+    except Exception as e:
+        raise RuntimeError(f"WFS-Anfrage (Adressen) an '{wfs_url}' fehlgeschlagen: {e}") from e
+    if ADDRESS_COLUMN not in gdf.columns:
+        gdf[ADDRESS_COLUMN] = None
+    return gdf[[ADDRESS_COLUMN, "geometry"]]
 
 
 def get_osm_surface_via_overpass(
