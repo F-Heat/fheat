@@ -1,0 +1,267 @@
+{
+  "source": {
+    "repository": "https://gitlab.opencode.de/xleitstelle/xwaermeplan/spezifikation",
+    "file": "objektartenkatalog/XWaermeplan096.zip",
+    "git_blob": "874124ca62a76a4d42835e265438896936d6d66d",
+    "packages": [
+      "WP_Basisobjekte",
+      "WP_Raumobjekte",
+      "WP_Reporting"
+    ]
+  },
+  "units": {
+    "Datentyp: WP_AbwasserNetz": {
+      "abwasserVolumenstrom": "m3/s",
+      "laenge": "m",
+      "trockenwetterabfluss": "m3/s"
+    },
+    "Datentyp: WP_EnergieVersorgungArt": {
+      "dezentral": "MWh/a",
+      "leitungsgebunden": "MWh/a"
+    },
+    "Datentyp: WP_GasNetz": {
+      "laenge": "m"
+    },
+    "Datentyp: WP_SektorVerbrauch": {
+      "verbrauch": "MWh/a"
+    },
+    "Objektart: WP_AbwasserNetzAbschnitt": {
+      "entwaesserungsart": "m3/s",
+      "trockenwetterabfluss": "m3/s"
+    },
+    "Objektart: WP_GasErzeugung": {
+      "leistung": "MW"
+    },
+    "Objektart: WP_GasSpeicher": {
+      "speicherkapazitaet": "MWh"
+    },
+    "Objektart: WP_WaermeNetz": {
+      "laenge": "m",
+      "temperatur": "°C"
+    },
+    "Objektart: WP_WaermeSpeicher": {
+      "art": "MWh",
+      "speicherkapazitaet": "MWh",
+      "speichervolumen": "m3",
+      "temperaturMax": "°C"
+    },
+    "Objektart: WP_Waermeerzeugungsanlage": {
+      "nennleistung": "MW"
+    },
+    "WP_BaualterAngaben": {
+      "anteil": "%"
+    },
+    "WP_BaujahrAngaben": {
+      "anteil": "%"
+    },
+    "WP_BestandsanalyseAggregiert": {
+      "co2FaktorLokalerStrom": "tCO2/MWh",
+      "eevGesamtGebaeude": "MWh/a",
+      "eevGesamtProzesse": "MWh/a",
+      "emissionTreibhausgase": "tCO2-eq/a"
+    },
+    "WP_Betrachtungszeitpunkt": {
+      "jahr": "%"
+    },
+    "WP_EndenergieAngaben": {
+      "eeSektorGHD": "MWh/a",
+      "eeSektorHaushalte": "MWh/a",
+      "eeSektorIndustrie": "MWh/a",
+      "eeSektorLiegenschaften": "MWh/a",
+      "endenergieEnTrGesamt": "MWh/a"
+    },
+    "WP_EndenergieEnergietraeger": {
+      "endenergie": "MWh/a"
+    },
+    "WP_EndenergieSektor": {
+      "eeSektorGHD": "MWh/a",
+      "eeSektorHaushalte": "MWh/a",
+      "eeSektorIndustrie": "MWh/a",
+      "eeSektorLiegenschaften": "MWh/a",
+      "endenergieGesamt": "MWh/a"
+    },
+    "WP_EnergieBaublock": {
+      "waermeDichte": "MWh/(ha*a)",
+      "waermeMenge": "MWh/a"
+    },
+    "WP_EnergieEinspargebiet": {
+      "anteilGebHoherEeKennwert": "%"
+    },
+    "WP_EnergieRaster": {
+      "waermeDichte": "MWh/(ha*a)",
+      "waermeMenge": "MWh/a"
+    },
+    "WP_EnergieSektorVerbrauch": {
+      "sektorGHD": "MWh/a",
+      "sektorHaushalte": "MWh/a",
+      "sektorIndustrie": "MWh/a",
+      "sektorLiegenschaften": "MWh/a",
+      "verbrauchGesamt": "MWh/a"
+    },
+    "WP_EnergieTraegerMenge": {
+      "endenergie": "MWh/a"
+    },
+    "WP_EnergieTraegerVerbrauch": {
+      "sektorGHD": "MWh/a",
+      "sektorHaushalte": "MWh/a",
+      "sektorIndustrie": "MWh/a",
+      "sektorLiegenschaften": "MWh/a",
+      "verbrauchGesamt": "MWh/a"
+    },
+    "WP_Energiebilanz": {
+      "anteilLeitungsgebWaermeversorgung": "%",
+      "eeGesamtGebaeude": "MWh",
+      "eeGesamtProzesse": "MWh",
+      "territorialerEmissionsfaktorStrom": "tCO2-eq/MWh",
+      "thgEmissionenGesamt": "tCO2-eq/a"
+    },
+    "WP_Energieeinsparpotenzialgebiet": {
+      "anteilGebHoherEeKennwert": "%"
+    },
+    "WP_EnergieeinsparungGebaeude": {
+      "eeWaermebedarfsreduktion": "MWh/a",
+      "eeWaermebedarfsreduktionRelativ": "%",
+      "neWaermebedarfsreduktion": "MWh/a",
+      "neWaermebedarfsreduktionRelativ": "%",
+      "waermebedarfsreduktion": "MWh/a",
+      "waermebedarfsreduktionRelativ": "%"
+    },
+    "WP_GebaeudeBaublock": {
+      "nutzflaeche": "ha"
+    },
+    "WP_GebaeudeNetzanschluss": {
+      "anteil": "%"
+    },
+    "WP_GebaeudeNetzeAggregiert": {
+      "bedarfGruenesMethanZieljahr": "MWh",
+      "sanierungsrate": "%",
+      "speicherkapazitaetWaermespeicher": "MWh"
+    },
+    "WP_Grossverbraucher": {
+      "bedarfTemperaturniveau": "°C",
+      "eeProzesswaerme": "MWh/a"
+    },
+    "WP_Kaeltelinie": {
+      "kaeltelinienDichte": "MWh/(m*a)",
+      "laenge": "m"
+    },
+    "WP_Kaeltenetz": {
+      "laenge": "m"
+    },
+    "WP_Massnahme": {
+      "endenergieEinsparung": "MWh/a",
+      "treibausgaseEinsparung": "tCO2e/a"
+    },
+    "WP_PotenzialEnergieeinsparung": {
+      "eeWaermebedarfsreduktion": "MWh/a",
+      "eeWaermebedarfsreduktionRelativ": "%",
+      "neWaermebedarfsreduktion": "MWh/a",
+      "neWaermebedarfsreduktionRelativ": "%",
+      "waermebedarfsreduktion": "MWh/a",
+      "waermebedarfsreduktionRelativ": "%"
+    },
+    "WP_PotenzialWaermenutzung": {
+      "deltaT": "K",
+      "durchfluss": "m3/s",
+      "volumen": "m3",
+      "waermepotenzial": "MWh/a"
+    },
+    "WP_PotenzialWaermespeicherung": {
+      "potenzielleKapazitaet": "MWh"
+    },
+    "WP_PotenzialanalyseAggregiert": {
+      "eeWaermebedarfsreduktionGebaeude": "MWh",
+      "name": "MWh",
+      "neWaermebedarfsreduktionGebaeude": "MWh",
+      "waermebedarfsreduktionGebaeude": "MWh"
+    },
+    "WP_ThermischeNetze": {
+      "laenge": "m"
+    },
+    "WP_Treibhausgasemissionen": {
+      "thgEmissionenEnTrGesamt": "tCO2-eq/a",
+      "thgSektorGHD": "tCO2-eq/a",
+      "thgSektorHaushalte": "tCO2-eq/a",
+      "thgSektorIndustrie": "tCO2-eq/a",
+      "thgSektorLiegenschaften": "tCO2-eq/a"
+    },
+    "WP_TreibhausgasemissionenSektor": {
+      "thgEmissionenGesamt": "tCO2-eq/a",
+      "thgSektorGHD": "tCO2-eq/a",
+      "thgSektorHaushalte": "tCO2-eq/a",
+      "thgSektorIndustrie": "tCO2-eq/a",
+      "thgSektorLiegenschaften": "tCO2-eq/a"
+    },
+    "WP_VersorgungsgebieteAggregiert": {
+      "endenergieverbrauch": "MWh",
+      "flaeche": "ha"
+    },
+    "WP_WaermeKaelteNetz": {
+      "laenge": "m"
+    },
+    "WP_WaermeerzeugerAngaben": {
+      "feuerungsleistung": "MW"
+    },
+    "WP_WaermeinfrastrukturAggregiert": {
+      "bedarfGruenesMethanZieljahr": "MWh",
+      "sanierungsrate": "%",
+      "speicherkapazitaetWaermespeicher": "MWh"
+    },
+    "WP_Waermelinie": {
+      "laenge": "m",
+      "waermeMenge": "MWh/a",
+      "waermelinienDichte": "MWh/(m*a)"
+    },
+    "WP_Waermenetz": {
+      "laenge": "m",
+      "temperatur": "°C"
+    },
+    "WP_WaermenetzeGesamt": {
+      "trassenlaenge": "m"
+    },
+    "WP_WaermeversorgungArt": {
+      "eeDezentraleVersorgung": "MWh/a",
+      "eeWaermenetzVersorgung": "MWh/a"
+    },
+    "WP_Waermeversorgungsgebiet2030": {
+      "sanierungsrate": "vH/a",
+      "waermebedarf": "MWh/a"
+    },
+    "WP_Waermeversorgungsgebiet2035": {
+      "sanierungsrate": "vH/a",
+      "waermebedarf": "MWh/a"
+    },
+    "WP_Waermeversorgungsgebiet2040": {
+      "sanierungsrate": "vH/a",
+      "waermebedarf": "MWh/a"
+    },
+    "WP_WaermeversorgungsgebietStuetzjahr": {
+      "sanierungsrate": "vH/a",
+      "waermeMenge": "MWh/a"
+    },
+    "WP_WaermeversorgungsgebietUmsetzung": {
+      "sanierungsrate": "vH/a",
+      "waermeMenge": "MWh/a"
+    },
+    "WP_WaermeversorgungsgebietUmsetzungsjahr": {
+      "sanierungsrate": "vH/a",
+      "waermebedarf": "MWh/a"
+    },
+    "WP_WaermeversorgungsgebietZieljahr": {
+      "sanierungsrate": "vH/a",
+      "waermeMenge": "MWh/a"
+    },
+    "WP_Waermversorgungsgebiet": {
+      "sanierungsrate": "vH/a",
+      "waermeMenge": "MWh/a"
+    },
+    "WP_ZielszenarioIndikatoren": {
+      "anteilLeitungsgebWaermeversorgung": "%",
+      "bedarfGruenesMethanZieljahr": "MWh",
+      "co2FaktorLokalerStrom": "tCO2/MWh",
+      "emissionTreibhausgase": "tCO2-eq/a",
+      "sanierungsrate": "vH/a",
+      "speicherkapazitaetWaermespeicher": "MWh"
+    }
+  }
+}

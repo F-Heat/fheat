@@ -64,6 +64,42 @@ class DataAdapter(ABC):
         ``civil_class`` (the road surface, e.g. ``asphalt``)."""
         return None
 
+    # Potential layers — information for the planner, no input of the
+    # network calculation. None → no layer, no error.
+    def fetch_geothermal_shallow(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: polygons with shallow geothermal parameters.
+
+        Columns of :mod:`fheat_core.columns` (``ground_conductivity_*``,
+        ``collector_extraction_*``, ``borehole_extraction_*``,
+        ``geothermal_status``); a value nobody assessed is NaN, never 0.
+        """
+        return None
+
+    def fetch_geothermal_blocks(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: building blocks with their geothermal potential.
+
+        ``block_id`` (as in the buildings) and ``ong_*``/``mtg_*`` in MWh/a,
+        a value of the whole block.
+        """
+        return None
+
+    def fetch_geothermal_deep(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: grid cells with a hydrothermal doublet potential around the area.
+
+        ``deep_potential_mwh`` (upper bound per cell), ``distance_to_area`` and
+        the cell centre as ``source_candidate_lat``/``_lon``. A suggestion
+        only: the heat source is never placed automatically.
+        """
+        return None
+
+    def fetch_solar_thermal(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: areas for ground-mounted solar thermal around the area.
+
+        Yield per collector type (``solar_*_mwh``) and per m², the usable area,
+        ``distance_to_area`` and ``distance_to_demand``.
+        """
+        return None
+
     # Optional data — default implementation returns None;
     # the core then loads its own default.
     def provide_pipe_info(self) -> Optional[pd.DataFrame]:

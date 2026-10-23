@@ -1,6 +1,6 @@
 # ADR 0001: XWärmeplan in F|Heat
 
-- Status: angenommen
+- Status: abgelöst durch [ADR 0002](0002-xwaermeplan-xplan-tools.md) (20.10.2026). Die hier genannten Dateien unter `docs/xwaermeplan/` und `src/fheat_core/xwp/` wurden dabei entfernt; sie stehen in der Historie bis Commit `0f50c75`.
 - Datum: 12.10.2026
 - Kontext: `docs/xwaermeplan/XWaermeplan_Umsetzungsplan.md`, Befunde in `docs/xwaermeplan/abgleich.md` und `docs/xwaermeplan/kodierung.md`
 

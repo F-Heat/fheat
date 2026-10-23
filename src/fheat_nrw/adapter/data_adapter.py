@@ -10,10 +10,15 @@ from typing import Callable, Optional, Tuple
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point, box
+from shapely.ops import unary_union
 
+from fheat_core import cancel
+from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 
+from fheat_nrw import cache
 from fheat_nrw import download as dl
+from fheat_nrw import potentials as pot
 from fheat_nrw.area import boundary_from_parcels, clip_to_boundary
 from fheat_nrw.civil_cost import annotate_landuse_costs
 from fheat_nrw.osm_surface import annotate_osm_surface_costs, buffer_osm_lines
@@ -25,6 +30,26 @@ logger = logging.getLogger(__name__)
 LANDUSE_BBOX_CRS = "EPSG:25832"
 
 REQUIRED_CITIES_COLUMNS = ("schluessel", "gmdschl", "name", "gemeinde", "bbox")
+
+
+def _optional_path(value) -> Optional[Path]:
+    return Path(value) if value is not None else None
+
+
+def _read_local(path: Path, layer: Optional[str], area: gpd.GeoSeries, missing_ok: bool = False):
+    """Features of a local file (ZIP, GeoPackage, Shape, Geodatabase) in ``area``.
+
+    ``missing_ok``: a layer the file does not have gives None instead of an error.
+    """
+    try:
+        if path.suffix.lower() == ".zip":
+            return cache.read_layer_bbox(path, layer, tuple(area.total_bounds))
+        kwargs = {"layer": layer} if layer else {}
+        return gpd.read_file(str(path), bbox=area, **kwargs)
+    except Exception:
+        if missing_ok:
+            return None
+        raise
 
 
 class NRWDataAdapter(DataAdapter):
@@ -81,7 +106,55 @@ class NRWDataAdapter(DataAdapter):
         Ohne Angabe folgen sie den geladenen Gebäuden, Straßen und der Quelle.
         Mit Angabe laden ``fetch_landuse``/``fetch_osm_surface`` nur die Layer,
         ohne die Gebäude herunterzuladen (z. B. für ein schon gespeichertes
-        Gebiet); die Layer kommen dann in EPSG:25832.
+        Gebiet); die Layer kommen dann in EPSG:25832. Das gilt auch für die
+        Potenzial-Layer.
+    download_geothermal_shallow : bool
+        Wenn True (Standard), werden die Kennwerte der oberflächennahen
+        Geothermie vom WFS des GD NRW (IS GT 50) geladen: Wärmeleitfähigkeit
+        für Sonden von 40 bis 100 m, Entzugsleistung für Kollektoren und ein
+        daraus abgeleiteter Richtwert für die Entzugsleistung der Sonden.
+        Fehler → Warnung, kein Layer.
+    geothermal_shallow_path : Path | None
+        GeoPackage mit den Layern ``ews40`` … ``ewk2400`` (Rohattribute wie
+        vom WFS). Hat Vorrang vor dem WFS.
+    geothermal_wfs : str | None
+        Anderer WFS-Endpunkt (Standard: ``download.URL_GEOTHERMAL``).
+    borehole_extraction_path : Path | None
+        Eigene Tabelle Wärmeleitfähigkeit → Entzugsleistung der Sonden (JSON
+        wie ``fheat_nrw/data/borehole_extraction.json``, Standard VDI 4640
+        Blatt 2 von 2001). Ein Screening-Richtwert, nicht für die Auslegung.
+    download_geothermal_blocks : bool
+        Wenn True (Standard), wird das Potenzial der oberflächennahen und
+        mitteltiefen Geothermie je Baublock aus der Wärmestudie des LANUK
+        geladen (aus dem Gemeinde-ZIP, im Zwischenspeicher). Fehler → Warnung,
+        kein Layer.
+    geothermal_blocks_path : Path | None
+        Lokale ONG/MTG-Datei der Wärmestudie (Shape, GeoPackage, Geodatabase
+        oder ZIP). Hat Vorrang vor dem Download.
+    download_geothermal_deep : bool
+        Wenn True (Standard), werden die Rasterzellen (3 × 3 km) der LANUK-
+        Wärmestudie zur hydrothermalen Geothermie (Dublette, mitteltief und
+        tief) im Umkreis des Gebiets geladen (NRW-Datei, 2 MB, im
+        Zwischenspeicher). Grobe Abschätzung, Fündigkeit unbekannt; der
+        Zellmittelpunkt ist ein Vorschlag für ``source_coordinates``, es wird
+        keine Quelle gesetzt. Fehler → Warnung, kein Layer.
+    geothermal_deep_path : Path | None
+        Lokale TG-Rasterdatei der Wärmestudie. Hat Vorrang vor dem Download.
+    geothermal_deep_buffer : float
+        Umkreis um das Gebiet in m (Standard 5000), weil eine Dublette nicht
+        im Wohngebiet stehen muss.
+    download_solar_thermal : bool
+        Wenn True (Standard), wird das Potenzial der Freiflächen-Solarthermie
+        je Flur aus der LANUK-Wärmestudie im Umkreis des Gebiets geladen
+        (NRW-Datei, 63 MB, im Zwischenspeicher), mit Abstand zum Gebiet und
+        zum nächsten Gebäude mit Wärmebedarf. Fehler → Warnung, kein Layer.
+    solar_thermal_path : Path | None
+        Lokale FF-Solarthermie-Datei der Wärmestudie. Hat Vorrang vor dem Download.
+    solar_thermal_buffer : float
+        Umkreis um das Gebiet in m (Standard 2000).
+    cache_dir : Path | None
+        Ordner für große Downloads (Standard: ``FHEAT_CACHE_DIR`` oder
+        ``~/.cache/fheat``).
     """
 
     def __init__(
@@ -101,6 +174,19 @@ class NRWDataAdapter(DataAdapter):
         osm_surface_path: Optional[Path] = None,
         osm_overpass_url: Optional[str] = None,
         area_bbox: Optional[Tuple[float, float, float, float]] = None,
+        download_geothermal_shallow: bool = True,
+        geothermal_shallow_path: Optional[Path] = None,
+        geothermal_wfs: Optional[str] = None,
+        borehole_extraction_path: Optional[Path] = None,
+        download_geothermal_blocks: bool = True,
+        geothermal_blocks_path: Optional[Path] = None,
+        download_geothermal_deep: bool = True,
+        geothermal_deep_path: Optional[Path] = None,
+        geothermal_deep_buffer: float = 5000.0,
+        download_solar_thermal: bool = True,
+        solar_thermal_path: Optional[Path] = None,
+        solar_thermal_buffer: float = 2000.0,
+        cache_dir: Optional[Path] = None,
     ) -> None:
         if not municipality_name and not city_name and not district_key:
             raise ValueError(
@@ -122,15 +208,28 @@ class NRWDataAdapter(DataAdapter):
         self._osm_surface_path = Path(osm_surface_path) if osm_surface_path is not None else None
         self._osm_overpass_url = osm_overpass_url
         self._area_bbox = tuple(float(v) for v in area_bbox) if area_bbox is not None else None
+        self._download_geothermal_shallow = bool(download_geothermal_shallow)
+        self._geothermal_shallow_path = _optional_path(geothermal_shallow_path)
+        self._geothermal_wfs = geothermal_wfs
+        self._borehole_extraction_path = _optional_path(borehole_extraction_path)
+        self._download_geothermal_blocks = bool(download_geothermal_blocks)
+        self._geothermal_blocks_path = _optional_path(geothermal_blocks_path)
+        self._download_geothermal_deep = bool(download_geothermal_deep)
+        self._geothermal_deep_path = _optional_path(geothermal_deep_path)
+        self._geothermal_deep_buffer = float(geothermal_deep_buffer)
+        self._download_solar_thermal = bool(download_solar_thermal)
+        self._solar_thermal_path = _optional_path(solar_thermal_path)
+        self._solar_thermal_buffer = float(solar_thermal_buffer)
+        self._cache_dir = _optional_path(cache_dir)
 
         self._buildings: Optional[gpd.GeoDataFrame] = None
         self._streets: Optional[gpd.GeoDataFrame] = None
         self._parcels: Optional[gpd.GeoDataFrame] = None
         self._source: Optional[gpd.GeoDataFrame] = None
         self._boundary: Optional[gpd.GeoDataFrame] = None
-        # Civil works layers, loaded once: a failed download stays None instead
-        # of being tried again by every step that asks.
-        self._civil: dict[str, Optional[gpd.GeoDataFrame]] = {}
+        # Optional layers (civil works, potentials), loaded once: a failed
+        # download stays None instead of being tried again by every step that asks.
+        self._layers: dict[str, Optional[gpd.GeoDataFrame]] = {}
 
     # ------------------------------------------------------------------
     # DataAdapter API
@@ -152,6 +251,12 @@ class NRWDataAdapter(DataAdapter):
         self._ensure_loaded()
         return self._source
 
+    @property
+    def municipality_key(self) -> str:
+        """Amtlicher Gemeindeschlüssel (AGS, 8 digits) of the area, from cities.csv; no download."""
+        filtered, _ = self._select_area(self._load_cities())
+        return str(filtered["gmdschl"].iloc[0]).zfill(8)
+
     def provide_boundary(self) -> gpd.GeoDataFrame:
         """Outline of the downloaded municipality or district (union of its parcels)."""
         self._ensure_loaded()
@@ -161,7 +266,7 @@ class NRWDataAdapter(DataAdapter):
 
     def fetch_landuse(self) -> Optional[gpd.GeoDataFrame]:
         """ALKIS land use of the loaded area with ``civil_cost_factor`` (None on failure)."""
-        return self._civil_layer(
+        return self._optional_layer(
             "landuse", self._load_landuse,
             "ALKIS-Flaechennutzung konnte nicht geladen werden (%s) — Tiefbau-Faktor 1.0 "
             "fuer diesen Layer. Endpunkt via landuse_wfs=(url, layer) oder landuse_path=... "
@@ -170,26 +275,62 @@ class NRWDataAdapter(DataAdapter):
 
     def fetch_osm_surface(self) -> Optional[gpd.GeoDataFrame]:
         """Buffered OSM roads of the loaded area with ``civil_cost_factor`` (None on failure)."""
-        return self._civil_layer(
+        return self._optional_layer(
             "osm_surface", self._load_osm_surface,
             "OSM-Strassenbelaege konnten nicht geladen werden (%s) — Tiefbau-Faktor 1.0 "
             "fuer diesen Layer. Endpunkt via osm_overpass_url=... oder osm_surface_path=... "
             "setzen, oder download_osm_surface=False zum Abschalten.",
         )
 
+    def fetch_geothermal_shallow(self) -> Optional[gpd.GeoDataFrame]:
+        """GD NRW shallow geothermal parameters of the loaded area (None on failure)."""
+        return self._optional_layer(
+            "geothermal_shallow", self._load_geothermal_shallow,
+            "Kennwerte oberflaechennahe Geothermie (GD NRW) konnten nicht geladen werden (%s) — "
+            "kein Layer. Endpunkt via geothermal_wfs=... oder geothermal_shallow_path=... setzen, "
+            "oder download_geothermal_shallow=False zum Abschalten.",
+        )
+
+    def fetch_geothermal_blocks(self) -> Optional[gpd.GeoDataFrame]:
+        """LANUK ONG/MTG potential per building block of the loaded area (None on failure)."""
+        return self._optional_layer(
+            "geothermal_blocks", self._load_geothermal_blocks,
+            "Geothermie-Potenzial je Baublock (LANUK) konnte nicht geladen werden (%s) — "
+            "kein Layer. Lokale Datei via geothermal_blocks_path=... setzen, "
+            "oder download_geothermal_blocks=False zum Abschalten.",
+        )
+
+    def fetch_geothermal_deep(self) -> Optional[gpd.GeoDataFrame]:
+        """LANUK doublet raster cells around the loaded area (None on failure)."""
+        return self._optional_layer(
+            "geothermal_deep", self._load_geothermal_deep,
+            "Raster tiefe Geothermie (LANUK) konnte nicht geladen werden (%s) — kein Layer. "
+            "Lokale Datei via geothermal_deep_path=... setzen, "
+            "oder download_geothermal_deep=False zum Abschalten.",
+        )
+
+    def fetch_solar_thermal(self) -> Optional[gpd.GeoDataFrame]:
+        """LANUK ground-mounted solar thermal per Flur around the loaded area (None on failure)."""
+        return self._optional_layer(
+            "solar_thermal", self._load_solar_thermal,
+            "Freiflaechen-Solarthermie (LANUK) konnte nicht geladen werden (%s) — kein Layer. "
+            "Lokale Datei via solar_thermal_path=... setzen, "
+            "oder download_solar_thermal=False zum Abschalten.",
+        )
+
     # ------------------------------------------------------------------
-    # Internal: civil works layers
+    # Internal: optional layers (civil works, potentials)
     # ------------------------------------------------------------------
 
-    def _civil_layer(self, key: str, load: Callable, warning: str) -> Optional[gpd.GeoDataFrame]:
-        if key not in self._civil:
+    def _optional_layer(self, key: str, load: Callable, warning: str) -> Optional[gpd.GeoDataFrame]:
+        if key not in self._layers:
             try:
                 layer = load()
             except Exception as e:  # network/IO dependent: never stop the pipeline
                 logger.warning(warning, e)
                 layer = None
-            self._civil[key] = layer if layer is not None and not layer.empty else None
-        return self._civil[key]
+            self._layers[key] = layer if layer is not None and not layer.empty else None
+        return self._layers[key]
 
     def _load_landuse(self) -> Optional[gpd.GeoDataFrame]:
         if self._landuse_path is not None:
@@ -222,6 +363,122 @@ class NRWDataAdapter(DataAdapter):
             return None
         # buffer in the metric CRS of the buildings
         return annotate_osm_surface_costs(buffer_osm_lines(self._to_area_crs(raw)))
+
+    def _load_geothermal_shallow(self) -> Optional[gpd.GeoDataFrame]:
+        box_25832 = self._area_box().to_crs(LANDUSE_BBOX_CRS)
+        if self._geothermal_shallow_path is not None:
+            raw = {
+                key: _read_local(self._geothermal_shallow_path, key, box_25832, missing_ok=True)
+                for key in dl.LAYERS_GEOTHERMAL
+            }
+        elif self._download_geothermal_shallow:
+            url = self._geothermal_wfs or dl.URL_GEOTHERMAL
+            bbox = tuple(float(v) for v in box_25832.total_bounds)
+            raw = {}
+            for key, layer in dl.LAYERS_GEOTHERMAL.items():
+                cancel.raise_if_cancelled()
+                raw[key] = dl.get_geothermal_from_wfs(url, bbox, layer)
+        else:
+            return None
+        for key, gdf in raw.items():
+            if gdf is not None:
+                dl.check_geothermal_unit(gdf, key)
+        if all(gdf is None or gdf.empty for gdf in raw.values()):
+            return None
+        table = pot.load_borehole_table(self._borehole_extraction_path)
+        merged = pot.merge_geothermal_layers(raw, box_25832.iloc[0], LANDUSE_BBOX_CRS, table)
+        return self._to_area_crs(merged)
+
+    def _load_geothermal_blocks(self) -> Optional[gpd.GeoDataFrame]:
+        box_25832 = self._area_box().to_crs(LANDUSE_BBOX_CRS)
+        buildings = self._buildings
+        if self._geothermal_blocks_path is not None:
+            raw = _read_local(self._geothermal_blocks_path, None, box_25832)
+        elif self._download_geothermal_blocks:
+            zip_path, padded_key = self._municipality_zip()
+            bbox = tuple(box_25832.total_bounds)
+            raw = cache.read_layer_bbox(zip_path, f"Potenzial-ONG-MTG-Baublock_{padded_key}", bbox)
+            if buildings is None and pot.BLOCK_ID_FIELD not in raw.columns:
+                # The municipality shapefile has no block_id: take it from the
+                # buildings of the same ZIP (0.5 s), also when only area_bbox is known.
+                buildings = cache.read_layer_bbox(zip_path, f"WBM-NRW_{padded_key}", bbox)
+                buildings = buildings[["Block_ID", "geometry"]].rename(columns={"Block_ID": cols.BLOCK_ID})
+        else:
+            return None
+        if raw is None or raw.empty:
+            return None
+        blocks = pot.process_blocks(self._to_area_crs(raw), buildings)
+        return self._inside_outline(blocks)
+
+    def _load_geothermal_deep(self) -> Optional[gpd.GeoDataFrame]:
+        raw = self._load_nrw_layer(
+            self._geothermal_deep_path, self._download_geothermal_deep,
+            dl.FILE_DEEP_GEOTHERMAL, dl.LAYER_DEEP_GEOTHERMAL, self._geothermal_deep_buffer,
+        )
+        if raw is None or raw.empty:
+            return None
+        cells = pot.process_deep_cells(raw, self._area_outline())
+        cells = cells[cells[cols.DISTANCE_TO_AREA] <= self._geothermal_deep_buffer]
+        return self._to_area_crs(cells.reset_index(drop=True))
+
+    def _load_solar_thermal(self) -> Optional[gpd.GeoDataFrame]:
+        raw = self._load_nrw_layer(
+            self._solar_thermal_path, self._download_solar_thermal,
+            dl.FILE_SOLAR_THERMAL, dl.LAYER_SOLAR_THERMAL, self._solar_thermal_buffer,
+        )
+        if raw is None or raw.empty:
+            return None
+        fields = pot.process_solar_thermal(raw, self._area_outline(), self._buildings)
+        fields = fields[fields[cols.DISTANCE_TO_AREA] <= self._solar_thermal_buffer]
+        return self._to_area_crs(fields.reset_index(drop=True))
+
+    def _load_nrw_layer(
+        self, path: Optional[Path], download: bool, filename: str, layer: str, buffer: float
+    ) -> Optional[gpd.GeoDataFrame]:
+        """Features of an NRW-wide LANUK file in the area box widened by ``buffer`` m, EPSG:25832."""
+        around = self._area_box().to_crs(LANDUSE_BBOX_CRS).buffer(buffer, join_style=2)
+        if path is not None:
+            raw = _read_local(path, None, around)
+        elif download:
+            zip_path = dl.cached_file(dl.URL_BUILDINGS, filename, self._cache_dir)
+            raw = cache.read_layer_bbox(zip_path, layer, tuple(around.total_bounds))
+        else:
+            return None
+        if raw is None or raw.empty:
+            return raw
+        if raw.crs is not None and raw.crs != LANDUSE_BBOX_CRS:
+            raw = raw.to_crs(LANDUSE_BBOX_CRS)
+        return raw[raw.intersects(around.iloc[0])].reset_index(drop=True)
+
+    def _area_outline(self):
+        """Outline of the loaded area in EPSG:25832 (the area box without buildings)."""
+        if self._buildings is not None:
+            outline = self.provide_boundary()
+            if outline is not None and not outline.empty:
+                return unary_union(outline.to_crs(LANDUSE_BBOX_CRS).geometry.values)
+        return self._area_box().to_crs(LANDUSE_BBOX_CRS).iloc[0]
+
+    def _municipality_zip(self) -> tuple[Path, str]:
+        """Cached municipality ZIP of the heat study and its 8-digit key."""
+        filtered, _ = self._select_area(self._load_cities())
+        municipality_key = str(filtered["gmdschl"].iloc[0])
+        files = dl.file_list_from_url(dl.URL_BUILDINGS + "index.json")
+        name = dl.search_filename(files, municipality_key)
+        if name == "No data found":
+            raise RuntimeError(f"Keine NRW-Daten fuer Gemeindeschluessel '{municipality_key}' gefunden.")
+        return dl.cached_file(dl.URL_BUILDINGS, name, self._cache_dir, files), municipality_key.zfill(8)
+
+    def _inside_outline(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+        """Features whose inner point lies in the loaded area (all of them if it is not loaded)."""
+        if self._buildings is None or gdf.empty:
+            return gdf
+        outline = self.provide_boundary()
+        if outline is None or outline.empty:
+            return gdf
+        if outline.crs != gdf.crs:
+            outline = outline.to_crs(gdf.crs)
+        inside = gdf.geometry.representative_point().within(unary_union(outline.geometry.values))
+        return gdf[inside].reset_index(drop=True)
 
     def _area_box(self) -> gpd.GeoSeries:
         """Bounding box of everything a network can use: buildings, streets, source.

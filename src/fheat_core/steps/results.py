@@ -5,6 +5,7 @@ import pandas as pd
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
+from fheat_core.algorithms.potentials import potential_summary
 from fheat_core.algorithms.slp import build_load_profile
 from fheat_core.algorithms.summary import network_length_split, summarize_buildings, summarize_pipes
 from fheat_core.errors import PipelineInputError
@@ -62,19 +63,22 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     house_connection_length, route_length = network_length_split(net_gdf)
 
     summary = {
-        "total_heat_demand_mwh_a": round(total_heat, 3),
-        "total_buildings": n_buildings,
-        "total_power_glf_kw": round(total_power_glf, 1),
-        "glf": round(glf, 4),
-        "total_network_length_m": round(net_length, 1),
-        "total_loss_mwh_a": round(total_loss, 3),
-        "supply_temperature_c": config.supply_temperature,
-        "return_temperature_c": config.return_temperature,
-        "total_house_connection_length_m": round(house_connection_length, 1),
-        "total_route_length_m": round(route_length, 1),
-        "total_loss_extra_insulation_mwh_a": round(total_loss_extra, 3),
+        cols.TOTAL_HEAT_DEMAND: round(total_heat, 3),
+        cols.TOTAL_BUILDINGS: n_buildings,
+        cols.TOTAL_POWER_GLF: round(total_power_glf, 1),
+        cols.GLF: round(glf, 4),
+        cols.TOTAL_NETWORK_LENGTH: round(net_length, 1),
+        cols.TOTAL_LOSS: round(total_loss, 3),
+        cols.SUPPLY_TEMPERATURE: config.supply_temperature,
+        cols.RETURN_TEMPERATURE: config.return_temperature,
+        cols.TOTAL_HOUSE_CONNECTION_LENGTH: round(house_connection_length, 1),
+        cols.TOTAL_ROUTE_LENGTH: round(route_length, 1),
+        cols.TOTAL_LOSS_EXTRA_INSULATION: round(total_loss_extra, 3),
     }
     summary.update(_civil_cost_summary(net_gdf, config.civil_cost_share))
+    summary.update(potential_summary(
+        buildings, state.geothermal_blocks_gdf, state.geothermal_deep_gdf, state.solar_thermal_gdf
+    ))
 
     RESULT_SUMMARY_SCHEMA.validate(summary)
 
@@ -103,14 +107,14 @@ def _civil_cost_summary(net_gdf, civil_cost_share: float) -> dict:
         return out
     length = pd.to_numeric(net_gdf[cols.LENGTH], errors="coerce").fillna(0.0)
     if cols.PIPE_COST in net_gdf.columns and net_gdf[cols.PIPE_COST].notna().any():
-        out["civil_cost_share"] = civil_cost_share
-        out["total_pipe_cost_eur"] = round(float(net_gdf[cols.PIPE_COST].sum()), 2)
+        out[cols.CIVIL_COST_SHARE] = civil_cost_share
+        out[cols.TOTAL_PIPE_COST] = round(float(net_gdf[cols.PIPE_COST].sum()), 2)
         if cols.CIVIL_COST in net_gdf.columns:
-            out["total_civil_cost_eur"] = round(float(net_gdf[cols.CIVIL_COST].sum()), 2)
+            out[cols.TOTAL_CIVIL_COST] = round(float(net_gdf[cols.CIVIL_COST].sum()), 2)
     if cols.CIVIL_COST_FACTOR in net_gdf.columns:
         factor = pd.to_numeric(net_gdf[cols.CIVIL_COST_FACTOR], errors="coerce")
         weight = length.where(factor.notna(), 0.0)
         if weight.sum() > 0:
-            out.setdefault("civil_cost_share", civil_cost_share)
-            out["mean_civil_cost_factor"] = round(float((factor.fillna(0.0) * weight).sum() / weight.sum()), 4)
+            out.setdefault(cols.CIVIL_COST_SHARE, civil_cost_share)
+            out[cols.MEAN_CIVIL_COST_FACTOR] = round(float((factor.fillna(0.0) * weight).sum() / weight.sum()), 4)
     return out

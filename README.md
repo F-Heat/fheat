@@ -153,6 +153,42 @@ Both are loaded for the bounding box of the loaded buildings, streets and source
 
 **Open points.** The factor tables ([`fheat_nrw/civil_cost.py`](src/fheat_nrw/civil_cost.py), [`fheat_nrw/osm_surface.py`](src/fheat_nrw/osm_surface.py)) and the pipe costs are the values of the previous F|Heat version; the source of the pipe costs is still to be documented, and both are to be calibrated with values from practice. topotherm's own cost regression (`a`, `b`) is not yet aligned with `pipe_data.csv`.
 
+### Potential data (Potenzialdaten)
+
+Four optional layers show the planner where solar thermal and geothermal heat could come from. They are information, no input of the network calculation. The adapter provides them (`DataAdapter.fetch_geothermal_shallow`, `fetch_geothermal_blocks`, `fetch_geothermal_deep`, `fetch_solar_thermal`); the `DOWNLOADED` step puts them on the state, and `save_outputs()` writes them:
+
+| State / file | Content | NRW source | Scale |
+|---|---|---|---|
+| `geothermal_shallow_gdf` / `geothermie_kennwerte` | thermal conductivity for 40/60/80/100 m probes [W/(m·K)], collector extraction at 1800/2400 h [W/m²], a screening value for borehole extraction [W/m], `geothermal_status` | GD NRW, WFS IS GT 50 | 1:50,000 |
+| `geothermal_blocks_gdf` / `geothermie_baubloecke` | shallow (ONG) and medium-deep (MTG, 1,000 m probes) geothermal yield per building block, today and 2045 [MWh/a], heating load [kW] | LANUK heat study, municipality ZIP | building block |
+| `geothermal_deep_gdf` / `geothermie_tief` | hydrothermal doublet per cell: power [MW] and yield [MWh/a] P10/P50/P90 for the medium-deep and deep reservoir, `deep_potential_mwh`, distance, cell centre as `source_candidate_lat`/`_lon` | LANUK heat study, NRW file (2 MB) | 3 × 3 km raster |
+| `solar_thermal_gdf` / `solarthermie_freiflaechen` | ground-mounted solar thermal per Flur: usable area, yield per collector type [MWh/a] and per m² [kWh/(m²·a)], distance to the area and to the nearest building with heat demand | LANUK heat study, NRW file (63 MB) | Flur |
+
+- The buildings get the values of their block (`ong_*`, `mtg_*` — the value of the whole block, repeated on each building, never split; sum per block, not per building) and the shallow values at their location (`borehole_extraction_*`, `collector_extraction_*`). The result summary adds `ong_potential_mwh_a` and `mtg_potential_mwh_a` (blocks of the connected buildings, each once), `deep_potential_max_mwh_a` (largest cell value around the area) and `solar_thermal_flat_plate_mwh_a` / `solar_thermal_area_m2` (all Flure around the area).
+- **Not assessed is not zero.** Where the GD has no assessment (gaps, e.g. collectors in built-up areas) or LANUK left a block empty, the value is NaN and the status `not_assessed` (`partly_assessed` when only some GD layers cover a place).
+- **Borehole extraction is a screening value, not for design.** The download of the GD NRW has no extraction rate in kWh/(m·a), so it is taken from the conductivity (deepest probe available) with the table of VDI 4640 sheet 2 (2001) for small plants below 30 kW: λ < 1.5 → 25/20 W/m, 1.5–3.0 → 60/50 W/m, > 3.0 → 84/70 W/m (1800/2400 h). The 2019 edition requires a simulation for the design. Own table: `borehole_extraction_path=` (format of [`borehole_extraction.json`](src/fheat_nrw/data/borehole_extraction.json)).
+- **Deep geothermal is a rough estimate**; whether a well finds water is unknown (LANUK). One hypothetical plant per cell, so `deep_potential_mwh` is an upper bound. No heat source is placed: put `source_coordinates=(lat, lon)` on a cell yourself if you want.
+- Field names, units and checks of the sources: [`docs/potenzialdaten.md`](docs/potenzialdaten.md).
+
+Licences and attribution:
+
+| Source | Licence | Data as of |
+|---|---|---|
+| Geologischer Dienst NRW, WFS `https://www.wfs.nrw.de/gd/wfs_nw_inspire-gt50` (Informationssystem Geothermie, IS GT 50) | [Datenlizenz Deutschland – Namensnennung 2.0](https://www.govdata.de/dl-de/by-2-0); name "Geologischer Dienst NRW", the service URL and the retrieval date | service, retrieved per run |
+| LANUK (formerly LANUV), Wärmestudie NRW, `https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kwp/` | [Datenlizenz Deutschland – Zero 2.0](https://www.govdata.de/dl-de/zero-2-0) | 01.09.2024 (files of 18.12.2024 / 20.02.2025) |
+
+Large files are downloaded once into a cache and loaded again only when `index.json` lists a newer file: `NRWDataAdapter(cache_dir=...)`, else the environment variable `FHEAT_CACHE_DIR`, else `~/.cache/fheat`. If a download fails, the adapter logs one warning and leaves the layer out; the pipeline continues. Switches and local files:
+
+```python
+NRWDataAdapter(
+    city_name="Burgsteinfurt",
+    download_geothermal_shallow=False,   # or geothermal_shallow_path= (GeoPackage, layers ews40 … ewk2400), geothermal_wfs=
+    download_geothermal_blocks=False,    # or geothermal_blocks_path= (LANUK ONG/MTG file)
+    download_geothermal_deep=False,      # or geothermal_deep_path=, geothermal_deep_buffer=5000 (m)
+    download_solar_thermal=False,        # or solar_thermal_path=, solar_thermal_buffer=2000 (m)
+)
+```
+
 ## Installation
 
 Requires **Python ≥ 3.10**. The geospatial stack (GeoPandas, Shapely, etc.) is easiest to install with `conda`/`mamba`, but `pip` works on most platforms.
@@ -166,7 +202,7 @@ pip install -e ".[full]"      # everything: NRW adapter + German holidays
 pip install -e ".[full,dev]"  # everything + pytest, for development
 pip install -e ".[topotherm]" # + expert network mode; topotherm itself needs a second, editable install — see above
 pip install -e ".[excel,plots]" # + Excel export and load profile charts of the results
-pip install -e ".[xwp]"       # + XWärmeplan export (lxml for the GML writer and XSD check)
+pip install -e ".[xwp]"       # + XWärmeplan export (xplan-tools; Python 3.13 and system GDAL, see below)
 ```
 
 All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
@@ -294,37 +330,87 @@ as well, next to the data. Chart labels are German.
 
 ### XWärmeplan export
 
-F|Heat writes heat plans in the German standard XWärmeplan 0.9.6
-(`pip install "fheat[xwp]"`). Set the plan metadata F|Heat cannot know and
-call `save_xwp()` after the analysis (and, if there is one, the network):
+F|Heat has two outputs side by side; use one, the other or both:
+
+- **F|Heat output**, `save_outputs()`: every layer and table as above, with
+  the canonical column names (`output_language="raw"`) or German labels
+  (`"de"`), as GeoPackage, FlatGeobuf, GeoJSON or GML. That GML
+  (`output_format="gml"`) is plain OGR-GML of the F|Heat layers, not
+  XWärmeplan.
+- **XWärmeplan output**, `export_xwaermeplan()`: only classes and attributes
+  of the German standard XWärmeplan 0.9.6, each one backed by the XSD or the
+  feature catalogue, written through
+  [xplan-tools](https://pypi.org/project/xplan-tools/), the library of the
+  XLeitstelle. It holds the heat line density as `WP_Waermelinie`, each
+  calculated network as `WP_Waermenetz`, the suitability polygons as supply
+  areas, each heated building as a `WP_GebaeudeBaublock`, plus `WP_Plan` and
+  `WP_Bereich`. Streets, parcels, pipes, the heat source and every value
+  without an XWärmeplan attribute stay in the F|Heat output. The file is
+  written only when the checks below find nothing.
+
+Plan data F|Heat does not compute comes from `XWPExportConfig`:
 
 ```python
 import datetime
-from fheat_core.config import XwpConfig, XwpGemeinde, XwpPlanConfig
+from fheat_core.export.xwp import XWPExportConfig, export_xwaermeplan
 
-config.xwp = XwpConfig(plan=XwpPlanConfig(
-    name="Wärmeplan Steinfurt",
-    gemeinde=XwpGemeinde("Steinfurt", "055660032032"),
-    beschluss_datum=datetime.date(2026, 6, 30),
-))
-orch.save_xwp_template()                              # xwp_ergaenzung.gpkg/.xlsx for the planner
-files = orch.save_xwp(supplement=["output/xwp_ergaenzung.gpkg"])
+config = XWPExportConfig(
+    plan_name="Wärmeplan Steinfurt",
+    municipality_name="Steinfurt",
+    municipality_key="05566084",          # AGS; the Regionalschlüssel is derived
+    base_year=2022,
+    decision_date=datetime.date(2026, 6, 30),
+)
+report = export_xwaermeplan(orch.state, config, "output/waermeplan.gml")
+print(report.ok, report.counts, report.issues)
 ```
 
-`save_xwp()` writes `xwaermeplan.gml` (normative, checked against the XSD),
-`xwaermeplan.json` (JSON-FG after the official schema), `xwaermeplan.gpkg`
-(F|Heat exchange format, not normative) and `xwaermeplan_pruefbericht.json`
-(validity, findings, coverage per feature type and missing mandatory
-attributes). What F|Heat cannot derive — measures, texts, energy balances,
-potentials, existing networks, the decision on the supply areas — comes from
-the supplement file. The same is available on the command line:
-`python -m fheat_core.xwp template|build|validate`. Details, decisions and the
-mapping attribute by attribute: [`docs/xwaermeplan/`](docs/xwaermeplan/).
+A draft without a council decision uses `mode="fragment"`: it writes the area
+and the map features for merging into the municipality's plan, whose UUID goes
+in `plan_id=` (optional; without it the area refers to an id derived from the
+Regionalschlüssel, named in `report.notes`). xplan-tools cannot read a fragment
+on its own, because its area points to a plan outside the file.
+`networks=[NetworkResult(state, name=...), ...]` exports several networks.
 
-Note: `output_format="gml"` of `save_outputs()` writes plain OGR-GML of the
-F|Heat layers, not XWärmeplan.
+The report collects every finding of four checks:
 
-Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`), [`burgsteinfurt_xwaermeplan.py`](examples/burgsteinfurt_xwaermeplan.py) (the same area as XWärmeplan) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
+1. **structure**: xplan-tools validates every feature (mandatory fields, code
+   lists) and the references between them;
+2. **schema**: the GML against the XSD 0.9.6, offline, when `schema_dir=`
+   names a folder with `waermeplan.xsd` and an OASIS XML catalog
+   `catalog.xml` for the imported OGC and W3C schemas (as in
+   [`tests/fixtures/xwp/xsd-0.9.6/`](tests/fixtures/xwp/xsd-0.9.6/)). F|Heat
+   does not ship the XSD, because the repository of the XLeitstelle names no
+   licence; without `schema_dir` a note says the GML was not checked;
+3. **consistency** with the F|Heat result: geometries inside the plan
+   boundary, heat demand of the heat lines and supply areas, network length,
+   every heated building in exactly one building block;
+4. **conformity**: the conditions of the standard the XSD does not enforce.
+
+Only an export without findings writes the file (`report.file`), so a written
+file is verifiably conformant; otherwise `report.issues` holds the findings
+and no file is written. `report.notes` holds hints that do not block, e.g.
+that building blocks are single buildings, whose publication the municipality
+decides (data protection). The export writes GML only: JSON-FG as xplan-tools
+writes it does not validate against the JSON schema of XWärmeplan, and the
+valid form cannot be read by xplan-tools. Mapping, decisions and limits:
+[`docs/xwp_mapping.md`](docs/xwp_mapping.md).
+
+The extra needs **Python 3.13** (xplan-tools 1.26 asks for `>=3.13,<3.14`)
+and the GDAL Python binding, which PyPI has no wheel for; its version has to
+match the GDAL library.
+
+- Linux (as the CI job `xwp`): `apt install gdal-bin libgdal-dev`, then
+  `pip install numpy setuptools wheel`,
+  `pip install --no-build-isolation "gdal==$(gdal-config --version)"` and
+  `pip install -e ".[xwp]"`.
+- Windows: GDAL and its binding from conda-forge, where xplan-tools takes them
+  itself (its pixi environment covers `linux-64` and `win-64`), e.g.
+  `conda create -n fheat-xwp -c conda-forge python=3.13 gdal`,
+  `conda activate fheat-xwp`, then `pip install -e ".[xwp]"`. F|Heat tests
+  the extra on Linux only.
+
+Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/burgsteinfurt.py) (NRW adapter, runnable with the bundled planning area `planungsgebiet.gpkg`), [`burgsteinfurt_xwp.py`](examples/burgsteinfurt_xwp.py) (the same area as XWärmeplan) and an introductory notebook [`fheat_einfuehrung.ipynb`](examples/fheat_einfuehrung.ipynb). If you want to add an own area of interest for the analysis you can import it by exporting a polygon with using QGIS.
 
 ## Tests
 
@@ -339,6 +425,11 @@ Tests marked `network` require internet; `slow` tests are long-running.
 ## License
 
 Distributed under the **GNU General Public License v3.0 or later** — see [LICENSE](LICENSE).
+
+The optional extra `[xwp]` installs [xplan-tools](https://gitlab.opencode.de/xleitstelle/xplanung/xplan-tools)
+of the XLeitstelle, licensed under the **EUPL-1.2-or-later**. F|Heat neither
+ships nor modifies it. The XSD of XWärmeplan is not shipped either (see
+[XWärmeplan export](#xwärmeplan-export)).
 
 ## Funding notice
 

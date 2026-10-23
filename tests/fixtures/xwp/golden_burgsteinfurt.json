@@ -1,57 +1,51 @@
 {
-  "objekte": {
+  "counts": {
     "WP_Bereich": 1,
-    "WP_Eignungspruefung": 3,
-    "WP_EnergieBaublock": 44,
-    "WP_EnergieRaster": 48,
-    "WP_GebaeudeBaublock": 44,
+    "WP_GebaeudeBaublock": 588,
     "WP_Plan": 1,
-    "WP_WaermeinfrastrukturAggregiert": 2,
     "WP_Waermelinie": 122,
     "WP_Waermenetz": 1,
-    "WP_WaermeversorgungsgebietZieljahr": 44
+    "WP_WaermeversorgungsgebietZieljahr": 2
   },
-  "waermelinien_mwh": 15991.2,
-  "waermelinien_m": 12648.9,
-  "baubloecke_mwh": 15991.2,
-  "raster_mwh": 12752.2,
-  "gebaeudetypen": {
-    "10001": 40,
-    "2000": 2,
-    "9999": 2
+  "sums": {
+    "WP_GebaeudeBaublock.nutzflaeche": 12.8,
+    "WP_Waermelinie.laenge": 12481.4,
+    "WP_Waermelinie.waermeMenge": 15951.3,
+    "WP_Waermenetz.laenge": 5171.6,
+    "WP_WaermeversorgungsgebietZieljahr.waermeMenge": 15958.7
   },
-  "baualtersklassen": {
-    "1000": 10,
-    "2000": 6,
-    "3000": 3,
-    "4000": 17,
-    "5000": 3,
-    "9999": 5
+  "network": {
+    "anzahlGebaeudeAnschluss": 294,
+    "temperatur": 80.0,
+    "flaeche_ha": 36.4
   },
-  "netz": {
-    "laenge": 5171.6,
-    "anschluesse": 294,
-    "status": "3000"
+  "eignungWaermenetz": {
+    "5000": 2
   },
-  "anschluesse_in_bloecken": 294,
-  "gebaeude": {
-    "alle": 588,
-    "wohnen": 541,
-    "nichtwohnen": 47
+  "baublock": {
+    "gebaeudetyp": {
+      "1000": 516,
+      "10004": 24,
+      "2000": 24,
+      "20003": 1,
+      "20006": 3,
+      "20007": 1,
+      "20009": 9,
+      "20010": 10
+    },
+    "ueberwiegendBaujahr": {
+      "1000": 142,
+      "2000": 123,
+      "3000": 18,
+      "4000": 238,
+      "5000": 58,
+      "9999": 9
+    }
   },
-  "anschlussquote_prozent": 50.0,
-  "versorgungsarten": {
-    "1000": 19,
-    "3000": 25
-  },
-  "eignung_waermenetz": {
-    "1000": 12,
-    "2000": 21,
-    "3000": 8,
-    "4000": 3
-  },
-  "datenschutz": {
-    "bloecke_verworfen": 0,
-    "rasterzellen_verworfen": 36
-  }
+  "issues": [],
+  "notes": [
+    "plan boundary: the union of the parcels (no boundary passed)",
+    "heat lines cut at the plan boundary: 3; 39.9 MWh/a of their heat demand lies outside and is not exported",
+    "building blocks are single buildings: whether to publish them at this resolution is the municipality's decision (data protection)"
+  ]
 }
