@@ -43,8 +43,7 @@ class FlexDataAdapter(DataAdapter):
           - ``full_load_hours`` (optional, sonst default_vlh)
           - ``load_profile`` (optional, sonst default_lastprofil)
           - ``building_id``, ``connect`` (optional, sonst automatisch)
-          - für XWärmeplan (optional): ``construction_year`` (Baujahr),
-            ``xwp_building_type`` (Code aus WP_GebaeudeTyp), ``function``
+          - optional: ``construction_year`` (Baujahr), ``function``
             (ALKIS-Gebäudefunktion), ``building_type`` (EFH, RH, MFH, GMFH)
     default_vlh : float
         Volllaststunden, wenn die Spalte fehlt. Standard: 1600.

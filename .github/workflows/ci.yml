@@ -118,16 +118,13 @@ jobs:
       - name: Expert-Modus-Tests ausführen
         run: python -m pytest tests/test_network_expert.py -v
 
-  xwaermeplan-xplan-tools:
-    # Unabhängiger Prüfstein für die XWärmeplan-GML (docs/xwaermeplan, Plan
-    # Abschnitt 2.1 und Phase 10): Die GML-Ausgaben von F|Heat müssen sich mit
-    # XPlan-Tools, dem Werkzeug der XLeitstelle, fehlerfrei einlesen lassen.
-    # Eigener Job, weil XPlan-Tools 1.26 Python 3.13 und die GDAL-Python-
-    # Bindung verlangt. JSON-FG wird hier bewusst NICHT geprüft: XPlan-Tools
-    # schreibt und erwartet ein JSON-FG, das vom offiziellen Schema abweicht
-    # (abgleich.md, J1); JSON-FG prüft der normale Testlauf gegen das Schema.
-    # Version gepinnt; XPlan-Tools geht in xmas-core auf (2.0 noch rc, Python 3.14).
-    name: XWärmeplan-GML mit XPlan-Tools lesen (Python 3.13)
+  xwp:
+    # XWärmeplan-Export (fheat_core/export/xwp) auf xplan-tools, dem Werkzeug
+    # der XLeitstelle. Eigener Job, weil xplan-tools ab 1.21 Python 3.13 und
+    # die GDAL-Python-Bindung verlangt, für die es kein Wheel auf PyPI gibt;
+    # der Hauptlauf überspringt die Tests mit Marker xwp. Die Bindung muss zur
+    # System-GDAL passen und wird mit numpy-Unterstützung gebaut.
+    name: XWärmeplan-Export (xplan-tools, Python 3.13)
     runs-on: ubuntu-24.04
 
     steps:
@@ -146,22 +143,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gdal-bin libgdal-dev
 
-      - name: F|Heat und XPlan-Tools installieren
-        # Die GDAL-Python-Bindung muss zur Systembibliothek passen.
+      - name: Projekt mit xplan-tools installieren
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "gdal==$(gdal-config --version)"
-          python -m pip install "xplan-tools==1.26.0"
-          python -m pip install --editable ".[xwp,nrw]"  # nrw: das Beispiel nutzt die NRW-Gebäudeverarbeitung
+          python -m pip install numpy setuptools wheel
+          python -m pip install --no-build-isolation "gdal==$(gdal-config --version)"
+          python -m pip install --editable ".[full,dev,xwp]"
 
-      - name: XWärmeplan-GML schreiben (alle Objektarten, Beispiel Burgsteinfurt)
-        run: python scripts/write_xwp_samples.py "${{ runner.temp }}/xwp"
-
-      - name: GML mit XPlan-Tools einlesen
-        run: |
-          set -e
-          for gml in "${{ runner.temp }}"/xwp/*.gml; do
-            echo "::group::$(basename "$gml")"
-            xplan-tools convert "$gml" "${gml%.gml}.xplan-tools.json"
-            echo "::endgroup::"
-          done
+      - name: XWärmeplan-Tests ausführen
+        run: python -m pytest -m xwp -v
