@@ -189,6 +189,11 @@ class FHeatOrchestrator:
             "wld": self.state.wld_gdf,
             "eignungspolygone": self.state.polygons_gdf,
             "netz": self.state.net_gdf,
+            # potential layers (only when the adapter provides them)
+            "geothermie_kennwerte": self.state.geothermal_shallow_gdf,
+            "geothermie_baubloecke": self.state.geothermal_blocks_gdf,
+            "geothermie_tief": self.state.geothermal_deep_gdf,
+            "solarthermie_freiflaechen": self.state.solar_thermal_gdf,
         }
         if layers is not None:
             wanted = set(layers)
@@ -256,10 +261,20 @@ def _check_inputs(phase: Phase, state: PipelineState) -> None:
         )
 
 
+_UNCLIPPED_LAYERS = frozenset({"netz", "source", "geothermie_tief", "solarthermie_freiflaechen"})
+# kept when their inner point lies in the area: a building block of the outer
+# area (LANUK: up to 100 km²) touches nearly every planning area
+_POINT_CLIPPED_LAYERS = frozenset({"buildings", "geothermie_baubloecke"})
+
+
 def _clip_layer(name: str, gdf, planning_area):
-    """Planning-area extract of one export layer (network and source stay complete)."""
-    if gdf is None or gdf.empty or name in {"netz", "source"}:
+    """Planning-area extract of one export layer.
+
+    Network and source stay complete, and so do the layers around the area
+    (deep geothermal, solar thermal), whose candidates lie outside it.
+    """
+    if gdf is None or gdf.empty or name in _UNCLIPPED_LAYERS:
         return gdf
-    if name == "buildings":
+    if name in _POINT_CLIPPED_LAYERS:
         return gdf[in_planning_area(gdf, planning_area)]
     return clip_to_area(gdf, planning_area)

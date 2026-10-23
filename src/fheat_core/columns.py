@@ -103,6 +103,76 @@ HEAT_DEMAND_MWH = "heat_demand_mwh"                  # heat demand [MWh/a]
 
 
 # ============================================================
+# Potential layers (optional, see DataAdapter.fetch_geothermal_*)
+# ============================================================
+
+# Shallow geothermal parameters (NRW: GD NRW IS GT 50, scale 1:50,000)
+GROUND_CONDUCTIVITY_40 = "ground_conductivity_40"    # thermal conductivity, probe 40 m [W/(m·K)]
+GROUND_CONDUCTIVITY_60 = "ground_conductivity_60"    # dto. 60 m [W/(m·K)]
+GROUND_CONDUCTIVITY_80 = "ground_conductivity_80"    # dto. 80 m [W/(m·K)]
+GROUND_CONDUCTIVITY_100 = "ground_conductivity_100"  # dto. 100 m [W/(m·K)]
+COLLECTOR_EXTRACTION_1800 = "collector_extraction_1800"  # ground collector, 1800 h/a [W/m²]
+COLLECTOR_EXTRACTION_2400 = "collector_extraction_2400"  # dto. 2400 h/a [W/m²]
+# Screening value from the conductivity (VDI 4640-2:2001), NOT for design
+BOREHOLE_EXTRACTION_1800 = "borehole_extraction_1800"    # borehole heat exchanger, 1800 h/a [W/m]
+BOREHOLE_EXTRACTION_2400 = "borehole_extraction_2400"    # dto. 2400 h/a [W/m]
+GEOTHERMAL_STATUS = "geothermal_status"  # assessed / partly_assessed / not_assessed
+
+# Shallow and medium-deep geothermal potential per building block (NRW: LANUK
+# heat study). A value of the whole block, never split onto its buildings.
+ONG_POTENTIAL_MWH = "ong_potential_mwh"            # shallow geothermal yield today [MWh/a]
+ONG_POTENTIAL_2045_MWH = "ong_potential_2045_mwh"  # dto. 2045 [MWh/a]
+MTG_POTENTIAL_MWH = "mtg_potential_mwh"            # medium-deep borehole heat exchangers today [MWh/a]
+MTG_POTENTIAL_2045_MWH = "mtg_potential_2045_mwh"  # dto. 2045 [MWh/a]
+BLOCK_HEATING_LOAD = "block_heating_load"          # heating load of the block's buildings [kW]
+BLOCK_HEATING_LOAD_2045 = "block_heating_load_2045"  # dto. 2045 [kW]
+BLOCK_POTENTIAL_STATUS = "block_potential_status"  # assessed / not_assessed
+
+#: values of GEOTHERMAL_STATUS / BLOCK_POTENTIAL_STATUS
+STATUS_ASSESSED = "assessed"
+STATUS_PARTLY_ASSESSED = "partly_assessed"
+STATUS_NOT_ASSESSED = "not_assessed"
+
+# Hydrothermal doublet per grid cell (NRW: LANUK heat study, 3 × 3 km raster).
+# A rough estimate: whether a well finds water is unknown. MT = medium-deep
+# reservoir (400-1,500 m), T = deep reservoir (1,500-5,000 m); P10/P50/P90 =
+# reached with 10/50/90 % probability.
+DOUBLET_MT_P10_MW = "doublet_mt_p10_mw"      # thermal power [MW]
+DOUBLET_MT_P50_MW = "doublet_mt_p50_mw"      # [MW]
+DOUBLET_MT_P90_MW = "doublet_mt_p90_mw"      # [MW]
+DOUBLET_T_P10_MW = "doublet_t_p10_mw"        # [MW]
+DOUBLET_T_P50_MW = "doublet_t_p50_mw"        # [MW]
+DOUBLET_T_P90_MW = "doublet_t_p90_mw"        # [MW]
+DOUBLET_MT_P10_MWH = "doublet_mt_p10_mwh"    # heat yield at the full load hours [MWh/a]
+DOUBLET_MT_P50_MWH = "doublet_mt_p50_mwh"    # [MWh/a]
+DOUBLET_MT_P90_MWH = "doublet_mt_p90_mwh"    # [MWh/a]
+DOUBLET_T_P10_MWH = "doublet_t_p10_mwh"      # [MWh/a]
+DOUBLET_T_P50_MWH = "doublet_t_p50_mwh"      # [MWh/a]
+DOUBLET_T_P90_MWH = "doublet_t_p90_mwh"      # [MWh/a]
+DOUBLET_FULL_LOAD_HOURS = "doublet_full_load_hours"  # [h/a]
+DEEP_POTENTIAL_MWH = "deep_potential_mwh"    # better reservoir of the cell, P50 [MWh/a] (upper bound)
+CELL_SHARE = "cell_share"                    # share of the cell inside NRW [%]
+DEEP_NOTE_DEPTH = "deep_note_depth"          # source note on potential below 5,000 m
+DEEP_NOTE_SURVEY = "deep_note_survey"        # source note on ongoing surveys
+DISTANCE_TO_AREA = "distance_to_area"        # distance to the loaded area [m], 0 = inside
+SOURCE_CANDIDATE_LAT = "source_candidate_lat"  # point inside the cell or field, WGS84 latitude (for source_coordinates)
+SOURCE_CANDIDATE_LON = "source_candidate_lon"  # dto. WGS84 longitude
+
+# Ground-mounted solar thermal per cadastral district (NRW: LANUK heat study)
+FLUR_ID = "flur_id"                                  # id of the cadastral district (Flur)
+SOLAR_USABLE_AREA = "solar_usable_area"              # usable area without a 3 m margin [m²]
+SOLAR_FLAT_PLATE_MWH = "solar_flat_plate_mwh"        # flat plate collectors, 60 °C [MWh/a]
+SOLAR_VACUUM_TUBE_MWH = "solar_vacuum_tube_mwh"      # vacuum tube collectors, 90 °C [MWh/a]
+SOLAR_TROUGH_NS_MWH = "solar_trough_ns_mwh"          # parabolic trough north-south, 150 °C [MWh/a]
+SOLAR_TROUGH_EW_MWH = "solar_trough_ew_mwh"          # parabolic trough east-west, 150 °C [MWh/a]
+SOLAR_FLAT_PLATE_SPECIFIC = "solar_flat_plate_specific"    # yield per usable area [kWh/(m²·a)]
+SOLAR_VACUUM_TUBE_SPECIFIC = "solar_vacuum_tube_specific"  # [kWh/(m²·a)]
+SOLAR_TROUGH_NS_SPECIFIC = "solar_trough_ns_specific"      # [kWh/(m²·a)]
+SOLAR_TROUGH_EW_SPECIFIC = "solar_trough_ew_specific"      # [kWh/(m²·a)]
+DISTANCE_TO_DEMAND = "distance_to_demand"            # to the nearest building with heat demand [m]
+
+
+# ============================================================
 # Internal geometry helper columns
 # ============================================================
 
@@ -141,6 +211,12 @@ CIVIL_COST_SHARE = "civil_cost_share"                              # civil works
 TOTAL_PIPE_COST = "total_pipe_cost_eur"                            # pipe investment [€]
 TOTAL_CIVIL_COST = "total_civil_cost_eur"                          # civil works part of the pipe investment [€]
 MEAN_CIVIL_COST_FACTOR = "mean_civil_cost_factor"                  # civil works factor, weighted by length
+# present only when the adapter provides the potential layer (algorithms/potentials.py)
+TOTAL_ONG_POTENTIAL = "ong_potential_mwh_a"                        # shallow geothermal of the blocks of the connected buildings [MWh/a]
+TOTAL_MTG_POTENTIAL = "mtg_potential_mwh_a"                        # medium-deep geothermal (probes) of these blocks [MWh/a]
+MAX_DEEP_POTENTIAL = "deep_potential_max_mwh_a"                    # largest doublet cell around the area (P50) [MWh/a]
+TOTAL_SOLAR_THERMAL_FLAT_PLATE = "solar_thermal_flat_plate_mwh_a"  # ground-mounted solar thermal around the area, flat plate [MWh/a]
+TOTAL_SOLAR_THERMAL_AREA = "solar_thermal_area_m2"                 # its usable area [m²]
 
 
 # ============================================================
@@ -173,6 +249,46 @@ UNITS: dict[str, str] = {
     HEAT_DEMAND_MWH: "MWh/a",
     PIPE_COST: "€",
     CIVIL_COST: "€",
+    GROUND_CONDUCTIVITY_40: "W/(m·K)",
+    GROUND_CONDUCTIVITY_60: "W/(m·K)",
+    GROUND_CONDUCTIVITY_80: "W/(m·K)",
+    GROUND_CONDUCTIVITY_100: "W/(m·K)",
+    COLLECTOR_EXTRACTION_1800: "W/m²",
+    COLLECTOR_EXTRACTION_2400: "W/m²",
+    BOREHOLE_EXTRACTION_1800: "W/m",
+    BOREHOLE_EXTRACTION_2400: "W/m",
+    ONG_POTENTIAL_MWH: "MWh/a",
+    ONG_POTENTIAL_2045_MWH: "MWh/a",
+    MTG_POTENTIAL_MWH: "MWh/a",
+    MTG_POTENTIAL_2045_MWH: "MWh/a",
+    BLOCK_HEATING_LOAD: "kW",
+    BLOCK_HEATING_LOAD_2045: "kW",
+    DOUBLET_MT_P10_MW: "MW",
+    DOUBLET_MT_P50_MW: "MW",
+    DOUBLET_MT_P90_MW: "MW",
+    DOUBLET_T_P10_MW: "MW",
+    DOUBLET_T_P50_MW: "MW",
+    DOUBLET_T_P90_MW: "MW",
+    DOUBLET_MT_P10_MWH: "MWh/a",
+    DOUBLET_MT_P50_MWH: "MWh/a",
+    DOUBLET_MT_P90_MWH: "MWh/a",
+    DOUBLET_T_P10_MWH: "MWh/a",
+    DOUBLET_T_P50_MWH: "MWh/a",
+    DOUBLET_T_P90_MWH: "MWh/a",
+    DOUBLET_FULL_LOAD_HOURS: "h/a",
+    DEEP_POTENTIAL_MWH: "MWh/a",
+    CELL_SHARE: "%",
+    DISTANCE_TO_AREA: "m",
+    SOLAR_USABLE_AREA: "m²",
+    SOLAR_FLAT_PLATE_MWH: "MWh/a",
+    SOLAR_VACUUM_TUBE_MWH: "MWh/a",
+    SOLAR_TROUGH_NS_MWH: "MWh/a",
+    SOLAR_TROUGH_EW_MWH: "MWh/a",
+    SOLAR_FLAT_PLATE_SPECIFIC: "kWh/(m²·a)",
+    SOLAR_VACUUM_TUBE_SPECIFIC: "kWh/(m²·a)",
+    SOLAR_TROUGH_NS_SPECIFIC: "kWh/(m²·a)",
+    SOLAR_TROUGH_EW_SPECIFIC: "kWh/(m²·a)",
+    DISTANCE_TO_DEMAND: "m",
 }
 
 
@@ -240,6 +356,54 @@ LABELS_DE: dict[str, str] = {
     HEAT_LOSS_MWH: "Verlust [MWh/a]",
     HEAT_LOSS_EXTRA_INSULATION_MWH: "Verlust bei extra Daemmung [MWh/a]",
     HEAT_DEMAND_MWH: "Waermebedarf [MWh/a]",
+    # Potential layers
+    GROUND_CONDUCTIVITY_40: "Waermeleitfaehigkeit 40m [W/m*K]",
+    GROUND_CONDUCTIVITY_60: "Waermeleitfaehigkeit 60m [W/m*K]",
+    GROUND_CONDUCTIVITY_80: "Waermeleitfaehigkeit 80m [W/m*K]",
+    GROUND_CONDUCTIVITY_100: "Waermeleitfaehigkeit 100m [W/m*K]",
+    COLLECTOR_EXTRACTION_1800: "Entzug Kollektor 1800h [W/m²]",
+    COLLECTOR_EXTRACTION_2400: "Entzug Kollektor 2400h [W/m²]",
+    BOREHOLE_EXTRACTION_1800: "Richtwert Entzug Sonde 1800h [W/m]",
+    BOREHOLE_EXTRACTION_2400: "Richtwert Entzug Sonde 2400h [W/m]",
+    GEOTHERMAL_STATUS: "Bewertung Geothermie",
+    ONG_POTENTIAL_MWH: "Potenzial ONG Baublock [MWh/a]",
+    ONG_POTENTIAL_2045_MWH: "Potenzial ONG Baublock 2045 [MWh/a]",
+    MTG_POTENTIAL_MWH: "Potenzial MTG Baublock [MWh/a]",
+    MTG_POTENTIAL_2045_MWH: "Potenzial MTG Baublock 2045 [MWh/a]",
+    BLOCK_HEATING_LOAD: "Heizlast Baublock [kW]",
+    BLOCK_HEATING_LOAD_2045: "Heizlast Baublock 2045 [kW]",
+    BLOCK_POTENTIAL_STATUS: "Bewertung Baublock",
+    DOUBLET_MT_P10_MW: "MTG Dublette P10 [MW]",
+    DOUBLET_MT_P50_MW: "MTG Dublette P50 [MW]",
+    DOUBLET_MT_P90_MW: "MTG Dublette P90 [MW]",
+    DOUBLET_T_P10_MW: "TG Dublette P10 [MW]",
+    DOUBLET_T_P50_MW: "TG Dublette P50 [MW]",
+    DOUBLET_T_P90_MW: "TG Dublette P90 [MW]",
+    DOUBLET_MT_P10_MWH: "MTG Dublette P10 [MWh/a]",
+    DOUBLET_MT_P50_MWH: "MTG Dublette P50 [MWh/a]",
+    DOUBLET_MT_P90_MWH: "MTG Dublette P90 [MWh/a]",
+    DOUBLET_T_P10_MWH: "TG Dublette P10 [MWh/a]",
+    DOUBLET_T_P50_MWH: "TG Dublette P50 [MWh/a]",
+    DOUBLET_T_P90_MWH: "TG Dublette P90 [MWh/a]",
+    DOUBLET_FULL_LOAD_HOURS: "Vlh Dublette [h/a]",
+    DEEP_POTENTIAL_MWH: "Potenzial Dublette P50 [MWh/a]",
+    CELL_SHARE: "Anteil in NRW [%]",
+    DEEP_NOTE_DEPTH: "Hinweis Tiefe",
+    DEEP_NOTE_SURVEY: "Hinweis Bearbeitung",
+    DISTANCE_TO_AREA: "Abstand Gebiet [m]",
+    SOURCE_CANDIDATE_LAT: "Quelle Breite",
+    SOURCE_CANDIDATE_LON: "Quelle Laenge",
+    FLUR_ID: "Flur_ID",
+    SOLAR_USABLE_AREA: "Nutzflaeche [m²]",
+    SOLAR_FLAT_PLATE_MWH: "Flachkollektor [MWh/a]",
+    SOLAR_VACUUM_TUBE_MWH: "Vakuumroehre [MWh/a]",
+    SOLAR_TROUGH_NS_MWH: "Parabolrinne N-S [MWh/a]",
+    SOLAR_TROUGH_EW_MWH: "Parabolrinne O-W [MWh/a]",
+    SOLAR_FLAT_PLATE_SPECIFIC: "Flachkollektor [kWh/m²*a]",
+    SOLAR_VACUUM_TUBE_SPECIFIC: "Vakuumroehre [kWh/m²*a]",
+    SOLAR_TROUGH_NS_SPECIFIC: "Parabolrinne N-S [kWh/m²*a]",
+    SOLAR_TROUGH_EW_SPECIFIC: "Parabolrinne O-W [kWh/m²*a]",
+    DISTANCE_TO_DEMAND: "Abstand Waermebedarf [m]",
 }
 
 
@@ -260,6 +424,11 @@ SUMMARY_LABELS_DE: dict[str, str] = {
     TOTAL_PIPE_COST: "Investition Rohrleitungen [€]",
     TOTAL_CIVIL_COST: "davon Tiefbau [€]",
     MEAN_CIVIL_COST_FACTOR: "Mittlerer Tiefbaufaktor",
+    TOTAL_ONG_POTENTIAL: "Potenzial oberflächennahe Geothermie der Baublöcke [MWh/a]",
+    TOTAL_MTG_POTENTIAL: "Potenzial mitteltiefe Geothermie (Sonden) der Baublöcke [MWh/a]",
+    MAX_DEEP_POTENTIAL: "Größtes Potenzial einer Dublette im Umkreis (P50) [MWh/a]",
+    TOTAL_SOLAR_THERMAL_FLAT_PLATE: "Freiflächen-Solarthermie im Umkreis, Flachkollektor [MWh/a]",
+    TOTAL_SOLAR_THERMAL_AREA: "Nutzfläche Freiflächen-Solarthermie im Umkreis [m²]",
 }
 
 

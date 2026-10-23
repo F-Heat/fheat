@@ -30,6 +30,14 @@ class PipelineState:
     landuse_gdf: Optional[gpd.GeoDataFrame] = None
     osm_surface_gdf: Optional[gpd.GeoDataFrame] = None
 
+    # Potential layers (optional, see DataAdapter.fetch_geothermal_* /
+    # fetch_solar_thermal): information for the planner, no input of the
+    # network. None → no layer.
+    geothermal_shallow_gdf: Optional[gpd.GeoDataFrame] = None
+    geothermal_blocks_gdf: Optional[gpd.GeoDataFrame] = None
+    geothermal_deep_gdf: Optional[gpd.GeoDataFrame] = None
+    solar_thermal_gdf: Optional[gpd.GeoDataFrame] = None
+
     # Planning area of the network (one or more polygons). The analysis steps
     # always work on the whole area of the input frames; NETWORK and RESULTS
     # connect only the buildings inside this area. None → all buildings.

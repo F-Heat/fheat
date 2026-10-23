@@ -1,7 +1,8 @@
 """Beispiel: Wärmenetzanalyse Burgsteinfurt (NRW).
 
 Stufe A – Potenzialanalyse (ganzer Stadtteil, ohne Wärmequelle):
-    1. Strassen, Flurstuecke, Gebaeude des ganzen Stadtteils herunterladen (NRW Open Geodata)
+    1. Strassen, Flurstuecke, Gebaeude des ganzen Stadtteils herunterladen (NRW Open Geodata),
+       dazu die Potenzialdaten Geothermie und Freiflächen-Solarthermie (optional)
     2. Strassen und Gebaeude bereinigen (adjust)
     3. Wärmeliniendichte und Eignungspolygone berechnen (status)  →  wld.gpkg, eignungspolygone.gpkg
 Stufe B – Netzplanung (Planungsgebiet + Wärmequelle):
@@ -106,6 +107,30 @@ logging.info(
 orch.save_outputs(layers=["wld", "eignungspolygone"])
 
 # ---------------------------------------------------------------------------
+# Potenzialdaten (Schritt 1 hat sie mitgeladen, wenn die Downloads klappten)
+#   Geothermie-Kennwerte (GD NRW), Geothermie je Baublock, tiefe Geothermie
+#   und Freiflächen-Solarthermie im Umkreis (LANUK-Wärmestudie).
+# ---------------------------------------------------------------------------
+potential_layers = {
+    "geothermie_kennwerte": orch.state.geothermal_shallow_gdf,
+    "geothermie_baubloecke": orch.state.geothermal_blocks_gdf,
+    "geothermie_tief": orch.state.geothermal_deep_gdf,
+    "solarthermie_freiflaechen": orch.state.solar_thermal_gdf,
+}
+for name, gdf in potential_layers.items():
+    logging.info("%s: %s", name, "nicht geladen" if gdf is None else f"{len(gdf)} Objekte")
+deep = orch.state.geothermal_deep_gdf
+if deep is not None:
+    best = deep.sort_values(cols.DEEP_POTENTIAL_MWH, ascending=False).iloc[0]
+    logging.info(
+        "Beste Dublette im Umkreis: %.0f MWh/a (P50, grobe Abschätzung), %.0f m vom Gebiet, "
+        "Mittelpunkt (lat, lon) = (%.5f, %.5f)",
+        best[cols.DEEP_POTENTIAL_MWH], best[cols.DISTANCE_TO_AREA],
+        best[cols.SOURCE_CANDIDATE_LAT], best[cols.SOURCE_CANDIDATE_LON],
+    )
+orch.save_outputs(layers=[name for name, gdf in potential_layers.items() if gdf is not None])
+
+# ---------------------------------------------------------------------------
 # Schritt 4: Planungsgebiet und Wärmequelle setzen
 #   Nur Gebäude im Planungsgebiet (und mit connect == 1) werden angeschlossen.
 #   WLD und Eignungspolygone gelten weiter für den ganzen Stadtteil. Statt
@@ -161,6 +186,10 @@ if summary:
         print(f"    davon Tiefbau:            {summary['total_civil_cost_eur']:,.0f} €"
               f" (Tiefbauanteil {summary['civil_cost_share']:.0%})")
         print(f"  Mittlerer Tiefbaufaktor:    {summary['mean_civil_cost_factor']:.2f}")
+    potentials = [key for key in cols.SUMMARY_LABELS_DE if "potential" in key or "solar" in key]
+    for key in potentials:
+        if key in summary:
+            print(f"  {cols.SUMMARY_LABELS_DE[key]}: {summary[key]:,.0f}")
 
     print("\n--- Rohrmengen je DN ---")
     print(cols.to_display(orch.state.pipe_summary_df).to_string(index=False))
