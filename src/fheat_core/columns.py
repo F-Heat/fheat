@@ -85,6 +85,10 @@ PIPE_COST = "pipe_cost"              # pipe investment of the edge [€]
 CIVIL_COST = "civil_cost"            # civil works part of pipe_cost [€]
 # Written by the NETWORK step (fheat_core/algorithms/under_buildings.py)
 LENGTH_UNDER_BUILDINGS = "length_under_buildings"  # house connection under other buildings [m], 0 = none
+# Expansion potential of an edge for an average building power, computed on
+# request and never stored (fheat_core/algorithms/expansion.py)
+EXPANDABLE_POWER = "expandable_power"        # building power connectable at the edge before a DN on its way to the source grows [kW]
+POTENTIAL_BUILDINGS = "potential_buildings"  # buildings of the average power that fit into it
 
 # Value of TYPE for a building's house connection. Every other edge type
 # (street pipe, source connection) counts as route in the pipe summary.
@@ -244,6 +248,7 @@ UNITS: dict[str, str] = {
     HEAT_LOSS_EXTRA_INSULATION: "kWh/a",
     HOUSE_CONNECTION_LENGTH: "m",
     LENGTH_UNDER_BUILDINGS: "m",
+    EXPANDABLE_POWER: "kW",
     ROUTE_LENGTH: "m",
     HEAT_LOSS_MWH: "MWh/a",
     HEAT_LOSS_EXTRA_INSULATION_MWH: "MWh/a",
