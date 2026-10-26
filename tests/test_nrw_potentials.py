@@ -5,6 +5,7 @@ Covers:
 - potentials.borehole_extraction: VDI 4640 classes and their bounds
 - potentials.merge_geothermal_layers: overlay, gaps stay NaN, status
 - potentials.process_blocks: units, block_id from the source or the buildings
+- potentials.process_wastewater_plants: heat from the wastewater volume, one row per site
 - NRWDataAdapter.fetch_geothermal_shallow / fetch_geothermal_blocks:
   bbox, local files, failure → None + one warning, switched off
 """
@@ -18,7 +19,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-from shapely.geometry import LineString, box
+from shapely.geometry import LineString, Point, box
 
 from fheat_core import columns as cols
 from fheat_nrw import download as dl
@@ -562,6 +563,50 @@ class TestAdapterSolarThermal:
         with caplog.at_level("WARNING"):
             assert _loaded_adapter().fetch_solar_thermal() is None
         assert "Solarthermie" in caplog.records[-1].getMessage()
+
+
+# ---------------------------------------------------------------------------
+# Municipal wastewater plants (LANUK)
+# ---------------------------------------------------------------------------
+
+
+def _raw_plants(rows) -> gpd.GeoDataFrame:
+    """(standortnr, name, ew_bemess, ew, jabw_menge, x, y) per discharge, as text like the GeoPackage."""
+    return gpd.GeoDataFrame(
+        {"standortnr": [r[0] for r in rows], "name": [r[1] for r in rows],
+         "ew_bemess": [r[2] for r in rows], "ew": [r[3] for r in rows], "jabw_menge": [r[4] for r in rows]},
+        geometry=[Point(r[5], r[6]) for r in rows], crs=CRS,
+    )
+
+
+class TestProcessWastewaterPlants:
+    def test_heat_from_the_wastewater_volume(self):
+        raw = _raw_plants([
+            ("1", "Steinfurt-Burgsteinfurt", "38000", "30000", "1000000", 388050, 5779050),
+            ("2", "Ochtrup", "30000", "20000", "", 390000, 5779050),
+        ])
+        out = pot.process_wastewater_plants(raw, box(*AREA_BOX))
+        row = out.iloc[0]
+        assert row[cols.SOURCE_NAME] == "Steinfurt-Burgsteinfurt"
+        assert row[cols.WWTP_DESIGN_PE] == 38000.0 and row[cols.WWTP_CONNECTED_PE] == 30000.0
+        # 1,000,000 m³/a cooled by 5 K: 5,815 MWh/a, as power over 4421 h
+        assert row[cols.HEAT_EXTRACTION_MWH] == pytest.approx(5815.0)
+        assert row[cols.HEAT_EXTRACTION_KW] == pytest.approx(5815.0e3 / 4421.0)
+        assert row[cols.HEAT_HT_MWH] == pytest.approx(5815.0 * 2.7 / 1.7)
+        assert row[cols.DISTANCE_TO_AREA] == 0.0
+        assert np.isnan(out[cols.HEAT_EXTRACTION_MWH].iloc[1])   # no volume known
+
+    def test_one_row_per_site(self):
+        raw = _raw_plants([
+            ("7", "Eilendorf", "87000", "41547", "4169580", 386500, 5778500),
+            ("7", "Eilendorf", "87000", "41547", "4169580", 386510, 5778500),
+        ])
+        assert len(pot.process_wastewater_plants(raw, box(*AREA_BOX))) == 1
+
+    def test_changed_field_names_raise(self):
+        raw = _raw_plants([("1", "A", "1", "1", "1", 0, 0)]).rename(columns={"jabw_menge": "menge"})
+        with pytest.raises(RuntimeError, match="Feldnamen"):
+            pot.process_wastewater_plants(raw, box(0, 0, 1, 1))
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
-"""Potential layers of the NRW adapter: geothermal and solar thermal.
+"""Potential layers of the NRW adapter: geothermal, solar thermal, wastewater plants.
 
-Turns the raw sources (GD NRW WFS IS GT 50, LANUK heat study) into frames
+Turns the raw sources (GD NRW WFS IS GT 50, LANUK heat study, LANUK list of
+the municipal wastewater plants) into frames
 with the canonical columns of :mod:`fheat_core.columns`. Field names and
 units of the sources: ``docs/potenzialdaten.md``.
 """
@@ -17,6 +18,13 @@ import pandas as pd
 from shapely.geometry.base import BaseGeometry
 
 from fheat_core import columns as cols
+from fheat_eu.heat_sources import (
+    WASTEWATER_COOLING_K,
+    WASTEWATER_ORDER,
+    WATER_HEAT_CAPACITY,
+    distance_and_candidate,
+    wastewater_columns,
+)
 
 #: GD NRW layer key → column of its "capacity" value
 GEOTHERMAL_COLUMNS = {
@@ -213,14 +221,6 @@ DEEP_FIELDS = {
 DEEP_NOTES = {"Hinweis1": cols.DEEP_NOTE_DEPTH, "Hinweis2": cols.DEEP_NOTE_SURVEY}
 
 
-def _distance_and_candidate(out: gpd.GeoDataFrame, area: BaseGeometry) -> None:
-    """Distance to ``area`` and a WGS84 point inside every feature (in place)."""
-    out[cols.DISTANCE_TO_AREA] = out.geometry.distance(area).astype("float64")
-    centres = out.geometry.representative_point().to_crs("EPSG:4326")
-    out[cols.SOURCE_CANDIDATE_LAT] = centres.y.round(6)
-    out[cols.SOURCE_CANDIDATE_LON] = centres.x.round(6)
-
-
 def process_deep_cells(raw: gpd.GeoDataFrame, area: BaseGeometry) -> gpd.GeoDataFrame:
     """LANUK doublet raster cells → canonical columns.
 
@@ -238,7 +238,7 @@ def process_deep_cells(raw: gpd.GeoDataFrame, area: BaseGeometry) -> gpd.GeoData
     for field, column in DEEP_NOTES.items():
         out[column] = raw[field].astype("string").values if field in raw.columns else pd.NA
     out[cols.DEEP_POTENTIAL_MWH] = out[[cols.DOUBLET_MT_P50_MWH, cols.DOUBLET_T_P50_MWH]].max(axis=1)
-    _distance_and_candidate(out, area)
+    distance_and_candidate(out, area)
     ordered = [
         cols.DEEP_POTENTIAL_MWH, *(c for c, _ in DEEP_FIELDS.values()), *DEEP_NOTES.values(),
         cols.DISTANCE_TO_AREA, cols.SOURCE_CANDIDATE_LAT, cols.SOURCE_CANDIDATE_LON,
@@ -295,7 +295,7 @@ def process_solar_thermal(
         kwh = pd.to_numeric(raw[field], errors="coerce").astype("float64").values
         out[column] = kwh * 1e-3
         out[specific] = kwh / usable.values
-    _distance_and_candidate(out, area)
+    distance_and_candidate(out, area)
     out[cols.DISTANCE_TO_DEMAND] = distance_to_demand(out, buildings)
     ordered = [
         cols.FLUR_ID, cols.SOLAR_USABLE_AREA, *(c for c, _ in SOLAR_FIELDS.values()),
@@ -303,3 +303,38 @@ def process_solar_thermal(
         cols.SOURCE_CANDIDATE_LAT, cols.SOURCE_CANDIDATE_LON,
     ]
     return out[ordered + ["geometry"]].sort_values(cols.DISTANCE_TO_AREA, kind="stable").reset_index(drop=True)
+
+
+#: LANUK wastewater plant fields → column; ew = inhabitants + population
+#: equivalents connected, ew_bemess = design size
+WASTEWATER_FIELDS = {"ew_bemess": cols.WWTP_DESIGN_PE, "ew": cols.WWTP_CONNECTED_PE, "jabw_menge": cols.WASTEWATER_VOLUME}
+WASTEWATER_SITE_FIELD = "standortnr"
+WASTEWATER_NAME_FIELD = "name"
+SOURCE_LANUK_WASTEWATER = "LANUK, Kommunale Kläranlagen NRW"
+
+
+def process_wastewater_plants(raw: gpd.GeoDataFrame, area: BaseGeometry) -> gpd.GeoDataFrame:
+    """LANUK municipal wastewater plants → canonical columns of the heat source layer.
+
+    One row per site (``standortnr``; a site with several discharges keeps
+    the row with the largest volume). The heat comes from the real annual
+    wastewater volume cooled by 5 K, unlike the Hotmaps value of Fordatis,
+    which only scales the design size; then the heat pump of the two
+    scenarios of Manz et al. (2024). ``area`` (same CRS) gives the distance.
+    """
+    needed = (*WASTEWATER_FIELDS, WASTEWATER_SITE_FIELD, WASTEWATER_NAME_FIELD)
+    missing = [field for field in needed if field not in raw.columns]
+    if missing:
+        raise RuntimeError(f"LANUK-Kläranlagen ohne Felder {missing} (Feldnamen geändert?).")
+    raw = raw.assign(_volume=pd.to_numeric(raw["jabw_menge"], errors="coerce"))
+    raw = raw.sort_values("_volume", ascending=False, na_position="last").drop_duplicates(WASTEWATER_SITE_FIELD)
+    out = gpd.GeoDataFrame(geometry=raw.geometry.values, crs=raw.crs)
+    out[cols.SOURCE_NAME] = raw[WASTEWATER_NAME_FIELD].astype("string").values
+    for field, column in WASTEWATER_FIELDS.items():
+        out[column] = pd.to_numeric(raw[field], errors="coerce").astype("float64").values
+    wastewater_columns(out, out[cols.WASTEWATER_VOLUME] * WATER_HEAT_CAPACITY * WASTEWATER_COOLING_K * 1e-3)
+    out[cols.DATA_SOURCE] = SOURCE_LANUK_WASTEWATER
+    distance_and_candidate(out, area)
+    ordered = [WASTEWATER_ORDER[0], *WASTEWATER_FIELDS.values(), *WASTEWATER_ORDER[1:]]
+    return out[ordered + ["geometry"]].sort_values(cols.DISTANCE_TO_AREA, kind="stable").reset_index(drop=True)
+
