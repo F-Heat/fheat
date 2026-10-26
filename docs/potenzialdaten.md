@@ -169,5 +169,5 @@ Zelle lohnt sich nicht als Standard; Phase 3 lässt ihn deshalb weg (optional, s
 
 `gpd.read_file("/vsizip//vsicurl/<url>/<name>.gdb", bbox=...)` funktioniert ohne Download: TG-Raster
 0,9 s, FF-Solarthermie 12,4 s je Lauf (Burgsteinfurt, 19.10.2026). Der Zwischenspeicher
-(`fheat_nrw.cache`) braucht nach dem ersten Download 0,2 s bzw. 1,5 s und funktioniert auch, wenn
+(`fheat_core.cache`) braucht nach dem ersten Download 0,2 s bzw. 1,5 s und funktioniert auch, wenn
 der Server kurz nicht erreichbar ist. Deshalb wird `/vsicurl` nicht verwendet.

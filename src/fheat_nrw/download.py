@@ -18,19 +18,25 @@ import pandas as pd
 from owslib.wfs import WebFeatureService
 from shapely.geometry import LineString
 
-from fheat_core import cancel
-from fheat_nrw import cache
+from fheat_core import cache, cancel
 from fheat_nrw.area import district_parcels
 
 URL_BUILDINGS = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kwp/"
 # LANUK heat study, NRW-wide geodatabases in the same folder (index.json).
 # Checked 2026-10-19 (docs/potenzialdaten.md): EPSG:25832, values in MW and
 # GWh/a (doublet raster) or kWh/a (solar thermal). Licence: Datenlizenz
-# Deutschland – Zero 2.0. Loaded through the cache (fheat_nrw.cache).
+# Deutschland – Zero 2.0. Loaded through the cache (fheat_core.cache).
 FILE_DEEP_GEOTHERMAL = "KWP-NRW-Potenzial_TG_Raster_EPSG25832_Geodatabase.zip"   # 2 MB
 LAYER_DEEP_GEOTHERMAL = "MTG_TG_Raster_NRW"
 FILE_SOLAR_THERMAL = "KWP-NRW-Potenzial_FF_Solarthermie_Flur_EPSG25832_Geodatabase.zip"  # 63 MB
 LAYER_SOLAR_THERMAL = "FF_Solarthermie_Flur_NRW"
+# LANUK "Kommunale Kläranlagen NRW" (ELKA), one point per discharge, with name,
+# design size, connected population equivalents and the annual wastewater
+# volume. Checked 2026-10-26: 703 rows / 601 sites, EPSG:25832, data of 2025.
+# Licence: Datenlizenz Deutschland – Zero 2.0.
+URL_WASTEWATER = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/abwasser/abwasser_kom/"
+FILE_WASTEWATER = "KomKlaeranlagen_EPSG25832_GeoPackage.zip"   # 0.5 MB
+LAYER_WASTEWATER = "komm_ka"
 URL_PARCELS = "https://www.wfs.nrw.de/geobasis/wfs_nw_inspire-flurstuecke_alkis"
 LAYER_PARCELS = "cp:CadastralParcel"
 # ALKIS "Tatsächliche Nutzung" (simplified ALKIS). Checked 2026-10-09 via
@@ -135,7 +141,7 @@ def find_file(files: list, name: str) -> Optional[dict]:
 def cached_file(
     url: str, name: str, cache_dir: Optional[Path] = None, files: Optional[list] = None
 ) -> Path:
-    """Local copy of ``url + name`` from the cache (:mod:`fheat_nrw.cache`).
+    """Local copy of ``url + name`` from the cache (:mod:`fheat_core.cache`).
 
     Loads the file again when ``index.json`` of the folder lists a newer
     timestamp (``files``: the index if it is already loaded). If the index

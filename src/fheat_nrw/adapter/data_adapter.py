@@ -12,11 +12,10 @@ import pandas as pd
 from shapely.geometry import Point, box
 from shapely.ops import unary_union
 
-from fheat_core import cancel
+from fheat_core import cache, cancel
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 
-from fheat_nrw import cache
 from fheat_nrw import download as dl
 from fheat_nrw import potentials as pot
 from fheat_nrw.area import boundary_from_parcels, clip_to_boundary
