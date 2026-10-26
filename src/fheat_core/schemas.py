@@ -329,6 +329,118 @@ SolarThermalSchema = FrameSchema(
 )
 
 
+# ============================================================
+# Heat sources around the area — optional, adapter provides them or None
+# ============================================================
+
+_SOURCE_CANDIDATE = {cols.SOURCE_CANDIDATE_LAT: "float", cols.SOURCE_CANDIDATE_LON: "float"}
+
+WastewaterSchema = FrameSchema(
+    name="Wastewater",
+    required_columns={
+        cols.HEAT_EXTRACTION_MWH: "float",
+        cols.HEAT_HT_MWH: "float",
+        cols.HEAT_LT_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        **_SOURCE_CANDIDATE,
+        "geometry": "Point",
+    },
+    optional_columns={
+        cols.SOURCE_NAME: "str",
+        cols.WWTP_DESIGN_PE: "float",
+        cols.WWTP_CONNECTED_PE: "float",
+        cols.WASTEWATER_VOLUME: "float",
+        cols.HEAT_EXTRACTION_KW: "float",
+        cols.DATA_SOURCE: "str",
+    },
+    geometry_type="Point",
+)
+
+IndustrialHeatSchema = FrameSchema(
+    name="IndustrialHeat",
+    required_columns={
+        cols.HEAT_HT_MWH: "float",
+        cols.HEAT_LT_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        **_SOURCE_CANDIDATE,
+        "geometry": "Point",
+    },
+    optional_columns={
+        cols.SITE_ID: "int",
+        cols.SOURCE_NAME: "str",
+        cols.COMPANY: "str",
+        cols.SUBSECTOR: "str",
+        cols.DATA_SOURCE: "str",
+    },
+    geometry_type="Point",
+)
+
+WasteIncinerationSchema = FrameSchema(
+    name="WasteIncineration",
+    required_columns={
+        cols.EXCESS_HEAT_THEORETICAL_MWH: "float",
+        cols.HEAT_HT_MWH: "float",
+        cols.HEAT_LT_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        **_SOURCE_CANDIDATE,
+        "geometry": "Point",
+    },
+    optional_columns={cols.SOURCE_NAME: "str", cols.DATA_SOURCE: "str"},
+    geometry_type="Point",
+)
+
+RiverHeatSchema = FrameSchema(
+    name="RiverHeat",
+    required_columns={
+        cols.HEAT_PUMP_CAPACITY_MW: "float",
+        cols.HEAT_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        "geometry": "Polygon",
+    },
+    optional_columns={
+        cols.RIVER_SIZE_CLASS: "str",
+        cols.SOURCE_FULL_LOAD_HOURS: "float",
+        cols.DATA_SOURCE: "str",
+    },
+    geometry_type="Polygon",
+)
+
+GeothermalCellsSchema = FrameSchema(
+    name="GeothermalCells",
+    required_columns={
+        cols.HEAT_HT_MWH: "float",  # NaN: the rock is too cold for the HT scenario
+        cols.HEAT_LT_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        **_SOURCE_CANDIDATE,
+        "geometry": "Polygon",
+    },
+    optional_columns={cols.DATA_SOURCE: "str"},
+    geometry_type="Polygon",
+)
+
+StudyDHAreasSchema = FrameSchema(
+    name="StudyDHAreas",
+    required_columns={
+        cols.DH_AREA_ID: "int",
+        cols.DH_DEMAND_2050_MWH: "float",
+        "geometry": "Polygon",
+    },
+    optional_columns={cols.DATA_SOURCE: "str"},
+    geometry_type="Polygon",
+)
+
+StudyPotentialsSchema = FrameSchema(
+    name="StudyPotentials",
+    required_columns={
+        cols.STUDY_SOURCE: "str",
+        cols.STUDY_SUPPLY_HT_MWH: "float",
+        cols.STUDY_UTILIZATION_HT_MWH: "float",
+        cols.STUDY_SUPPLY_LT_MWH: "float",
+        cols.STUDY_UTILIZATION_LT_MWH: "float",
+    },
+)
+
+
 @dataclass(frozen=True)
 class ResultSummarySchema:
     name: str = "ResultSummary"
@@ -369,6 +481,17 @@ class ResultSummarySchema:
         cols.MIN_OUTDOOR_TEMPERATURE,
         cols.HEATING_DEGREE_DAYS,
         cols.TEMPERATURE_FALLBACK_REASON,
+        # Present only when the adapter provides the heat source layer
+        cols.TOTAL_WASTEWATER_EXTRACTION,
+        cols.TOTAL_WASTEWATER_HEAT_HT,
+        cols.TOTAL_WASTEWATER_HEAT_LT,
+        cols.TOTAL_INDUSTRIAL_HEAT_HT,
+        cols.TOTAL_INDUSTRIAL_HEAT_LT,
+        cols.TOTAL_WASTE_INCINERATION_HT,
+        cols.TOTAL_WASTE_INCINERATION_LT,
+        cols.MAX_RIVER_HEAT,
+        cols.TOTAL_HYDROTHERMAL_HT,
+        cols.TOTAL_HYDROTHERMAL_LT,
     )
 
     def validate(self, summary) -> None:

@@ -1,15 +1,19 @@
 """Flexible DataAdapter — accepts user-supplied files with column mapping."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Point
+from shapely.geometry import Point, box
 
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
+from fheat_eu.loader import HeatSourceLoader
+
+logger = logging.getLogger(__name__)
 
 SourceInput = Union[Tuple[float, float], str, Path, gpd.GeoDataFrame]
 
@@ -49,6 +53,24 @@ class FlexDataAdapter(DataAdapter):
         Volllaststunden, wenn die Spalte fehlt. Standard: 1600.
     default_lastprofil : str
         Lastprofil-Code, wenn die Spalte fehlt. Standard: "GMK".
+    download_heat_sources : bool
+        Wenn True, werden die Wärmequellen im Umkreis der Gebäude aus dem
+        Datensatz des Fraunhofer ISI geladen (Manz et al. 2024, EU, Stand
+        2050, einmal in den Zwischenspeicher): Kläranlagen, Industrie-
+        Abwärme, Müllverbrennung, Flüsse und Seen, Hydrothermie. Standard
+        False: der Adapter lädt sonst
+        nichts aus dem Netz. Braucht ein metrisches KBS der Gebäude. Fehler →
+        Warnung, kein Layer.
+    lau_id : str | None
+        Gemeinde der Studie (``LAU_ID``, z. B. ``DE_05566084``) für ihre
+        Wärmenetzgebiete und Werte. None → beides nicht.
+    heat_source_buffers : dict | None
+        Umkreis je Wärmequelle in m (Standard: Höchstabstände des Papers).
+    fordatis_path : Path | None
+        Eigener Ordner mit den Fordatis-Dateien (statt des Downloads).
+    cache_dir : Path | None
+        Ordner für die Downloads (Standard: ``FHEAT_CACHE_DIR`` oder
+        ``~/.cache/fheat``).
     """
 
     def __init__(
@@ -60,6 +82,11 @@ class FlexDataAdapter(DataAdapter):
         column_map: Optional[dict] = None,
         default_vlh: float = 1600.0,
         default_lastprofil: str = "GMK",
+        download_heat_sources: bool = False,
+        lau_id: Optional[str] = None,
+        heat_source_buffers: Optional[dict] = None,
+        fordatis_path: Optional[Union[str, Path]] = None,
+        cache_dir: Optional[Union[str, Path]] = None,
     ) -> None:
         self._buildings_path = Path(buildings_path)
         self._streets_path = Path(streets_path)
@@ -68,6 +95,13 @@ class FlexDataAdapter(DataAdapter):
         self._column_map = column_map or {}
         self._default_vlh = default_vlh
         self._default_lastprofil = default_lastprofil
+        self._download_heat_sources = bool(download_heat_sources)
+        self._lau_id = lau_id
+        self._heat_source_buffers = dict(heat_source_buffers or {})
+        self._fordatis_path = Path(fordatis_path) if fordatis_path is not None else None
+        self._cache_dir = Path(cache_dir) if cache_dir is not None else None
+        self._heat_layers: dict = {}
+        self._heat_loader: Optional[HeatSourceLoader] = None
 
         self._buildings: Optional[gpd.GeoDataFrame] = None
         self._streets: Optional[gpd.GeoDataFrame] = None
@@ -99,6 +133,54 @@ class FlexDataAdapter(DataAdapter):
         if self._source is None:
             self._source = self._load_source()
         return self._source
+
+    def fetch_wastewater(self) -> Optional[gpd.GeoDataFrame]:
+        return self._heat_source("wastewater")
+
+    def fetch_industrial_heat(self) -> Optional[gpd.GeoDataFrame]:
+        return self._heat_source("industrial_heat")
+
+    def fetch_waste_incineration(self) -> Optional[gpd.GeoDataFrame]:
+        return self._heat_source("waste_incineration")
+
+    def fetch_river_heat(self) -> Optional[gpd.GeoDataFrame]:
+        return self._heat_source("river_heat")
+
+    def fetch_geothermal_hydrothermal(self) -> Optional[gpd.GeoDataFrame]:
+        return self._heat_source("hydrothermal")
+
+    def fetch_study_dh_areas(self) -> Optional[gpd.GeoDataFrame]:
+        return self._heat_source("study_dh_areas")
+
+    def fetch_study_potentials(self) -> Optional[pd.DataFrame]:
+        return self._heat_source("study_potentials")
+
+    # ------------------------------------------------------------------
+    # Heat sources (fheat_eu), loaded once per layer
+    # ------------------------------------------------------------------
+
+    def _heat_source(self, key: str):
+        if key not in self._heat_layers:
+            layer = None
+            if self._download_heat_sources or self._fordatis_path is not None:
+                try:
+                    layer = getattr(self._heat_source_loader(), key)()
+                except Exception as e:  # network/IO dependent: never stop the pipeline
+                    logger.warning("Wärmequelle '%s' (Fraunhofer ISI) konnte nicht geladen werden (%s) — kein Layer.",
+                                   key, e)
+            self._heat_layers[key] = layer if layer is not None and not layer.empty else None
+        return self._heat_layers[key]
+
+    def _heat_source_loader(self) -> HeatSourceLoader:
+        if self._heat_loader is None:
+            buildings = self.fetch_buildings()
+            if buildings.crs is None or not buildings.crs.is_projected:
+                raise RuntimeError("Wärmequellen brauchen Gebäude in einem metrischen KBS (z. B. EPSG:25832).")
+            self._heat_loader = HeatSourceLoader(
+                box(*buildings.total_bounds), buildings.crs, self._heat_source_buffers,
+                self._cache_dir, self._fordatis_path, lau_id=self._lau_id,
+            )
+        return self._heat_loader
 
     # ------------------------------------------------------------------
     # Loaders

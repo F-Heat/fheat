@@ -4,9 +4,16 @@ from __future__ import annotations
 from fheat_core.algorithms.potentials import attach_potentials
 from fheat_core.schemas import (
     GeothermalBlocksSchema,
+    GeothermalCellsSchema,
     GeothermalDeepSchema,
     GeothermalShallowSchema,
+    IndustrialHeatSchema,
+    RiverHeatSchema,
     SolarThermalSchema,
+    StudyDHAreasSchema,
+    StudyPotentialsSchema,
+    WasteIncinerationSchema,
+    WastewaterSchema,
 )
 from fheat_core.state import Phase, PipelineState
 
@@ -24,12 +31,19 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
 
 
 def _fetch_potentials(state: PipelineState, adapter) -> None:
-    """Optional potential layers; the buildings get their block and shallow geothermal values."""
+    """Optional potential and heat source layers; the buildings get their block and shallow geothermal values."""
     layers = {
         "geothermal_shallow_gdf": (adapter.fetch_geothermal_shallow, GeothermalShallowSchema),
         "geothermal_blocks_gdf": (adapter.fetch_geothermal_blocks, GeothermalBlocksSchema),
         "geothermal_deep_gdf": (adapter.fetch_geothermal_deep, GeothermalDeepSchema),
         "solar_thermal_gdf": (adapter.fetch_solar_thermal, SolarThermalSchema),
+        "wastewater_gdf": (adapter.fetch_wastewater, WastewaterSchema),
+        "industrial_heat_gdf": (adapter.fetch_industrial_heat, IndustrialHeatSchema),
+        "waste_incineration_gdf": (adapter.fetch_waste_incineration, WasteIncinerationSchema),
+        "river_heat_gdf": (adapter.fetch_river_heat, RiverHeatSchema),
+        "hydrothermal_gdf": (adapter.fetch_geothermal_hydrothermal, GeothermalCellsSchema),
+        "study_dh_areas_gdf": (adapter.fetch_study_dh_areas, StudyDHAreasSchema),
+        "study_potentials_df": (adapter.fetch_study_potentials, StudyPotentialsSchema),
     }
     for attr, (fetch, schema) in layers.items():
         gdf = fetch()

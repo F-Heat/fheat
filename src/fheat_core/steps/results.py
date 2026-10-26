@@ -9,7 +9,7 @@ from shapely.ops import unary_union
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
-from fheat_core.algorithms.potentials import potential_summary
+from fheat_core.algorithms.potentials import heat_source_summary, potential_summary
 from fheat_core.algorithms.slp import build_load_profile
 from fheat_core.algorithms.summary import network_length_split, summarize_buildings, summarize_pipes
 from fheat_core.errors import PipelineInputError
@@ -84,6 +84,10 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     summary.update(_civil_cost_summary(net_gdf, config.civil_cost_share))
     summary.update(potential_summary(
         buildings, state.geothermal_blocks_gdf, state.geothermal_deep_gdf, state.solar_thermal_gdf
+    ))
+    summary.update(heat_source_summary(
+        state.wastewater_gdf, state.industrial_heat_gdf, state.waste_incineration_gdf, state.river_heat_gdf,
+        state.hydrothermal_gdf,
     ))
 
     RESULT_SUMMARY_SCHEMA.validate(summary)

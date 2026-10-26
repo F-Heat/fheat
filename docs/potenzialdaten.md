@@ -171,3 +171,63 @@ Zelle lohnt sich nicht als Standard; Phase 3 lässt ihn deshalb weg (optional, s
 0,9 s, FF-Solarthermie 12,4 s je Lauf (Burgsteinfurt, 19.10.2026). Der Zwischenspeicher
 (`fheat_core.cache`) braucht nach dem ersten Download 0,2 s bzw. 1,5 s und funktioniert auch, wenn
 der Server kurz nicht erreichbar ist. Deshalb wird `/vsicurl` nicht verwendet.
+
+## 9. Wärmequellen: Fraunhofer ISI (Manz et al. 2024) und LANUK-Kläranlagen
+
+Stand: 26.10.2026. Datensatz zu Manz et al. (2024), „Spatial analysis of renewable and excess heat
+potentials for climate-neutral district heating in Europe“, Renewable Energy 224, 120111: Fordatis
+Handle 341.5, DOI 10.24406/fordatis/280.5, Lizenz CC BY 4.0. GeoPackages in EPSG:3035, technische
+Potenziale eines klimaneutralen Jahres 2050 für zwei Netztemperaturen: HT (Vorlauf 70–90 °C) und NT
+(60–70 °C). Geladen über `fheat_eu` (für jeden Adapter), im Zwischenspeicher ohne Neuladen, weil das
+Handle eine feste Version ist.
+
+| Datei | Inhalt, Feld | Umrechnung in fheat | Abstand |
+|---|---|---|---|
+| `wwtp.gpkg` | Kläranlagen (Hotmaps), `Power in k` [kW] | × 4.421 Vlh = Entzug; nach Wärmepumpe × JAZ/(JAZ−1), JAZ 2,7 (HT) / 3,6 (NT); −999 und 0 entfallen | 2 km |
+| `industrial_eh.gpkg` | Industrie (ISI-Datenbank), `EH_95_GWh` / `EH_55_GWh` | HT / NT, GWh → MWh; Namen aus Hotmaps über `ID_Site` = `SiteID` | 20 km |
+| `wte.gpkg` | Müllverbrennung, `EH100PJ` (60 % des Energieeinsatzes) | × 277.778 MWh/PJ; × 0,66 (HT) / 0,76 (NT) | 20 km |
+| `rivers_lakes.gpkg` | Zonen mit ≥ 20 m³/s Winterabfluss, `Capa in MW` 30/80/150 | ein typisches Projekt × 2.000 / 3.000 / 3.000 Vlh | 5 km |
+| `hydrothermal_85/65.gpkg` | 1-km-Raster, `Energy_TWh` je Punkt, MultiPoint | HT (85 °C) / NT (65 °C), TWh → MWh, Zelle 1 × 1 km; nur außerhalb NRW (in NRW: LANUK-Raster, Abschnitt 4) | 15 km |
+| `dh_areas.gpkg` | Wärmenetzgebiete 2050, `Dem_GWh` | über `DH_LAU_Mapping` der Gemeinde (`DE_` + AGS) | Gemeinde |
+| `Results_DH_Matching_Cluster.xlsx` | `Matching_results`: Angebot und Nutzbares je Gemeinde | Tabelle `study_potentials_df`, GWh → MWh; nur Quellen mit Angebot, ohne Biomasse und Petrothermie | Gemeinde |
+
+Nicht geladen: `petrothermal_85/65.gpkg` und `biomass_nuts2.gpkg` (siehe unten). Ohne Wärme im Umkreis
+fehlt ein Wert in der Ergebnisübersicht, statt als 0 zu erscheinen.
+
+Geprüft gegen das Paper (Tabelle 2, EU): Industrie HT 19,9 TWh, Hydrothermie 814,9 / 2.097,7 TWh,
+Petrothermie HT 84,6 TWh stimmen mit den Summen der Dateien überein. Müllverbrennung DE: 45,7 TWh
+× 0,76 ≈ 35 TWh wie Tabelle 5. Kläranlagen DE: kW × 4.421 h ≈ 42 TWh (Paper: 43 TWh).
+
+Befunde und Grenzen:
+- **Kläranlagen NT < HT.** Bei gleichem Entzug liefert die bessere Wärmepumpe (JAZ 3,6) weniger Wärme
+  als die mit JAZ 2,7, weil weniger Strom dazukommt. Das Paper nennt für NT mehr Wärme (Tabelle 2), ohne
+  die Herleitung; seine Stromanteile passen eher zu JAZ 2,4 / 3,2. fheat rechnet mit festem Entzug.
+- **Hotmaps-Leistung** ist fast überall 64,4 W je Einwohnerwert der Ausbaugröße, nicht die echte
+  Abwassermenge. In NRW nimmt fheat deshalb die LANUK-Liste (unten).
+- **Flüsse und Seen:** Eine Zone ist kein Projekt und keine Summe; die Studie setzt in einer Zone
+  mehrere Entnahmestellen im Abstand von 10 km, deren Lage nicht veröffentlicht ist. Die Summe der
+  Zonen (101 TWh) ist deshalb viel kleiner als Tabelle 2 (1.156 TWh). Kein Quellenvorschlag.
+- **Petrothermie** ist eine Abschätzung aus der Temperatur in 2.000 m Tiefe mit fester Fördermenge,
+  fast überall gleich, und sagt über einen Ort nichts aus; fheat lädt sie nicht. Hydrothermie aus
+  GeoDH weicht in NRW völlig vom LANUK-Raster ab (Rangkorrelation ≈ 0,1 auf gemeinsamen Zellen) und
+  wird dort nicht geladen.
+- **Biomasse** gibt es nur als Wert der ganzen NUTS-2-Region (in NRW der Regierungsbezirk, z. B. das
+  ganze Münsterland), nicht für ein Gebiet; fheat lädt sie nicht.
+- **Industrie:** Werte für 2050 nach dem Umbau der Industrie, bei Stahl weit unter heute (HKM
+  Duisburg 31 GWh/a gegen 1.495 GWh/a heute laut Hotmaps). Standorte ab ID 5000 (in NRW 30, meist
+  Chemieparks) haben keinen Namen. Bei 19 NRW-Standorten weichen die Fordatis-Koordinaten von Hotmaps
+  ab (bis 55 km); geprüfte Fälle (WEPA Giershagen) zeigen Fordatis richtig, fheat nimmt deshalb sie.
+- **Müllverbrennung:** In `City` sind Umlaute als U+FFFD verloren („D?sseldorf“, 54 Namen). Der
+  NRW-Adapter stellt sie aus `cities.csv` wieder her. Auf Luftbildern sitzen die meisten Punkte auf der
+  Anlage, Essen-Karnap und Eschweiler-Weisweiler einige hundert Meter daneben.
+- **Studienwerte** gibt es nur für Gemeinden mit Wärmenetzgebiet der Studie: in NRW 181 von 396.
+- `hydrothermal_65.gpkg` hat einen beschädigten räumlichen Index (GDAL-Warnung); gelesen wird ohne ihn.
+
+**LANUK „Kommunale Kläranlagen NRW“** (`abwasser_kom/KomKlaeranlagen_EPSG25832_GeoPackage.zip`,
+Layer `komm_ka`, Datenlizenz Deutschland – Zero 2.0): 703 Zeilen, 601 Standorte (`standortnr`; ein
+Standort mit mehreren Einleitungen behält die Zeile mit der größten Menge), Stand 2025. Felder `name`,
+`ew_bemess` (Ausbaugröße), `ew` (angeschlossene Einwohner und Einwohnergleichwerte), `jabw_menge`
+(m³/a), alle als Text. Entzug = Jahresabwassermenge × 1,163 kWh/(m³·K) × 5 K; dann dieselbe
+Wärmepumpe wie oben. Abgleich mit Fordatis: 496 von 535 Fordatis-Punkten in NRW liegen höchstens
+100 m neben einer LANUK-Anlage, 25 auf freiem Feld; der Fordatis-Jahreswert liegt im Mittel bei 0,78
+des LANUK-Werts, je Anlage mit Abweichungen bis Faktor 5.

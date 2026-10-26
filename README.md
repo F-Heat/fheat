@@ -6,15 +6,16 @@
 
 ## Packages
 
-The repository is a monorepo of three installable packages:
+The repository is a monorepo of four installable packages:
 
 | Package | Role |
 |---|---|
 | [`fheat_core`](src/fheat_core/) | Adapter-agnostic pipeline: orchestrator, data schemas, geometry/network/SLP algorithms, and the step functions. This is the engine. |
 | [`fheat_nrw`](src/fheat_nrw/) | Adapter that **downloads NRW open geodata** (building heat model via OpenGeoData NRW, cadastral parcels via the ALKIS WFS) and processes it into schema-compliant frames. |
 | [`fheat_flex`](src/fheat_flex/) | Adapter for **user-supplied** GeoPackages, with a column mapping onto the core schema. Use this when you bring your own data. |
+| [`fheat_eu`](src/fheat_eu/) | **Europe-wide heat source data** (Fraunhofer ISI, Hotmaps) for any adapter: wastewater plants, industrial excess heat, waste incineration, rivers, hydrothermal. |
 
-All three are import packages shipped from a single distribution named `fheat` (see [Installation](#installation)). The whole logic is derived from the former QGIS plugin to adress the flexibility with other applications.
+All four are import packages shipped from a single distribution named `fheat` (see [Installation](#installation)). The whole logic is derived from the former QGIS plugin to adress the flexibility with other applications.
 
 ## Architecture
 
@@ -203,9 +204,31 @@ NRWDataAdapter(
     download_geothermal_blocks=False,    # or geothermal_blocks_path= (LANUK ONG/MTG file)
     download_geothermal_deep=False,      # or geothermal_deep_path=, geothermal_deep_buffer=5000 (m)
     download_solar_thermal=False,        # or solar_thermal_path=, solar_thermal_buffer=2000 (m)
+    download_heat_sources=False,         # or fordatis_path=, wastewater_path=, heat_source_buffers={...}
 )
 ```
 
+### Heat sources (Wärmequellen)
+
+Further optional layers show heat sources near the area, with the values of a climate-neutral 2050 from Manz et al. (2024), "Spatial analysis of renewable and excess heat potentials for climate-neutral district heating in Europe", *Renewable Energy* 224, 120111. Every value comes for two network temperatures: HT (supply 70–90 °C, `heat_ht_mwh`) and LT (60–70 °C, `heat_lt_mwh`). The layers are kept within the maximum distance of the paper and never clipped to the planning area. Like the potential layers they are information only; a point layer carries `source_candidate_lat`/`_lon` as a suggestion; no heat source is placed automatically.
+
+| State / file | Content | Source | Distance |
+|---|---|---|---|
+| `wastewater_gdf` / `klaeranlagen` | heat taken from the wastewater [kW, MWh/a] and after the heat pump (SPF 2.7 HT / 3.6 LT) | NRW: LANUK list of the municipal plants (real annual wastewater volume × 5 K); elsewhere Hotmaps via Fordatis | 2 km |
+| `industrial_heat_gdf` / `industrie_abwaerme` | excess heat at 95 °C (HT) / 55 °C (LT) after the transformation of the industry; name, operator, sector | ISI industrial database via Fordatis, names from Hotmaps | 20 km |
+| `waste_incineration_gdf` / `muellverbrennung` | theoretical excess heat and the part a CHP plant recovers (66 % HT / 76 % LT) | peta 5 via Fordatis | 20 km |
+| `river_heat_gdf` / `fluesse_seen` | zones of rivers and lakes; one typical heat pump project (30/80/150 MW) per zone | Copernicus via Fordatis | 5 km |
+| `hydrothermal_gdf` / `hydrothermie` | 1 km cells where GeoDH maps an aquifer; **not in NRW** (the LANUK doublet raster is far better there) | Fordatis | 15 km |
+| `study_dh_areas_gdf` / `waermenetzgebiete_studie` | the study's district heating areas of the municipality, demand 2050 | Fordatis | municipality |
+| `study_potentials_df` / table `studie_waermequellen` | the study's supply and utilization potential per source and scenario | Fordatis workbook (needs `[excel]`) | municipality |
+
+The result summary adds the sums around the area (`wastewater_*`, `industrial_heat_*`, `waste_incineration_heat_*`, `hydrothermal_*`) and the largest river project (`river_heat_max_mwh_a`); a key is left out when nothing is there. The study table only lists the sources with a supply. The study's petrothermal (a flat estimate) and biomass (a value of the whole NUTS 2 region) are not loaded. Limits and checks against the paper: [`docs/potenzialdaten.md`](docs/potenzialdaten.md), section 9. The flexible adapter loads the same layers with `FlexDataAdapter(..., download_heat_sources=True, lau_id="DE_05566084")` (off by default).
+
+| Source | Licence |
+|---|---|
+| Fraunhofer ISI, dataset to Manz et al. (2024), Fordatis, DOI [10.24406/fordatis/280.5](https://doi.org/10.24406/fordatis/280.5) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Hotmaps Industrial Database (Fraunhofer ISI et al.) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| LANUK, Kommunale Kläranlagen NRW, `https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/abwasser/abwasser_kom/` | [Datenlizenz Deutschland – Zero 2.0](https://www.govdata.de/dl-de/zero-2-0) |
 ### Temperature year (Temperaturjahr)
 
 The hourly outdoor temperatures only shape the load profile of the `RESULTS` step (profile, tables, charts); network, diameters and costs do not use them. Sources, first match wins:
@@ -235,7 +258,7 @@ pip install -e ".[xwp]"       # + XWärmeplan export (xplan-tools; Python 3.13 a
 pip install -e ".[dwd]"       # + DWD temperature year at the planning area (wetterdienst; Python >= 3.11)
 ```
 
-All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
+All four import packages — `fheat_core`, `fheat_nrw`, `fheat_flex`, `fheat_eu` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel of its own. The separate `[excel]` extra adds `openpyxl` for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`) and for reading the study workbook of the heat sources (without it that table is left out), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
 
 ## Quick start
 

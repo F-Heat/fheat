@@ -16,6 +16,7 @@ from fheat_core import cache, cancel
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 
+from fheat_eu.loader import HeatSourceLoader
 from fheat_nrw import download as dl
 from fheat_nrw import potentials as pot
 from fheat_nrw.area import boundary_from_parcels, clip_to_boundary
@@ -151,6 +152,24 @@ class NRWDataAdapter(DataAdapter):
         Lokale FF-Solarthermie-Datei der Wärmestudie. Hat Vorrang vor dem Download.
     solar_thermal_buffer : float
         Umkreis um das Gebiet in m (Standard 2000).
+    download_heat_sources : bool
+        Wenn True (Standard), werden die Wärmequellen im Umkreis geladen:
+        Kläranlagen aus der LANUK-Liste der kommunalen Kläranlagen (Wärme aus
+        der Jahresabwassermenge), dazu aus dem Datensatz des Fraunhofer ISI
+        (Manz et al. 2024, Stand 2050, einmal in den Zwischenspeicher)
+        Industrie-Abwärme, Müllverbrennung, Flüsse und Seen sowie
+        Wärmenetzgebiete und Werte der Studie für die Gemeinde. Die
+        Hydrothermie kommt in NRW aus dem LANUK-Raster
+        (``fetch_geothermal_deep``). Fehler → Warnung, kein Layer.
+    heat_source_buffers : dict | None
+        Umkreis je Wärmequelle in m, z. B. ``{"industrial_heat": 10000}``
+        (Standard: Höchstabstände des Papers, siehe
+        ``fheat_eu.heat_sources.DEFAULT_BUFFERS``).
+    fordatis_path : Path | None
+        Eigener Ordner mit den Fordatis-Dateien; dann wird von Fordatis
+        nichts geladen.
+    wastewater_path : Path | None
+        Lokale Datei der LANUK-Kläranlagen. Hat Vorrang vor dem Download.
     cache_dir : Path | None
         Ordner für große Downloads (Standard: ``FHEAT_CACHE_DIR`` oder
         ``~/.cache/fheat``).
@@ -185,6 +204,10 @@ class NRWDataAdapter(DataAdapter):
         download_solar_thermal: bool = True,
         solar_thermal_path: Optional[Path] = None,
         solar_thermal_buffer: float = 2000.0,
+        download_heat_sources: bool = True,
+        heat_source_buffers: Optional[dict] = None,
+        fordatis_path: Optional[Path] = None,
+        wastewater_path: Optional[Path] = None,
         cache_dir: Optional[Path] = None,
     ) -> None:
         if not municipality_name and not city_name and not district_key:
@@ -219,7 +242,12 @@ class NRWDataAdapter(DataAdapter):
         self._download_solar_thermal = bool(download_solar_thermal)
         self._solar_thermal_path = _optional_path(solar_thermal_path)
         self._solar_thermal_buffer = float(solar_thermal_buffer)
+        self._download_heat_sources = bool(download_heat_sources)
+        self._heat_source_buffers = dict(heat_source_buffers or {})
+        self._fordatis_path = _optional_path(fordatis_path)
+        self._wastewater_path = _optional_path(wastewater_path)
         self._cache_dir = _optional_path(cache_dir)
+        self._heat_source_loader: Optional[HeatSourceLoader] = None
 
         self._buildings: Optional[gpd.GeoDataFrame] = None
         self._streets: Optional[gpd.GeoDataFrame] = None
@@ -316,6 +344,35 @@ class NRWDataAdapter(DataAdapter):
             "Lokale Datei via solar_thermal_path=... setzen, "
             "oder download_solar_thermal=False zum Abschalten.",
         )
+
+    def fetch_wastewater(self) -> Optional[gpd.GeoDataFrame]:
+        """LANUK municipal wastewater plants near the loaded area (None on failure)."""
+        return self._optional_layer(
+            "wastewater", self._load_wastewater,
+            "Kläranlagen (LANUK) konnten nicht geladen werden (%s) — kein Layer. "
+            "Lokale Datei via wastewater_path=... setzen, "
+            "oder download_heat_sources=False zum Abschalten.",
+        )
+
+    def fetch_industrial_heat(self) -> Optional[gpd.GeoDataFrame]:
+        """Industrial excess heat (Fraunhofer ISI) around the loaded area (None on failure)."""
+        return self._heat_source_layer("industrial_heat", "Industrie-Abwärme")
+
+    def fetch_waste_incineration(self) -> Optional[gpd.GeoDataFrame]:
+        """Waste incineration plants (Fraunhofer ISI) around the loaded area (None on failure)."""
+        return self._heat_source_layer("waste_incineration", "Müllverbrennung")
+
+    def fetch_river_heat(self) -> Optional[gpd.GeoDataFrame]:
+        """Zones of rivers and lakes (Fraunhofer ISI) around the loaded area (None on failure)."""
+        return self._heat_source_layer("river_heat", "Flüsse und Seen")
+
+    def fetch_study_dh_areas(self) -> Optional[gpd.GeoDataFrame]:
+        """District heating areas of the study in the municipality (None without or on failure)."""
+        return self._heat_source_layer("study_dh_areas", "Wärmenetzgebiete der Studie")
+
+    def fetch_study_potentials(self) -> Optional[pd.DataFrame]:
+        """Table of the study for the municipality (None without or on failure)."""
+        return self._heat_source_layer("study_potentials", "Werte der Studie")
 
     # ------------------------------------------------------------------
     # Internal: optional layers (civil works, potentials)
@@ -431,15 +488,56 @@ class NRWDataAdapter(DataAdapter):
         fields = fields[fields[cols.DISTANCE_TO_AREA] <= self._solar_thermal_buffer]
         return self._to_area_crs(fields.reset_index(drop=True))
 
+    def _load_wastewater(self) -> Optional[gpd.GeoDataFrame]:
+        buffer = self._heat_sources().buffers["wastewater"]
+        raw = self._load_nrw_layer(
+            self._wastewater_path, self._download_heat_sources,
+            dl.FILE_WASTEWATER, dl.LAYER_WASTEWATER, buffer, url=dl.URL_WASTEWATER,
+        )
+        if raw is None or raw.empty:
+            return None
+        plants = pot.process_wastewater_plants(raw, self._area_outline())
+        plants = plants[plants[cols.DISTANCE_TO_AREA] <= buffer]
+        return self._to_area_crs(plants.reset_index(drop=True))
+
+    def _heat_source_layer(self, key: str, label: str):
+        """A layer of :class:`fheat_eu.loader.HeatSourceLoader` (method ``key``), None on failure."""
+        return self._optional_layer(
+            key, lambda: self._load_heat_source(key),
+            f"{label} (Fraunhofer ISI) konnte nicht geladen werden (%s) — kein Layer. "
+            "Eigene Kopie der Fordatis-Dateien via fordatis_path=... setzen, "
+            "oder download_heat_sources=False zum Abschalten.",
+        )
+
+    def _load_heat_source(self, key: str):
+        if not self._download_heat_sources and self._fordatis_path is None:
+            return None
+        layer = getattr(self._heat_sources(), key)()
+        if layer is None or not isinstance(layer, gpd.GeoDataFrame):
+            return layer  # the study table has no geometry
+        return self._to_area_crs(layer)
+
+    def _heat_sources(self) -> HeatSourceLoader:
+        """Loader of the heat sources around the area outline (EPSG:25832)."""
+        if self._heat_source_loader is None:
+            cities = self._load_cities()
+            names = set(cities["gemeinde"].astype(str)) | set(cities["name"].astype(str))
+            self._heat_source_loader = HeatSourceLoader(
+                self._area_outline(), LANDUSE_BBOX_CRS, self._heat_source_buffers, self._cache_dir,
+                self._fordatis_path, lau_id=f"DE_{self.municipality_key}", known_names=names,
+            )
+        return self._heat_source_loader
+
     def _load_nrw_layer(
-        self, path: Optional[Path], download: bool, filename: str, layer: str, buffer: float
+        self, path: Optional[Path], download: bool, filename: str, layer: str, buffer: float,
+        url: str = dl.URL_BUILDINGS,
     ) -> Optional[gpd.GeoDataFrame]:
         """Features of an NRW-wide LANUK file in the area box widened by ``buffer`` m, EPSG:25832."""
         around = self._area_box().to_crs(LANDUSE_BBOX_CRS).buffer(buffer, join_style=2)
         if path is not None:
             raw = _read_local(path, None, around)
         elif download:
-            zip_path = dl.cached_file(dl.URL_BUILDINGS, filename, self._cache_dir)
+            zip_path = dl.cached_file(url, filename, self._cache_dir)
             raw = cache.read_layer_bbox(zip_path, layer, tuple(around.total_bounds))
         else:
             return None
