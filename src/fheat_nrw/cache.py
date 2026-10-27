@@ -4,8 +4,7 @@ Files such as the NRW-wide solar thermal geodatabase (63 MB) are downloaded
 once and read from disk afterwards, only the part inside a bbox. A file is
 loaded again when ``index.json`` of its folder lists a newer timestamp.
 
-Cache folder: the ``cache_dir`` argument, else the environment variable
-``FHEAT_CACHE_DIR``, else ``~/.cache/fheat``. Next to each file a small
+Cache folder: see :func:`fheat_core.cache.cache_dir`. Next to each file a small
 ``<file>.json`` keeps the URL, timestamp and size it was loaded with.
 
 Reading straight from the server (``/vsizip//vsicurl/<url>``) works with a
@@ -21,30 +20,15 @@ import urllib.request
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import geopandas as gpd
 
 from fheat_core import cancel
+from fheat_core.cache import DEFAULT_CACHE_DIR, ENV_CACHE_DIR, PathLike, cache_dir  # noqa: F401 (re-exported)
 
-ENV_CACHE_DIR = "FHEAT_CACHE_DIR"
-DEFAULT_CACHE_DIR = Path.home() / ".cache" / "fheat"
 HTTP_TIMEOUT = 120
 CHUNK_SIZE = 1 << 20  # 1 MiB between two cancel checks
-
-PathLike = Union[str, Path]
-
-
-def cache_dir(override: Optional[PathLike] = None) -> Path:
-    """The cache folder (created if missing)."""
-    if override is not None:
-        folder = Path(override)
-    elif os.environ.get(ENV_CACHE_DIR):
-        folder = Path(os.environ[ENV_CACHE_DIR])
-    else:
-        folder = DEFAULT_CACHE_DIR
-    folder.mkdir(parents=True, exist_ok=True)
-    return folder
 
 
 def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
