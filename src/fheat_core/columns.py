@@ -222,6 +222,17 @@ TOTAL_MTG_POTENTIAL = "mtg_potential_mwh_a"                        # medium-deep
 MAX_DEEP_POTENTIAL = "deep_potential_max_mwh_a"                    # largest doublet cell around the area (P50) [MWh/a]
 TOTAL_SOLAR_THERMAL_FLAT_PLATE = "solar_thermal_flat_plate_mwh_a"  # ground-mounted solar thermal around the area, flat plate [MWh/a]
 TOTAL_SOLAR_THERMAL_AREA = "solar_thermal_area_m2"                 # its usable area [m²]
+# outdoor temperatures of the load profile (steps/results.py); the station
+# keys and WEATHER_YEAR only for a DWD year, the reason only after a fallback
+TEMPERATURE_SOURCE = "temperature_source"                          # "dwd" | "example" | "adapter"
+WEATHER_STATION_ID = "weather_station_id"                          # DWD station id
+WEATHER_STATION_NAME = "weather_station_name"                      # DWD station name
+WEATHER_STATION_DISTANCE = "weather_station_distance_km"           # station to the centre of the area [km]
+WEATHER_YEAR = "weather_year"                                      # measured year
+MEAN_OUTDOOR_TEMPERATURE = "mean_outdoor_temperature_c"            # annual mean [°C]
+MIN_OUTDOOR_TEMPERATURE = "min_outdoor_temperature_c"              # lowest hourly value [°C]
+HEATING_DEGREE_DAYS = "heating_degree_days_kd"                     # G20/15 after VDI 3807 [K·d]
+TEMPERATURE_FALLBACK_REASON = "temperature_fallback_reason"        # why the example year was used instead
 
 
 # ============================================================
@@ -436,6 +447,15 @@ SUMMARY_LABELS_DE: dict[str, str] = {
     MAX_DEEP_POTENTIAL: "Größtes Potenzial einer Dublette im Umkreis (P50) [MWh/a]",
     TOTAL_SOLAR_THERMAL_FLAT_PLATE: "Freiflächen-Solarthermie im Umkreis, Flachkollektor [MWh/a]",
     TOTAL_SOLAR_THERMAL_AREA: "Nutzfläche Freiflächen-Solarthermie im Umkreis [m²]",
+    TEMPERATURE_SOURCE: "Temperaturjahr",
+    WEATHER_STATION_ID: "DWD-Stationskennung",
+    WEATHER_STATION_NAME: "DWD-Station",
+    WEATHER_STATION_DISTANCE: "Entfernung DWD-Station [km]",
+    WEATHER_YEAR: "Wetterjahr",
+    MEAN_OUTDOOR_TEMPERATURE: "Mittlere Außentemperatur [°C]",
+    MIN_OUTDOOR_TEMPERATURE: "Niedrigste Außentemperatur [°C]",
+    HEATING_DEGREE_DAYS: "Gradtagzahl G20/15 [Kd]",
+    TEMPERATURE_FALLBACK_REASON: "Hinweis Temperaturjahr",
 }
 
 
