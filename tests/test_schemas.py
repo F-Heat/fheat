@@ -4,7 +4,7 @@ Covers:
 - FrameSchema.validate rejects None, wrong type, empty (when not allowed),
   missing required columns, and unexpected geometry types.
 - All concrete schemas accept their respective fixtures.
-- LoadProfileSchema enforces DatetimeIndex, length 8760, required columns.
+- LoadProfileSchema enforces DatetimeIndex, one year (8760/8784 h), required columns.
 - ResultSummarySchema enforces dict type and required keys.
 - PipeSummarySchema / BuildingSummarySchema enforce their result-table columns.
 """
@@ -261,6 +261,13 @@ class TestLoadProfileSchema:
         df = _valid_load_profile().iloc[:100]
         with pytest.raises(SchemaError, match="time steps"):
             LOAD_PROFILE_SCHEMA.validate(df)
+
+    def test_leap_year_has_8784_time_steps(self):
+        idx = pd.date_range("2024-01-01", "2024-12-31 23:00", freq="h")
+        df = pd.DataFrame(0.0, index=idx, columns=list(LOAD_PROFILE_SCHEMA.required_columns))
+        LOAD_PROFILE_SCHEMA.validate(df)
+        with pytest.raises(SchemaError, match="expected 8784"):
+            LOAD_PROFILE_SCHEMA.validate(df.iloc[:8760])
 
     def test_missing_column_raises(self):
         df = _valid_load_profile().drop(columns=[cols.LOSS])

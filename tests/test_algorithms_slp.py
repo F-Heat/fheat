@@ -8,6 +8,7 @@ Covers:
 - Gesamtsumme = Summe aller Gebäudetypen + Verlust per row
 - Empty/missing-loss columns fall back to zero
 - ImportError surfaces clearly if demandlib is unavailable
+- Temperatures are aligned to the hours of the year (leap years, DWD index)
 """
 from __future__ import annotations
 
@@ -22,7 +23,9 @@ from shapely.geometry import Polygon
 
 from fheat_core import columns as cols
 from fheat_core.algorithms import slp as slp_module
-from fheat_core.algorithms.slp import build_load_profile
+from fheat_core.algorithms.slp import align_temperature, build_load_profile
+from fheat_core.errors import PipelineInputError
+from fheat_core.resources import load_default_temperature
 
 
 CRS = "EPSG:25832"
@@ -357,3 +360,67 @@ class TestImportErrorPath:
                 building_class=3,
                 wind_class=1,
             )
+
+
+# ---------------------------------------------------------------------------
+# Temperature alignment
+# ---------------------------------------------------------------------------
+
+
+def _hours(year):
+    return pd.date_range(f"{year}-01-01", f"{year}-12-31 23:00", freq="h")
+
+
+class TestAlignTemperature:
+    def test_positional_values_for_a_leap_year_repeat_28_february(self):
+        values = pd.Series(np.arange(8760, dtype=float))
+        aligned = align_temperature(values, _hours(2024))
+        assert len(aligned) == 8784
+        feb_28 = aligned["2024-02-28"].to_numpy()
+        assert list(aligned["2024-02-29"]) == list(feb_28)
+        assert aligned["2024-03-01 00:00"] == values[59 * 24]
+        assert aligned.iloc[-1] == values.iloc[-1]
+
+    def test_positional_values_for_a_normal_year_are_kept(self):
+        values = pd.Series(np.arange(8760, dtype=float))
+        aligned = align_temperature(values, _hours(2023))
+        assert (aligned.to_numpy() == values.to_numpy()).all()
+        assert aligned.index.equals(_hours(2023))
+
+    def test_series_with_index_is_matched_by_time(self):
+        # one day more on both sides and in reverse order
+        hours = pd.date_range("2022-12-31", "2024-01-01 23:00", freq="h")
+        series = pd.Series(np.arange(len(hours), dtype=float), index=hours)[::-1]
+        aligned = align_temperature(series, _hours(2023))
+        assert aligned.index.equals(_hours(2023))
+        assert aligned.iloc[0] == 24.0
+
+    def test_series_with_index_must_cover_every_hour(self):
+        series = pd.Series(1.0, index=_hours(2023)).drop(pd.Timestamp("2023-06-01 12:00"))
+        with pytest.raises(PipelineInputError, match="lacks 1"):
+            align_temperature(series, _hours(2023))
+
+    def test_series_of_another_year_does_not_fit(self):
+        with pytest.raises(PipelineInputError, match="lacks 8760"):
+            align_temperature(pd.Series(1.0, index=_hours(2022)), _hours(2023))
+
+    def test_wrong_length_raises(self):
+        with pytest.raises(PipelineInputError, match="100 temperatures"):
+            align_temperature(pd.Series(np.zeros(100)), _hours(2023))
+
+
+@pytest.mark.slow
+def test_leap_year_with_the_example_year(buildings_with_lastprofil, net_with_loss):
+    df = build_load_profile(
+        buildings_gdf=buildings_with_lastprofil,
+        net_gdf=net_with_loss,
+        year=2024,
+        temperature=load_default_temperature(),
+        holidays={},
+        building_class=3,
+        wind_class=1,
+    )
+    assert len(df) == 8784
+    assert df["EFH"].sum() == pytest.approx(22.0, rel=0.1)
+    # the network loss is spread over the 8784 hours
+    assert df[cols.LOSS].sum() == pytest.approx(net_with_loss[cols.HEAT_LOSS].sum() / 1000, rel=1e-3)

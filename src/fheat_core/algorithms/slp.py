@@ -3,9 +3,14 @@ from __future__ import annotations
 
 import datetime
 
+import numpy as np
 import pandas as pd
 
 from fheat_core import columns as cols
+from fheat_core.errors import PipelineInputError
+
+# first hour of 29 February in a leap year (31 + 28 days)
+_LEAP_DAY_HOUR = 59 * 24
 
 
 def build_load_profile(
@@ -17,7 +22,10 @@ def build_load_profile(
     building_class: int,
     wind_class: int,
 ) -> pd.DataFrame:
-    """Generate 8760-h load profile DataFrame.
+    """Generate the hourly load profile DataFrame of ``year`` (8760 or 8784 h).
+
+    ``temperature`` is aligned to the hours of the year, see
+    :func:`align_temperature`.
 
     Columns produced (canonical names, see fheat_core.columns):
       - one column per load profile type (EFH, MFH, …)
@@ -38,6 +46,7 @@ def build_load_profile(
         freq="h",
     )
     demand = pd.DataFrame(index=demand_ts)
+    temperature = align_temperature(temperature, demand_ts)
 
     if cols.LOAD_PROFILE in buildings_gdf.columns and buildings_gdf[cols.LOAD_PROFILE].notna().any():
         summary = (
@@ -69,9 +78,36 @@ def build_load_profile(
         if cols.HEAT_LOSS_EXTRA_INSULATION in net_gdf.columns
         else 0.0
     )
-    demand[cols.LOSS] = loss_mwh / 8760
-    demand[cols.LOSS_EXTRA_INSULATION] = loss_extra_mwh / 8760
+    demand[cols.LOSS] = loss_mwh / len(demand_ts)
+    demand[cols.LOSS_EXTRA_INSULATION] = loss_extra_mwh / len(demand_ts)
 
     demand[cols.TOTAL] = demand[cols.BUILDING_DEMAND_SUM] + demand[cols.LOSS]
     demand[cols.TOTAL_EXTRA_INSULATION] = demand[cols.BUILDING_DEMAND_SUM] + demand[cols.LOSS_EXTRA_INSULATION]
     return demand.round(decimals=3)
+
+
+def align_temperature(temperature: pd.Series, demand_ts: pd.DatetimeIndex) -> pd.Series:
+    """Temperatures in the order of the hours ``demand_ts`` of one year.
+
+    A series with a DatetimeIndex (DWD year) is matched by time and must
+    cover every hour. Without one (the example year, older adapters) the
+    values are taken by position; 8760 values for a leap year get 29 February
+    as a copy of 28 February.
+    """
+    if isinstance(temperature.index, pd.DatetimeIndex):
+        aligned = temperature.reindex(demand_ts)
+        missing = int(aligned.isna().sum())
+        if missing:
+            raise PipelineInputError(
+                f"The temperature series lacks {missing} of the {len(demand_ts)} hours of {demand_ts[0].year}."
+            )
+        return aligned
+    values = pd.to_numeric(temperature, errors="coerce").to_numpy(dtype=float)
+    if len(values) == 8760 and len(demand_ts) == 8784:
+        feb_28 = values[_LEAP_DAY_HOUR - 24:_LEAP_DAY_HOUR]
+        values = np.concatenate([values[:_LEAP_DAY_HOUR], feb_28, values[_LEAP_DAY_HOUR:]])
+    if len(values) != len(demand_ts):
+        raise PipelineInputError(
+            f"{len(values)} temperatures do not fit the {len(demand_ts)} hours of {demand_ts[0].year}."
+        )
+    return pd.Series(values, index=demand_ts, name=temperature.name)

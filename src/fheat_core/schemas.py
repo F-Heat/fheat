@@ -13,6 +13,7 @@ use their own data build an adapter that maps their columns to these names.
 """
 from __future__ import annotations
 
+import calendar
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -224,7 +225,6 @@ BuildingSummarySchema = FrameSchema(
 @dataclass(frozen=True)
 class LoadProfileSchema:
     name: str = "LoadProfile"
-    required_length: int = 8760
     required_columns: tuple = (
         cols.BUILDING_DEMAND_SUM,
         cols.LOSS,
@@ -242,9 +242,11 @@ class LoadProfileSchema:
             )
         if not isinstance(df.index, pd.DatetimeIndex):
             raise SchemaError(f"{self.name}: index must be a DatetimeIndex")
-        if len(df) != self.required_length:
+        # one calendar year: 8760 h, 8784 h in a leap year
+        required_length = 8784 if len(df) and calendar.isleap(df.index[0].year) else 8760
+        if len(df) != required_length:
             raise SchemaError(
-                f"{self.name}: expected {self.required_length} time steps, "
+                f"{self.name}: expected {required_length} time steps, "
                 f"got {len(df)}"
             )
         missing = set(self.required_columns) - set(df.columns)
@@ -356,6 +358,17 @@ class ResultSummarySchema:
         cols.MAX_DEEP_POTENTIAL,
         cols.TOTAL_SOLAR_THERMAL_FLAT_PLATE,
         cols.TOTAL_SOLAR_THERMAL_AREA,
+        # Outdoor temperatures of the load profile: the source and the
+        # temperature figures always, the station only for a DWD year
+        cols.TEMPERATURE_SOURCE,
+        cols.WEATHER_STATION_ID,
+        cols.WEATHER_STATION_NAME,
+        cols.WEATHER_STATION_DISTANCE,
+        cols.WEATHER_YEAR,
+        cols.MEAN_OUTDOOR_TEMPERATURE,
+        cols.MIN_OUTDOOR_TEMPERATURE,
+        cols.HEATING_DEGREE_DAYS,
+        cols.TEMPERATURE_FALLBACK_REASON,
     )
 
     def validate(self, summary) -> None:
