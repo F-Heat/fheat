@@ -67,6 +67,13 @@ def _layers() -> dict:
             cols.STUDY_SOURCE: ["dh_demand", "wwtp"], cols.STUDY_SUPPLY_HT_MWH: [7878.0, 21083.0],
             cols.STUDY_UTILIZATION_HT_MWH: [np.nan, 7878.0], cols.STUDY_SUPPLY_LT_MWH: [7471.0, 25743.0],
             cols.STUDY_UTILIZATION_LT_MWH: [np.nan, 7471.0]}),
+        "biogas": _points({cols.MASTR_UNIT_ID: ["SEE1", "SEE2"], cols.ELECTRIC_POWER_KW: [500.0, 250.0],
+                           cols.THERMAL_POWER_KW: [510.0, 260.0], cols.ELECTRICITY_MWH: [3504.0, 1752.0],
+                           cols.CHP_HEAT_MWH: [3574.0, 1822.0]}),
+        "biogas_clusters": gpd.GeoDataFrame({cols.CLUSTER_ID: [1], cols.N_UNITS: [2], cols.ELECTRIC_POWER_KW: [750.0],
+                                             cols.THERMAL_POWER_KW: [770.0], cols.ELECTRICITY_MWH: [5256.0],
+                                             cols.CHP_HEAT_MWH: [5396.0]},
+                                            geometry=[box(0, 0, 2500, 1000)], crs=CRS),
     }
 
 
@@ -96,6 +103,12 @@ class HeatSourceStubAdapter(StubAdapter):
     def fetch_study_potentials(self):
         return self._layers.get("study_potentials")
 
+    def fetch_biogas(self):
+        return self._layers.get("biogas")
+
+    def fetch_biogas_clusters(self):
+        return self._layers.get("biogas_clusters")
+
 
 @pytest.fixture
 def make_adapter(buildings_gdf, streets_gdf, parcels_gdf, source_gdf, temperature_series):
@@ -114,6 +127,8 @@ class TestDownloadStep:
         assert state.hydrothermal_gdf is not None
         assert state.study_dh_areas_gdf[cols.DH_AREA_ID].tolist() == [298]
         assert state.study_potentials_df[cols.STUDY_SOURCE].tolist() == ["dh_demand", "wwtp"]
+        assert state.biogas_gdf[cols.MASTR_UNIT_ID].tolist() == ["SEE1", "SEE2"]
+        assert state.biogas_clusters_gdf[cols.N_UNITS].tolist() == [2]
 
     def test_without_layers_nothing_is_set(self, make_adapter, cfg):
         state = download.run(PipelineState(), cfg, make_adapter())
@@ -174,7 +189,7 @@ class TestResultsAndExport:
         state.planning_area_gdf = gpd.GeoDataFrame(geometry=[box(-10, -10, 70, 20)], crs=CRS)
         saved = FHeatOrchestrator(cfg, adapter, state=state).save_outputs(clip_to_planning_area=True)
         for name in ("klaeranlagen", "industrie_abwaerme", "muellverbrennung", "fluesse_seen", "hydrothermie",
-                     "waermenetzgebiete_studie"):
+                     "waermenetzgebiete_studie", "biogas_bhkw", "biogas_cluster"):
             assert name in saved
         plants = gpd.read_file(saved["klaeranlagen"])
         assert len(plants) == 2

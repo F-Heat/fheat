@@ -441,6 +441,54 @@ StudyPotentialsSchema = FrameSchema(
 )
 
 
+BiogasSchema = FrameSchema(
+    name="Biogas",
+    required_columns={
+        cols.MASTR_UNIT_ID: "str",
+        cols.ELECTRIC_POWER_KW: "float",
+        cols.THERMAL_POWER_KW: "float",
+        cols.ELECTRICITY_MWH: "float",
+        cols.CHP_HEAT_MWH: "float",
+        cols.DISTANCE_TO_AREA: "float",
+        **_SOURCE_CANDIDATE,
+        "geometry": "Point",
+    },
+    optional_columns={
+        cols.SOURCE_NAME: "str",
+        cols.MUNICIPALITY: "str",
+        cols.OPERATING_STATUS: "str",
+        cols.COMMISSIONING_DATE: "str",
+        cols.EEG_COMMISSIONING_DATE: "str",
+        cols.FLEX_PREMIUM: "bool",
+        cols.MAX_RATED_POWER_KW: "float",
+        cols.THERMAL_BASIS: "str",
+        cols.MASTR_EEG_ID: "str",
+        cols.DATA_SOURCE: "str",
+    },
+    geometry_type="Point",
+)
+
+BiogasClustersSchema = FrameSchema(
+    name="BiogasClusters",
+    required_columns={
+        cols.CLUSTER_ID: "int",
+        cols.N_UNITS: "int",
+        cols.ELECTRIC_POWER_KW: "float",
+        cols.THERMAL_POWER_KW: "float",
+        cols.ELECTRICITY_MWH: "float",
+        cols.CHP_HEAT_MWH: "float",
+        "geometry": "Polygon",
+    },
+    optional_columns={
+        cols.MAX_INTERNAL_DISTANCE: "float",
+        cols.MUNICIPALITY: "str",
+        cols.MASTR_UNIT_IDS: "str",
+        cols.DATA_SOURCE: "str",
+    },
+    geometry_type="Polygon",
+)
+
+
 @dataclass(frozen=True)
 class ResultSummarySchema:
     name: str = "ResultSummary"

@@ -8,6 +8,8 @@ Covers:
   Fordatis hydrothermal or wastewater in NRW
 - FlexDataAdapter: off by default, Fordatis wastewater and hydrothermal,
   a geographic CRS gives no layer
+- biogas CHP units (Marktstammdatenregister) in the area and their
+  clusters in both adapters; switched off, failure → None + warning
 """
 from __future__ import annotations
 
@@ -19,6 +21,8 @@ import pytest
 from shapely.geometry import LineString, MultiPoint, Point, box
 
 from fheat_core import columns as cols
+from fheat_de import mastr
+from fheat_de.mastr import EEG_FIELDS, KWK_FIELDS, UNIT_FIELDS, MastrTables
 from fheat_eu import download as eu
 from fheat_eu import heat_sources as hs
 from fheat_flex import FlexDataAdapter
@@ -213,3 +217,60 @@ class TestFlexAdapter:
         with caplog.at_level("WARNING"):
             assert adapter.fetch_wastewater() is None
         assert "metrischen" in caplog.records[-1].getMessage()
+
+
+def _mastr_tables() -> MastrTables:
+    """Two biogas units: one in the area, one 2 km east of it."""
+    points = gpd.GeoSeries([Point(388050, 5779050), Point(390100, 5779050)], crs=CRS).to_crs("EPSG:4326")
+    units = pd.DataFrame([{**dict.fromkeys(UNIT_FIELDS, ""), "EinheitMastrNummer": nr, "Hauptbrennstoff": "2445",
+                           "EinheitBetriebsstatus": "35", "Nettonennleistung": "500", "EegMaStRNummer": f"EEG{nr}",
+                           "Laengengrad": str(p.x), "Breitengrad": str(p.y)}
+                          for nr, p in zip(("SEE1", "SEE2"), points)])
+    eeg = pd.DataFrame([{**dict.fromkeys(EEG_FIELDS, ""), "EegMaStRNummer": f"EEG{nr}",
+                         "BiogasHoechstbemessungsleistung": "400"} for nr in ("SEE1", "SEE2")])
+    return MastrTables(units, eeg, pd.DataFrame(columns=list(KWK_FIELDS)), "01.10.2026")
+
+
+@pytest.fixture
+def mastr_tables(monkeypatch):
+    calls = []
+
+    def read(cache_dir=None, export=mastr.MASTR_EXPORT_URL):
+        calls.append(cache_dir)
+        return _mastr_tables()
+
+    monkeypatch.setattr(mastr, "read_biomass_tables", read)
+    return calls
+
+
+class TestBiogas:
+    def test_nrw_units_in_the_area_and_clusters(self, mastr_tables):
+        adapter = _loaded_adapter()
+        units = adapter.fetch_biogas()
+        assert units[cols.MASTR_UNIT_ID].tolist() == ["SEE1"]
+        assert units.crs == CRS
+        clusters = adapter.fetch_biogas_clusters()
+        assert clusters[cols.N_UNITS].tolist() == [1]
+        assert len(mastr_tables) == 1  # read once for both
+
+    def test_nrw_switched_off(self, mastr_tables):
+        adapter = _loaded_adapter(download_heat_sources=False)
+        assert adapter.fetch_biogas() is None and adapter.fetch_biogas_clusters() is None
+        assert mastr_tables == []
+
+    def test_nrw_failure_gives_none_and_a_warning(self, monkeypatch, caplog):
+        def failing(*a, **kw):
+            raise RuntimeError("MaStR nicht erreichbar")
+
+        monkeypatch.setattr(mastr, "read_biomass_tables", failing)
+        with caplog.at_level("WARNING"):
+            assert _loaded_adapter().fetch_biogas() is None
+        assert "Marktstammdatenregister" in caplog.records[-1].getMessage()
+
+    def test_flex_only_when_switched_on(self, tmp_path, mastr_tables):
+        paths = TestFlexAdapter._files(tmp_path)
+        off = FlexDataAdapter(paths["buildings"], paths["streets"], paths["parcels"])
+        assert off.fetch_biogas() is None and mastr_tables == []
+        on = FlexDataAdapter(paths["buildings"], paths["streets"], paths["parcels"], download_heat_sources=True)
+        assert on.fetch_biogas()[cols.MASTR_UNIT_ID].tolist() == ["SEE1"]
+        assert on.fetch_biogas_clusters()[cols.CLUSTER_ID].tolist() == [1]

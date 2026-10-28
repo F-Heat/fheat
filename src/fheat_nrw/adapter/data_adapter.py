@@ -16,6 +16,7 @@ from fheat_core import cache, cancel
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 
+from fheat_de import biogas, mastr
 from fheat_eu.loader import HeatSourceLoader
 from fheat_nrw import download as dl
 from fheat_nrw import potentials as pot
@@ -160,7 +161,9 @@ class NRWDataAdapter(DataAdapter):
         Industrie-Abwärme, Müllverbrennung, Flüsse und Seen sowie
         Wärmenetzgebiete und Werte der Studie für die Gemeinde. Die
         Hydrothermie kommt in NRW aus dem LANUK-Raster
-        (``fetch_geothermal_deep``). Fehler → Warnung, kein Layer.
+        (``fetch_geothermal_deep``). Außerdem die Biogas-BHKW im Gebiet aus
+        dem Marktstammdatenregister (Bestand, einmal in den
+        Zwischenspeicher) und ihre Cluster. Fehler → Warnung, kein Layer.
     heat_source_buffers : dict | None
         Umkreis je Wärmequelle in m, z. B. ``{"industrial_heat": 10000}``
         (Standard: Höchstabstände des Papers, siehe
@@ -374,6 +377,21 @@ class NRWDataAdapter(DataAdapter):
         """Table of the study for the municipality (None without or on failure)."""
         return self._heat_source_layer("study_potentials", "Werte der Studie")
 
+    def fetch_biogas(self) -> Optional[gpd.GeoDataFrame]:
+        """Biogas CHP units of the Marktstammdatenregister in the loaded area (None on failure)."""
+        return self._optional_layer(
+            "biogas", self._load_biogas,
+            "Biogas-BHKW (Marktstammdatenregister) konnten nicht geladen werden (%s) — kein Layer. "
+            "download_heat_sources=False zum Abschalten.",
+        )
+
+    def fetch_biogas_clusters(self) -> Optional[gpd.GeoDataFrame]:
+        """Clusters of the biogas CHP units in the loaded area (None without units)."""
+        return self._optional_layer(
+            "biogas_clusters", self._load_biogas_clusters,
+            "Biogas-Cluster konnten nicht gebildet werden (%s) — kein Layer.",
+        )
+
     # ------------------------------------------------------------------
     # Internal: optional layers (civil works, potentials)
     # ------------------------------------------------------------------
@@ -499,6 +517,16 @@ class NRWDataAdapter(DataAdapter):
         plants = pot.process_wastewater_plants(raw, self._area_outline())
         plants = plants[plants[cols.DISTANCE_TO_AREA] <= buffer]
         return self._to_area_crs(plants.reset_index(drop=True))
+
+    def _load_biogas(self) -> Optional[gpd.GeoDataFrame]:
+        if not self._download_heat_sources:
+            return None
+        units = biogas.process_biogas(mastr.read_biomass_tables(self._cache_dir), self._area_outline(), LANDUSE_BBOX_CRS)
+        return self._to_area_crs(units)
+
+    def _load_biogas_clusters(self) -> Optional[gpd.GeoDataFrame]:
+        units = self.fetch_biogas()
+        return None if units is None else biogas.biogas_clusters(units)
 
     def _heat_source_layer(self, key: str, label: str):
         """A layer of :class:`fheat_eu.loader.HeatSourceLoader` (method ``key``), None on failure."""

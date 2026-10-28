@@ -231,3 +231,42 @@ Standort mit mehreren Einleitungen behält die Zeile mit der größten Menge), S
 Wärmepumpe wie oben. Abgleich mit Fordatis: 496 von 535 Fordatis-Punkten in NRW liegen höchstens
 100 m neben einer LANUK-Anlage, 25 auf freiem Feld; der Fordatis-Jahreswert liegt im Mittel bei 0,78
 des LANUK-Werts, je Anlage mit Abweichungen bis Faktor 5.
+
+## 10. Biogas-BHKW: Marktstammdatenregister (MaStR)
+
+Stand: 28.10.2026. Methode aus der Masterarbeit von J. Föcker (FH Münster, 2026), umgesetzt in
+`fheat_de.mastr` (Lesen) und `fheat_de.biogas` (Rechnen, Cluster).
+
+**Quelle:** Gesamtdatenexport der Bundesnetzagentur, Datenlizenz Deutschland – Namensnennung – 2.0.
+fheat nimmt den Stichtagsexport `Stichtag/Gesamtdatenexport_20261001_26.1.zip` (fester Stand).
+Das ZIP hat 3,2 GB und 440 XML-Dateien (UTF-16). Gebraucht werden drei davon:
+`EinheitenBiomasse.xml` (24.413 Einheiten), `AnlagenEegBiomasse.xml` (15.695 EEG-Anlagen) und
+`AnlagenKwk.xml` (92.653 KWK-Anlagen), zusammen 11 MB gepackt. Der Server beantwortet Range-Anfragen.
+fheat liest die drei Dateien deshalb direkt aus dem entfernten ZIP (9 s) und legt sie als CSV in den
+Zwischenspeicher (4 MB, danach 0,05 s). Der Server bricht ab und zu für 1 bis 20 s alle Verbindungen
+ab; eine Anfrage wird deshalb nach 1, 2, 4, 8 und 16 s wiederholt.
+
+**Auswahl:** Hauptbrennstoff Biogas (Katalogwert 2445; Biomethan, Klärgas und Deponiegas nicht),
+Status in Betrieb (35) oder in Planung (31), mindestens 250 kW netto, Höchstbemessungsleistung (HBL)
+der EEG-Anlage vorhanden. Die HBL gibt es nur für Anlagen mit Inbetriebnahme vor August 2014. Im
+Münsterland fallen deshalb 112 von 415 Biogas-Einheiten ab 250 kW weg (82 von 208 MW), in
+Deutschland 2.440 von 11.495.
+
+**Rechnung:** Strom der EEG-Anlage = HBL × 8.760 h. Er wird nach Nettoleistung auf **alle**
+Biogas-Einheiten der EEG-Anlage verteilt. Das Skript der Arbeit verteilt nur auf die Einheiten ab
+250 kW; dann bekommen die großen Einheiten den Anteil kleiner BHKW derselben Anlage dazu (Münsterland:
+33 EEG-Anlagen, +41,5 GWh/a Strom). Wärme = Strom × P_th/P_el der KWK-Anlage der Einheit
+(`ThermischeNutzleistung` / `ElektrischeKwkLeistung`). Für Biogas-Einheiten ab 250 kW liegt das
+Verhältnis im Median bei 1,01 (Arbeit: pauschal 0,45/0,41 = 1,10). Außerhalb von 0,5 bis 2,0 (4 %,
+meist W statt kW eingetragen) und ohne KWK-Daten (6 %) gelten die pauschalen Wirkungsgrade.
+
+**Abgleich Münsterland** (Kreise Borken, Coesfeld, Steinfurt, Warendorf, Stadt Münster): Es sind
+dieselben 303 Einheiten wie im Skript der Arbeit. Strom 739,9 statt 781,5 GWh/a (Verteilung), Wärme
+767,9 statt 857,7 GWh/a (Verteilung und KWK-Verhältnis). 3-km-Cluster: 90, davon 22 einzelne
+BHKW (Kreis mit 1,5 km Radius). 15 Cluster bestehen aus mehreren BHKW an derselben Stelle; sie
+bekommen wie alle Cluster aus mehreren BHKW die Hülle plus 500 m.
+
+**Grenzen:** Das ist der Bestand heute, kein Wert für 2050. Die Wärme ist die Erzeugung des BHKW, also
+eine Obergrenze: Ein Teil heizt den Fermenter, ein Teil wird schon verkauft. Bei flexibel betriebenen
+Anlagen (Flexprämie) liegen die Volllaststunden der HBL im Median bei 5.020 h, bei den übrigen bei
+8.341 h (NRW).

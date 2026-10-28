@@ -69,6 +69,15 @@ class HeatSourceLoader:
         self._known_names = list(known_names)
         self._study: Optional[tuple[pd.DataFrame, pd.DataFrame]] = None
 
+    @property
+    def area(self) -> BaseGeometry:
+        """Outline of the loaded area in :attr:`crs`."""
+        return self._area
+
+    @property
+    def crs(self):
+        return self._crs
+
     # ------------------------------------------------------------------
     # Layers
     # ------------------------------------------------------------------

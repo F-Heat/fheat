@@ -201,6 +201,8 @@ class FHeatOrchestrator:
             "fluesse_seen": self.state.river_heat_gdf,
             "hydrothermie": self.state.hydrothermal_gdf,
             "waermenetzgebiete_studie": self.state.study_dh_areas_gdf,
+            "biogas_bhkw": self.state.biogas_gdf,
+            "biogas_cluster": self.state.biogas_clusters_gdf,
         }
         if layers is not None:
             wanted = set(layers)
@@ -271,7 +273,7 @@ def _check_inputs(phase: Phase, state: PipelineState) -> None:
 _UNCLIPPED_LAYERS = frozenset({
     "netz", "source", "geothermie_tief", "solarthermie_freiflaechen",
     "klaeranlagen", "industrie_abwaerme", "muellverbrennung", "fluesse_seen", "hydrothermie",
-    "waermenetzgebiete_studie",
+    "waermenetzgebiete_studie", "biogas_bhkw", "biogas_cluster",
 })
 # kept when their inner point lies in the area: a building block of the outer
 # area (LANUK: up to 100 km²) touches nearly every planning area

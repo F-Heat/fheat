@@ -45,6 +45,9 @@ class PipelineState:
     hydrothermal_gdf: Optional[gpd.GeoDataFrame] = None
     study_dh_areas_gdf: Optional[gpd.GeoDataFrame] = None
     study_potentials_df: Optional[pd.DataFrame] = None
+    # Biogas CHP units in the area and their clusters (DataAdapter.fetch_biogas)
+    biogas_gdf: Optional[gpd.GeoDataFrame] = None
+    biogas_clusters_gdf: Optional[gpd.GeoDataFrame] = None
 
     # Planning area of the network (one or more polygons). The analysis steps
     # always work on the whole area of the input frames; NETWORK and RESULTS

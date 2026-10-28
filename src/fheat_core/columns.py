@@ -209,6 +209,27 @@ STUDY_UTILIZATION_HT_MWH = "study_utilization_ht_mwh"    # [MWh/a]
 STUDY_SUPPLY_LT_MWH = "study_supply_lt_mwh"              # [MWh/a]
 STUDY_UTILIZATION_LT_MWH = "study_utilization_lt_mwh"    # [MWh/a]
 
+# Biogas CHP units of the Marktstammdatenregister (fheat_de.biogas): today's
+# stock, not a 2050 value; the heat is what the CHP produces, part of it may
+# already be used
+MASTR_UNIT_ID = "mastr_unit_id"              # MaStR number of the generating unit (SEE...)
+MASTR_EEG_ID = "mastr_eeg_id"                # MaStR number of its EEG plant (EEG...)
+MUNICIPALITY = "municipality"                # municipality of the site
+OPERATING_STATUS = "operating_status"        # in Betrieb / in Planung
+COMMISSIONING_DATE = "commissioning_date"    # commissioning of the unit
+EEG_COMMISSIONING_DATE = "eeg_commissioning_date"  # commissioning of the EEG plant (start of the EEG support)
+FLEX_PREMIUM = "flex_premium"                # the EEG plant receives the flexibility premium
+ELECTRIC_POWER_KW = "electric_power_kw"      # net rated electric power [kW]
+THERMAL_POWER_KW = "thermal_power_kw"        # thermal power of the CHP [kW]
+MAX_RATED_POWER_KW = "max_rated_power_kw"    # Höchstbemessungsleistung of the EEG plant [kW]
+ELECTRICITY_MWH = "electricity_mwh"          # electricity per year [MWh/a]
+CHP_HEAT_MWH = "chp_heat_mwh"                # heat the CHP produces per year [MWh/a]
+THERMAL_BASIS = "thermal_basis"              # kwk = ratio of the MaStR CHP data / factor = flat efficiencies
+CLUSTER_ID = "cluster_id"                    # 1 = cluster with the most heat
+N_UNITS = "n_units"                          # number of units in the cluster
+MAX_INTERNAL_DISTANCE = "max_internal_distance"  # largest distance of two units in the cluster [m]
+MASTR_UNIT_IDS = "mastr_unit_ids"            # MaStR numbers of the units in the cluster, "; "-separated
+
 
 # ============================================================
 # Internal geometry helper columns
@@ -366,6 +387,12 @@ UNITS: dict[str, str] = {
     STUDY_UTILIZATION_HT_MWH: "MWh/a",
     STUDY_SUPPLY_LT_MWH: "MWh/a",
     STUDY_UTILIZATION_LT_MWH: "MWh/a",
+    ELECTRIC_POWER_KW: "kW",
+    THERMAL_POWER_KW: "kW",
+    MAX_RATED_POWER_KW: "kW",
+    ELECTRICITY_MWH: "MWh/a",
+    CHP_HEAT_MWH: "MWh/a",
+    MAX_INTERNAL_DISTANCE: "m",
 }
 
 
@@ -506,6 +533,23 @@ LABELS_DE: dict[str, str] = {
     STUDY_UTILIZATION_HT_MWH: "Nutzbar HT [MWh/a]",
     STUDY_SUPPLY_LT_MWH: "Angebot NT [MWh/a]",
     STUDY_UTILIZATION_LT_MWH: "Nutzbar NT [MWh/a]",
+    MASTR_UNIT_ID: "MaStR-Nr",
+    MASTR_EEG_ID: "MaStR-Nr EEG-Anlage",
+    MUNICIPALITY: "Gemeinde",
+    OPERATING_STATUS: "Status",
+    COMMISSIONING_DATE: "Inbetriebnahme",
+    EEG_COMMISSIONING_DATE: "Inbetriebnahme EEG",
+    FLEX_PREMIUM: "Flexpraemie",
+    ELECTRIC_POWER_KW: "Leistung el. [kW]",
+    THERMAL_POWER_KW: "Leistung th. [kW]",
+    MAX_RATED_POWER_KW: "Hoechstbemessungsleistung [kW]",
+    ELECTRICITY_MWH: "Strom [MWh/a]",
+    CHP_HEAT_MWH: "Waerme BHKW [MWh/a]",
+    THERMAL_BASIS: "Grundlage Waerme",
+    CLUSTER_ID: "Cluster",
+    N_UNITS: "Anzahl BHKW",
+    MAX_INTERNAL_DISTANCE: "Groesster Abstand [m]",
+    MASTR_UNIT_IDS: "MaStR-Nrn",
 }
 
 

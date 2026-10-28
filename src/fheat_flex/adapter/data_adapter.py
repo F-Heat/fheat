@@ -11,6 +11,7 @@ from shapely.geometry import Point, box
 
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
+from fheat_de import biogas, mastr
 from fheat_eu.loader import HeatSourceLoader
 
 logger = logging.getLogger(__name__)
@@ -57,8 +58,9 @@ class FlexDataAdapter(DataAdapter):
         Wenn True, werden die Wärmequellen im Umkreis der Gebäude aus dem
         Datensatz des Fraunhofer ISI geladen (Manz et al. 2024, EU, Stand
         2050, einmal in den Zwischenspeicher): Kläranlagen, Industrie-
-        Abwärme, Müllverbrennung, Flüsse und Seen, Hydrothermie. Standard
-        False: der Adapter lädt sonst
+        Abwärme, Müllverbrennung, Flüsse und Seen, Hydrothermie; dazu die
+        Biogas-BHKW im Gebiet aus dem Marktstammdatenregister (Deutschland,
+        Bestand) und ihre Cluster. Standard False: der Adapter lädt sonst
         nichts aus dem Netz. Braucht ein metrisches KBS der Gebäude. Fehler →
         Warnung, kein Layer.
     lau_id : str | None
@@ -155,6 +157,13 @@ class FlexDataAdapter(DataAdapter):
     def fetch_study_potentials(self) -> Optional[pd.DataFrame]:
         return self._heat_source("study_potentials")
 
+    def fetch_biogas(self) -> Optional[gpd.GeoDataFrame]:
+        """Biogas CHP units in the box of the buildings (Marktstammdatenregister)."""
+        return self._heat_source("biogas")
+
+    def fetch_biogas_clusters(self) -> Optional[gpd.GeoDataFrame]:
+        return self._heat_source("biogas_clusters")
+
     # ------------------------------------------------------------------
     # Heat sources (fheat_eu), loaded once per layer
     # ------------------------------------------------------------------
@@ -164,12 +173,22 @@ class FlexDataAdapter(DataAdapter):
             layer = None
             if self._download_heat_sources or self._fordatis_path is not None:
                 try:
-                    layer = getattr(self._heat_source_loader(), key)()
+                    layer = self._load_heat_source(key)
                 except Exception as e:  # network/IO dependent: never stop the pipeline
-                    logger.warning("Wärmequelle '%s' (Fraunhofer ISI) konnte nicht geladen werden (%s) — kein Layer.",
-                                   key, e)
+                    logger.warning("Wärmequelle '%s' konnte nicht geladen werden (%s) — kein Layer.", key, e)
             self._heat_layers[key] = layer if layer is not None and not layer.empty else None
         return self._heat_layers[key]
+
+    def _load_heat_source(self, key: str):
+        if key == "biogas_clusters":
+            units = self.fetch_biogas()
+            return None if units is None else biogas.biogas_clusters(units)
+        if key == "biogas":
+            if not self._download_heat_sources:
+                return None
+            loader = self._heat_source_loader()
+            return biogas.process_biogas(mastr.read_biomass_tables(self._cache_dir), loader.area, loader.crs)
+        return getattr(self._heat_source_loader(), key)()
 
     def _heat_source_loader(self) -> HeatSourceLoader:
         if self._heat_loader is None:

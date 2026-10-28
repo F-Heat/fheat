@@ -140,6 +140,21 @@ class DataAdapter(ABC):
         """Optional: the study's table of the municipality (``study_*`` columns, one row per source)."""
         return None
 
+    # Biogas CHP units in the area (fheat_de: Marktstammdatenregister, today's
+    # stock) — information like the heat sources above.
+    def fetch_biogas(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: biogas CHP units (points) in the area.
+
+        ``electric_power_kw``, ``thermal_power_kw``, ``electricity_mwh``,
+        ``chp_heat_mwh`` (heat the CHP produces, an upper bound) and the unit
+        as ``source_candidate_lat``/``_lon``, see :mod:`fheat_de.biogas`.
+        """
+        return None
+
+    def fetch_biogas_clusters(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: clusters (areas) of the units of :meth:`fetch_biogas`, chains of at most 3 km."""
+        return None
+
     # Optional data — default implementation returns None;
     # the core then loads its own default.
     def provide_pipe_info(self) -> Optional[pd.DataFrame]:
