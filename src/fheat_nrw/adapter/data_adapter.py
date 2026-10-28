@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import xml.etree.ElementTree as ET
 from importlib.resources import files
 from pathlib import Path
 from typing import Callable, Optional, Tuple
@@ -18,12 +19,13 @@ from fheat_core.adapters.base import DataAdapter
 
 from fheat_de import biogas, mastr
 from fheat_eu.loader import HeatSourceLoader
+from fheat_nrw import building_gaps as gaps_mod
 from fheat_nrw import download as dl
 from fheat_nrw import potentials as pot
 from fheat_nrw.area import boundary_from_parcels, clip_to_boundary
 from fheat_nrw.civil_cost import annotate_landuse_costs
 from fheat_nrw.osm_surface import annotate_osm_surface_costs, buffer_osm_lines
-from fheat_nrw.processing import process_buildings, process_streets
+from fheat_nrw.processing import DATA_SOURCE, process_buildings, process_streets
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +83,14 @@ class NRWDataAdapter(DataAdapter):
     district_key : str | None
         Eindeutiger Stadtteil-/Gemarkungsschlüssel (Spalte "schluessel" in cities.csv).
         Hat Vorrang vor city_name und municipality_name.
+    fill_building_gaps : bool
+        Wenn True (Standard), werden Wohngebäude aus ALKIS ergänzt, die das
+        Wärmebedarfsmodell noch nicht hat (Neubauten nach dessen Stand),
+        und wie im Modell geschätzt; die Geschosse kommen aus der Höhe des
+        3D-Gebäudemodells LoD2 NRW (Kacheln im Zwischenspeicher), sonst aus
+        dem Median der Neubauten (siehe ``fheat_nrw.building_gaps``). Die
+        Spalte ``data_source`` kennzeichnet sie. Fehler → Warnung, ohne
+        Ergänzung bzw. mit angenommenen Geschossen.
     download_landuse : bool
         Wenn True (Standard), wird die ALKIS-„Tatsächliche Nutzung" für das
         geladene Gebiet vom WFS geladen und liefert je Trasse einen
@@ -188,6 +198,7 @@ class NRWDataAdapter(DataAdapter):
         building_age_classes_path: Optional[Path] = None,
         heat_attribute: str = "RW_WW",
         district_key: Optional[str] = None,
+        fill_building_gaps: bool = True,
         download_landuse: bool = True,
         landuse_path: Optional[Path] = None,
         landuse_wfs: Optional[Tuple[str, str]] = None,
@@ -226,6 +237,7 @@ class NRWDataAdapter(DataAdapter):
         self._building_functions_path = building_functions_path
         self._building_age_classes_path = building_age_classes_path
         self._heat_attribute = heat_attribute
+        self._fill_building_gaps = bool(fill_building_gaps)
         self._download_landuse = bool(download_landuse)
         self._landuse_path = Path(landuse_path) if landuse_path is not None else None
         self._landuse_wfs = landuse_wfs
@@ -690,6 +702,10 @@ class NRWDataAdapter(DataAdapter):
             raw_buildings = clip_to_boundary(raw_buildings, self._boundary)
             raw_streets = clip_to_boundary(raw_streets, self._boundary)
 
+        alkis = self._load_alkis_buildings(raw_buildings)
+        if self._fill_building_gaps and alkis is not None:
+            raw_buildings = self._with_building_gaps(raw_buildings, alkis, padded_key)
+
         # Process into schema-compliant outputs
         info_db, wg_demand = self._load_building_info()
 
@@ -699,22 +715,51 @@ class NRWDataAdapter(DataAdapter):
             building_info_db=info_db,
             wg_demand_data=wg_demand,
             heat_attribute=self._heat_attribute,
-            addresses=self._load_addresses(raw_buildings),
+            addresses=alkis,
         )
         self._streets = process_streets(raw_streets)
         self._parcels = parcels
         self._source = self._build_source(self._buildings.crs)
 
-    def _load_addresses(self, raw_buildings: gpd.GeoDataFrame) -> Optional[gpd.GeoDataFrame]:
-        """ALKIS address texts; without them buildings merge by touching only."""
+    def _load_alkis_buildings(self, raw_buildings: gpd.GeoDataFrame) -> Optional[gpd.GeoDataFrame]:
+        """ALKIS buildings of the area: their addresses, and the buildings to add."""
         if raw_buildings.empty:
             return None
         bbox = tuple(float(v) for v in raw_buildings.to_crs(LANDUSE_BBOX_CRS).total_bounds)
         try:
-            return dl.get_addresses_from_wfs(dl.URL_LANDUSE, bbox, dl.LAYER_ALKIS_BUILDINGS)
+            alkis = dl.get_alkis_buildings_from_wfs(dl.URL_LANDUSE, bbox, dl.LAYER_ALKIS_BUILDINGS)
         except RuntimeError as e:
-            logger.warning("Adressen nicht geladen, Gebaeude nur nach Beruehrung zusammengefasst: %s", e)
+            logger.warning(
+                "ALKIS-Gebaeude nicht geladen: Gebaeude nur nach Beruehrung zusammengefasst, "
+                "keine fehlenden Wohngebaeude ergaenzt: %s", e,
+            )
             return None
+        return alkis.set_crs(LANDUSE_BBOX_CRS) if alkis.crs is None else alkis
+
+    def _with_building_gaps(
+        self, raw_buildings: gpd.GeoDataFrame, alkis: gpd.GeoDataFrame, municipality_key: str
+    ) -> gpd.GeoDataFrame:
+        """The WBM-NRW buildings and the residential ALKIS buildings it does not have."""
+        gaps = gaps_mod.residential_gaps(
+            alkis.to_crs(raw_buildings.crs), raw_buildings, municipality_key, self._heat_attribute
+        )
+        if self._boundary is not None:
+            gaps = clip_to_boundary(gaps, self._boundary).reset_index(drop=True)
+        if gaps.empty:
+            return raw_buildings
+        try:
+            lod2 = gaps_mod.load_lod2(gaps.to_crs(LANDUSE_BBOX_CRS).geometry, self._cache_dir)
+        except (RuntimeError, OSError, ET.ParseError) as e:
+            logger.warning("LoD2 nicht geladen, Geschosse der ergaenzten Gebaeude angenommen: %s", e)
+            lod2 = None
+        added = gaps_mod.estimate_gaps(gaps, raw_buildings, self._heat_attribute, lod2)
+        logger.info(
+            "%d Wohngebaeude aus ALKIS ergaenzt (%d mit LoD2-Hoehe)",
+            len(added), int((added[DATA_SOURCE] == gaps_mod.SOURCE_LOD2).sum()) if len(added) else 0,
+        )
+        if added.empty:
+            return raw_buildings
+        return gpd.GeoDataFrame(pd.concat([raw_buildings, added], ignore_index=True), crs=raw_buildings.crs)
 
     def _load_cities(self) -> pd.DataFrame:
         df = self._read_cities_csv()
