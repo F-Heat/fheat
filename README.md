@@ -206,6 +206,18 @@ NRWDataAdapter(
 )
 ```
 
+### Temperature year (Temperaturjahr)
+
+The hourly outdoor temperatures only shape the load profile of the `RESULTS` step (profile, tables, charts); network, diameters and costs do not use them. Sources, first match wins:
+
+1. the adapter's series (`DataAdapter.provide_temperature()`),
+2. with `FHeatConfig(temperature_source="dwd", year=2023)` the measured year of the nearest DWD station at the centre of the planning area (else of the connected buildings),
+3. the bundled example year (place and year unknown; the default, `temperature_source="example"`).
+
+The DWD year comes from DWD Open Data via [wetterdienst](https://github.com/earthobservations/wetterdienst) (extra `[dwd]`, Python ≥ 3.11): the nearest station within 50 km that measured at least 95 % of the year, gaps up to 6 h interpolated, longer ones filled from the next stations; UTC is shifted to CET (UTC+1 all year, like the BDEW profiles). Only finished years are available. If the request fails, the example year is used with a warning and the reason lands in the summary (`temperature_fallback=False` stops the step instead). The summary names the source, station, distance and year and gives the mean and lowest temperature and the heating degree days G20/15 (VDI 3807) for a plausibility check. Leap years have 8784 hours; a series without timestamps (the example year) repeats 28 February.
+
+The retrieved years are cached as CSV (`dwd/` in the cache folder: `FHEAT_CACHE_DIR`, else `~/.cache/fheat`) and do not expire. Attribution: "Datenbasis: Deutscher Wetterdienst" ([DWD terms of use](https://www.dwd.de/EN/service/copyright/copyright_node.html)).
+
 ## Installation
 
 Requires **Python ≥ 3.10**. The geospatial stack (GeoPandas, Shapely, etc.) is easiest to install with `conda`/`mamba`, but `pip` works on most platforms.
@@ -220,6 +232,7 @@ pip install -e ".[full,dev]"  # everything + pytest, for development
 pip install -e ".[topotherm]" # + expert network mode; topotherm itself needs a second, editable install — see above
 pip install -e ".[excel,plots]" # + Excel export and load profile charts of the results
 pip install -e ".[xwp]"       # + XWärmeplan export (xplan-tools; Python 3.13 and system GDAL, see below)
+pip install -e ".[dwd]"       # + DWD temperature year at the planning area (wetterdienst; Python >= 3.11)
 ```
 
 All three import packages — `fheat_core`, `fheat_nrw`, `fheat_flex` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel. The separate `[excel]` extra adds `openpyxl` only for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
@@ -434,10 +447,10 @@ Worked examples are in [`examples/`](examples/): [`burgsteinfurt.py`](examples/b
 ```bash
 pip install -e ".[dev]"
 pytest                       # runs the offline suite
-pytest -m "not network"      # explicitly skip tests that hit the live NRW services
+pytest -m network            # only the tests that hit the live services (NRW, DWD)
 ```
 
-Tests marked `network` require internet; `slow` tests are long-running.
+Tests marked `network` require internet and are skipped unless selected with `-m network`; `slow` tests are long-running.
 
 ## License
 

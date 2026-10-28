@@ -111,7 +111,13 @@ class DataAdapter(ABC):
         return None
 
     def provide_temperature(self) -> Optional[pd.Series]:
-        """Optional: 8760 hourly temperatures [°C]. None → core default."""
+        """Optional: hourly temperatures [°C] of ``FHeatConfig.year``. None → core default.
+
+        Either a series with a DatetimeIndex covering every hour of the year,
+        or 8760 values taken by position (a leap year repeats 28 February).
+        The core default is the DWD year (``temperature_source="dwd"``) or
+        the example year.
+        """
         return None
 
     def provide_holidays(self) -> Optional[dict]:

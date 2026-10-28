@@ -116,6 +116,16 @@ class FHeatConfig:
     wind_class: int = 1
     year: int = 2022
 
+    # Outdoor temperatures of the load profile (RESULTS only), when the
+    # adapter provides none: "example" (fixed example year, place and year
+    # unknown) or "dwd" (measured DWD year ``year`` at the planning area,
+    # needs the [dwd] extra and a finished year). A calculation parameter
+    # like heat_demand_basis: the place comes from the state, not from the
+    # adapter. With temperature_fallback a failed DWD request falls back to
+    # the example year with a warning instead of stopping the step.
+    temperature_source: str = "example"
+    temperature_fallback: bool = True
+
     # Output
     output_dir: str = "./output"
     output_format: str = "gpkg"
@@ -134,6 +144,7 @@ class FHeatConfig:
     _ALLOWED_TABLE_FORMATS: ClassVar[frozenset] = frozenset({None, "csv", "xlsx"})
     _ALLOWED_PLOT_FORMATS: ClassVar[frozenset] = frozenset({None, "png", "svg"})
     _ALLOWED_HEAT_DEMAND_BASES: ClassVar[frozenset] = frozenset({"calculated", "dataset"})
+    _ALLOWED_TEMPERATURE_SOURCES: ClassVar[frozenset] = frozenset({"example", "dwd"})
 
     def __post_init__(self) -> None:
         if self.supply_temperature <= self.return_temperature:
@@ -165,6 +176,11 @@ class FHeatConfig:
             raise ValueError(
                 f"heat_demand_basis '{self.heat_demand_basis}' is not allowed. "
                 f"Allowed values: {sorted(self._ALLOWED_HEAT_DEMAND_BASES)}"
+            )
+        if self.temperature_source not in self._ALLOWED_TEMPERATURE_SOURCES:
+            raise ValueError(
+                f"temperature_source '{self.temperature_source}' is not allowed. "
+                f"Allowed values: {sorted(self._ALLOWED_TEMPERATURE_SOURCES)}"
             )
 
         if not 0.0 <= self.civil_cost_share <= 1.0:

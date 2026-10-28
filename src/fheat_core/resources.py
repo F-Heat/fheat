@@ -36,7 +36,12 @@ def resolve_pipe_info(adapter) -> pd.DataFrame:
 
 
 def load_default_temperature() -> pd.Series:
-    """8760 hourly outdoor temperatures [°C] from the core example year."""
+    """8760 hourly outdoor temperatures [°C] from the core example year.
+
+    Place and year of the values are unknown and they carry no timestamps;
+    only a fallback when neither the adapter nor
+    ``FHeatConfig.temperature_source="dwd"`` provides a year.
+    """
     with importlib.resources.as_file(_data_path("example_temperature.csv")) as p:
         df = pd.read_csv(p)
     return df["TT_TU"]

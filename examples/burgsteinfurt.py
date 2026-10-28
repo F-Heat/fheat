@@ -67,6 +67,9 @@ config = FHeatConfig(
     wld_threshold=500.0,     # WLD-Schwellenwert [kWh/(a·m)]
     buffer_distance=50.0,    # Puffer für Eignungspolygone [m]
     year=2022,
+    # Gemessenes DWD-Jahr am Planungsgebiet statt des Beispieljahrs
+    # (benötigt pip install -e ".[dwd]", nur abgeschlossene Jahre):
+    # temperature_source="dwd", year=2023,
     civil_cost_share=0.6,    # Anteil der Rohrkosten, der auf den Tiefbau entfällt
     output_dir=str(OUTPUT_DIR),
     output_format="gpkg",

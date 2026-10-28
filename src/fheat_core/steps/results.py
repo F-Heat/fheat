@@ -1,7 +1,11 @@
 """Step RESULTS: load profiles, result summary and result tables."""
 from __future__ import annotations
 
+import logging
+
+import geopandas as gpd
 import pandas as pd
+from shapely.ops import unary_union
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.network import calculate_glf
@@ -18,6 +22,9 @@ from fheat_core.schemas import (
 )
 from fheat_core.selection import connected_mask
 from fheat_core.state import Phase, PipelineState
+from fheat_core.weather import TemperatureYear, WeatherDataError, heating_degree_days, load_dwd_temperature
+
+logger = logging.getLogger(__name__)
 
 
 def run(state: PipelineState, config, adapter) -> PipelineState:
@@ -27,9 +34,7 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
     buildings = state.buildings_gdf
     buildings = buildings[connected_mask(buildings, state.planning_area_gdf)]
 
-    temperature = adapter.provide_temperature()
-    if temperature is None:
-        temperature = load_default_temperature()
+    temperature_year, fallback_reason = _temperature_year(state, buildings, config, adapter)
 
     holidays = adapter.provide_holidays()
     if holidays is None:
@@ -39,7 +44,7 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
         buildings_gdf=buildings,
         net_gdf=net_gdf,
         year=config.year,
-        temperature=temperature,
+        temperature=temperature_year.series,
         holidays=holidays,
         building_class=config.building_class,
         wind_class=config.wind_class,
@@ -75,6 +80,7 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
         cols.TOTAL_ROUTE_LENGTH: round(route_length, 1),
         cols.TOTAL_LOSS_EXTRA_INSULATION: round(total_loss_extra, 3),
     }
+    summary.update(_temperature_summary(temperature_year, config.year, fallback_reason))
     summary.update(_civil_cost_summary(net_gdf, config.civil_cost_share))
     summary.update(potential_summary(
         buildings, state.geothermal_blocks_gdf, state.geothermal_deep_gdf, state.solar_thermal_gdf
@@ -89,10 +95,69 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
 
     state.load_profile_df = load_profile_df
     state.result_summary = summary
+    state.temperature_info = {
+        "source": temperature_year.source,
+        "station_id": temperature_year.station_id,
+        "station_name": temperature_year.station_name,
+        "distance_km": temperature_year.distance_km,
+        "coverage": temperature_year.coverage,
+        "year": config.year if temperature_year.source == "dwd" else None,
+        "fallback_reason": fallback_reason,
+    }
     state.pipe_summary_df = pipe_summary_df
     state.building_summary_df = building_summary_df
     state.phase = Phase.RESULTS
     return state
+
+
+def _temperature_year(state: PipelineState, buildings, config, adapter) -> tuple[TemperatureYear, str | None]:
+    """Outdoor temperatures of the load profile and, after a fallback, why.
+
+    Order: the series of the adapter, the DWD year at the centre of the
+    planning area (else of the connected buildings) when
+    ``config.temperature_source == "dwd"``, the example year.
+    """
+    temperature = adapter.provide_temperature()
+    if temperature is not None:
+        return TemperatureYear(series=temperature, source="adapter"), None
+    reason = None
+    if config.temperature_source == "dwd":
+        try:
+            lat, lon = _area_centre(state.planning_area_gdf, buildings)
+            return load_dwd_temperature(lat, lon, config.year), None
+        except (WeatherDataError, ImportError) as e:
+            if not config.temperature_fallback:
+                raise
+            logger.warning("DWD temperature year not available, using the example year: %s", e)
+            reason = str(e)
+    return TemperatureYear(series=load_default_temperature(), source="example"), reason
+
+
+def _area_centre(planning_area_gdf, buildings) -> tuple[float, float]:
+    """(lat, lon) in WGS84 of the planning area, else of the buildings."""
+    frame = planning_area_gdf if planning_area_gdf is not None and not planning_area_gdf.empty else buildings
+    if frame is None or frame.empty or frame.crs is None:
+        raise WeatherDataError("The place of the DWD temperature year is unknown: no planning area or buildings with a CRS.")
+    # centroid in the projected CRS of the data, then to WGS84
+    centre = gpd.GeoSeries([unary_union(list(frame.geometry)).centroid], crs=frame.crs).to_crs("EPSG:4326").iloc[0]
+    return centre.y, centre.x
+
+
+def _temperature_summary(temperature_year: TemperatureYear, year: int, fallback_reason: str | None) -> dict:
+    """Temperature keys of the summary (source, station, plausibility figures)."""
+    series = temperature_year.series
+    out: dict = {cols.TEMPERATURE_SOURCE: temperature_year.source}
+    if temperature_year.source == "dwd":
+        out[cols.WEATHER_STATION_ID] = temperature_year.station_id
+        out[cols.WEATHER_STATION_NAME] = temperature_year.station_name
+        out[cols.WEATHER_STATION_DISTANCE] = temperature_year.distance_km
+        out[cols.WEATHER_YEAR] = year
+    out[cols.MEAN_OUTDOOR_TEMPERATURE] = round(float(series.mean()), 2)
+    out[cols.MIN_OUTDOOR_TEMPERATURE] = round(float(series.min()), 1)
+    out[cols.HEATING_DEGREE_DAYS] = round(heating_degree_days(series))
+    if fallback_reason:
+        out[cols.TEMPERATURE_FALLBACK_REASON] = fallback_reason
+    return out
 
 
 def _civil_cost_summary(net_gdf, civil_cost_share: float) -> dict:

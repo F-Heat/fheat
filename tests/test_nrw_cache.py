@@ -19,6 +19,7 @@ import pytest
 from shapely.geometry import box
 
 from fheat_core import cancel
+from fheat_core import cache as core_cache
 from fheat_nrw import cache
 from fheat_nrw import download as dl
 
@@ -73,7 +74,8 @@ class TestCacheDir:
 
     def test_default_in_home(self, tmp_path, monkeypatch):
         monkeypatch.delenv(cache.ENV_CACHE_DIR, raising=False)
-        monkeypatch.setattr(cache, "DEFAULT_CACHE_DIR", tmp_path / "home" / ".cache" / "fheat")
+        # cache_dir lives in fheat_core.cache, fheat_nrw.cache re-exports it
+        monkeypatch.setattr(core_cache, "DEFAULT_CACHE_DIR", tmp_path / "home" / ".cache" / "fheat")
         assert cache.cache_dir() == tmp_path / "home" / ".cache" / "fheat"
 
 
