@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import numpy as np
 import geopandas as gpd
+import networkx as nx
 import pandas as pd
+import shapely
 from shapely.geometry import LineString, Point
 
 from fheat_core import columns as cols
@@ -73,3 +75,24 @@ def insert_connection_points(
         line_coords.insert(pos, (anschlusspunkt.x, anschlusspunkt.y))
         streets.at[street_id, "geometry"] = LineString(line_coords)
     return streets
+
+
+def cluster_points(points: gpd.GeoSeries, max_distance: float) -> np.ndarray:
+    """Single-linkage clusters of points: a label per point, 0, 1, ...
+
+    Two points share a cluster when a chain of points connects them whose
+    neighbours are at most ``max_distance`` apart (connected components of
+    the graph of all pairs within that distance), so a cluster can be wider
+    than ``max_distance``. Labels follow the first point of each cluster.
+    ``points`` lie in a metric CRS.
+    """
+    geoms = np.asarray(points.values)
+    graph = nx.Graph()
+    graph.add_nodes_from(range(len(geoms)))
+    if len(geoms):
+        left, right = shapely.STRtree(geoms).query(geoms, predicate="dwithin", distance=max_distance)
+        graph.add_edges_from(zip(left.tolist(), right.tolist()))
+    labels = np.empty(len(geoms), dtype="int64")
+    for label, members in enumerate(sorted(nx.connected_components(graph), key=min)):
+        labels[list(members)] = label
+    return labels

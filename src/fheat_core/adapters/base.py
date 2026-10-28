@@ -100,6 +100,61 @@ class DataAdapter(ABC):
         """
         return None
 
+    # Heat sources around the area (fheat_eu: Fraunhofer ISI, values of a
+    # climate-neutral 2050, HT and LT scenario) — information like the
+    # potential layers, never placed as a source automatically.
+    def fetch_wastewater(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: wastewater plants (points) near the area.
+
+        ``heat_extraction_mwh`` (taken from the wastewater), ``heat_ht_mwh`` /
+        ``heat_lt_mwh`` (after the heat pump), ``distance_to_area`` and the
+        plant as ``source_candidate_lat``/``_lon``.
+        """
+        return None
+
+    def fetch_industrial_heat(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: industrial sites (points) with excess heat ``heat_ht_mwh`` / ``heat_lt_mwh``."""
+        return None
+
+    def fetch_waste_incineration(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: waste incineration plants (points) with ``heat_ht_mwh`` / ``heat_lt_mwh``."""
+        return None
+
+    def fetch_river_heat(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: zones of rivers and lakes; ``heat_mwh`` is one typical heat pump project."""
+        return None
+
+    def fetch_geothermal_hydrothermal(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: hydrothermal cells with ``heat_ht_mwh`` / ``heat_lt_mwh`` per cell.
+
+        An adapter with better data of its own (NRW: :meth:`fetch_geothermal_deep`)
+        leaves it out.
+        """
+        return None
+
+    def fetch_study_dh_areas(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: the study's district heating areas of the municipality (demand 2050)."""
+        return None
+
+    def fetch_study_potentials(self) -> Optional[pd.DataFrame]:
+        """Optional: the study's table of the municipality (``study_*`` columns, one row per source)."""
+        return None
+
+    # Biogas CHP units in the area (fheat_de: Marktstammdatenregister, today's
+    # stock) — information like the heat sources above.
+    def fetch_biogas(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: biogas CHP units (points) in the area.
+
+        ``electric_power_kw``, ``thermal_power_kw``, ``electricity_mwh``,
+        ``chp_heat_mwh`` (heat the CHP produces, an upper bound) and the unit
+        as ``source_candidate_lat``/``_lon``, see :mod:`fheat_de.biogas`.
+        """
+        return None
+
+    def fetch_biogas_clusters(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: clusters (areas) of the units of :meth:`fetch_biogas`, chains of at most 3 km."""
+        return None
+
     # Optional data — default implementation returns None;
     # the core then loads its own default.
     def provide_pipe_info(self) -> Optional[pd.DataFrame]:

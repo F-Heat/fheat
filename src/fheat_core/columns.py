@@ -176,6 +176,60 @@ SOLAR_TROUGH_NS_SPECIFIC = "solar_trough_ns_specific"      # [kWh/(m²·a)]
 SOLAR_TROUGH_EW_SPECIFIC = "solar_trough_ew_specific"      # [kWh/(m²·a)]
 DISTANCE_TO_DEMAND = "distance_to_demand"            # to the nearest building with heat demand [m]
 
+# Heat sources around the area (Fraunhofer ISI: Manz et al. 2024, technical
+# potentials of a climate-neutral 2050; NRW wastewater plants: LANUK). HT =
+# high-temperature scenario (network supply 70-90 °C), LT = low-temperature
+# scenario (60-70 °C).
+SOURCE_NAME = "source_name"                  # name of the plant or site
+COMPANY = "company"                          # operator of an industrial site
+SUBSECTOR = "subsector"                      # industrial sector
+SITE_ID = "site_id"                          # id of the site in the source data
+WWTP_DESIGN_PE = "wwtp_design_pe"            # design size of a wastewater plant [PE]
+WWTP_CONNECTED_PE = "wwtp_connected_pe"      # connected inhabitants and population equivalents [PE]
+WASTEWATER_VOLUME = "wastewater_volume"      # annual wastewater volume [m³/a]
+HEAT_EXTRACTION_KW = "heat_extraction_kw"    # heat taken from the wastewater, before the heat pump [kW]
+HEAT_EXTRACTION_MWH = "heat_extraction_mwh"  # dto. per year [MWh/a]
+HEAT_HT_MWH = "heat_ht_mwh"                  # heat for the network, HT scenario [MWh/a]
+HEAT_LT_MWH = "heat_lt_mwh"                  # dto. LT scenario [MWh/a]
+HEAT_MWH = "heat_mwh"                        # heat for the network, one value for both scenarios [MWh/a]
+EXCESS_HEAT_THEORETICAL_MWH = "excess_heat_theoretical_mwh"  # waste incineration: 60 % of the energy input [MWh/a]
+HEAT_PUMP_CAPACITY_MW = "heat_pump_capacity_mw"  # typical river or lake heat pump of the size class [MW]
+RIVER_SIZE_CLASS = "river_size_class"        # small / medium / large (winter flow 20-50 / 50-100 / > 100 m³/s)
+SOURCE_FULL_LOAD_HOURS = "source_full_load_hours"  # full load hours of the source [h/a]
+DH_AREA_ID = "dh_area_id"                    # district heating area of the study ("Label")
+DH_DEMAND_2050_MWH = "dh_demand_2050_mwh"    # its district heating demand 2050 [MWh/a]
+DATA_SOURCE = "data_source"                  # source of the values
+
+# Study values per municipality (Manz et al. 2024, sheet Matching_results):
+# supply = sources within the maximum distance, utilization = the part the
+# demand of the district heating areas can take
+STUDY_SOURCE = "study_source"                            # row key, see STUDY_SOURCE_LABELS_DE
+STUDY_SUPPLY_HT_MWH = "study_supply_ht_mwh"              # [MWh/a]
+STUDY_UTILIZATION_HT_MWH = "study_utilization_ht_mwh"    # [MWh/a]
+STUDY_SUPPLY_LT_MWH = "study_supply_lt_mwh"              # [MWh/a]
+STUDY_UTILIZATION_LT_MWH = "study_utilization_lt_mwh"    # [MWh/a]
+
+# Biogas CHP units of the Marktstammdatenregister (fheat_de.biogas): today's
+# stock, not a 2050 value; the heat is what the CHP produces, part of it may
+# already be used
+MASTR_UNIT_ID = "mastr_unit_id"              # MaStR number of the generating unit (SEE...)
+MASTR_EEG_ID = "mastr_eeg_id"                # MaStR number of its EEG plant (EEG...)
+MUNICIPALITY = "municipality"                # municipality of the site
+OPERATING_STATUS = "operating_status"        # in Betrieb / in Planung
+COMMISSIONING_DATE = "commissioning_date"    # commissioning of the unit
+EEG_COMMISSIONING_DATE = "eeg_commissioning_date"  # commissioning of the EEG plant (start of the EEG support)
+FLEX_PREMIUM = "flex_premium"                # the EEG plant receives the flexibility premium
+ELECTRIC_POWER_KW = "electric_power_kw"      # net rated electric power [kW]
+THERMAL_POWER_KW = "thermal_power_kw"        # thermal power of the CHP [kW]
+MAX_RATED_POWER_KW = "max_rated_power_kw"    # Höchstbemessungsleistung of the EEG plant [kW]
+ELECTRICITY_MWH = "electricity_mwh"          # electricity per year [MWh/a]
+CHP_HEAT_MWH = "chp_heat_mwh"                # heat the CHP produces per year [MWh/a]
+THERMAL_BASIS = "thermal_basis"              # kwk = ratio of the MaStR CHP data / factor = flat efficiencies
+CLUSTER_ID = "cluster_id"                    # 1 = cluster with the most heat
+N_UNITS = "n_units"                          # number of units in the cluster
+MAX_INTERNAL_DISTANCE = "max_internal_distance"  # largest distance of two units in the cluster [m]
+MASTR_UNIT_IDS = "mastr_unit_ids"            # MaStR numbers of the units in the cluster, "; "-separated
+
 
 # ============================================================
 # Internal geometry helper columns
@@ -233,6 +287,17 @@ MEAN_OUTDOOR_TEMPERATURE = "mean_outdoor_temperature_c"            # annual mean
 MIN_OUTDOOR_TEMPERATURE = "min_outdoor_temperature_c"              # lowest hourly value [°C]
 HEATING_DEGREE_DAYS = "heating_degree_days_kd"                     # G20/15 after VDI 3807 [K·d]
 TEMPERATURE_FALLBACK_REASON = "temperature_fallback_reason"        # why the example year was used instead
+# heat sources around the area (fheat_eu.heat_sources, values of 2050)
+TOTAL_WASTEWATER_EXTRACTION = "wastewater_extraction_mwh_a"        # wastewater plants: heat taken from the wastewater [MWh/a]
+TOTAL_WASTEWATER_HEAT_HT = "wastewater_heat_ht_mwh_a"              # dto. heat for the network after the heat pump, HT [MWh/a]
+TOTAL_WASTEWATER_HEAT_LT = "wastewater_heat_lt_mwh_a"              # dto. LT [MWh/a]
+TOTAL_INDUSTRIAL_HEAT_HT = "industrial_heat_ht_mwh_a"              # industrial excess heat, HT (95 °C) [MWh/a]
+TOTAL_INDUSTRIAL_HEAT_LT = "industrial_heat_lt_mwh_a"              # dto. LT (55 °C) [MWh/a]
+TOTAL_WASTE_INCINERATION_HT = "waste_incineration_heat_ht_mwh_a"   # waste incineration, HT [MWh/a]
+TOTAL_WASTE_INCINERATION_LT = "waste_incineration_heat_lt_mwh_a"   # dto. LT [MWh/a]
+MAX_RIVER_HEAT = "river_heat_max_mwh_a"                            # largest typical river/lake heat pump project [MWh/a]
+TOTAL_HYDROTHERMAL_HT = "hydrothermal_ht_mwh_a"                    # hydrothermal cells, HT (85 °C) [MWh/a]
+TOTAL_HYDROTHERMAL_LT = "hydrothermal_lt_mwh_a"                    # dto. LT (65 °C) [MWh/a]
 
 
 # ============================================================
@@ -306,6 +371,28 @@ UNITS: dict[str, str] = {
     SOLAR_TROUGH_NS_SPECIFIC: "kWh/(m²·a)",
     SOLAR_TROUGH_EW_SPECIFIC: "kWh/(m²·a)",
     DISTANCE_TO_DEMAND: "m",
+    WWTP_DESIGN_PE: "PE",
+    WWTP_CONNECTED_PE: "PE",
+    WASTEWATER_VOLUME: "m³/a",
+    HEAT_EXTRACTION_KW: "kW",
+    HEAT_EXTRACTION_MWH: "MWh/a",
+    HEAT_HT_MWH: "MWh/a",
+    HEAT_LT_MWH: "MWh/a",
+    HEAT_MWH: "MWh/a",
+    EXCESS_HEAT_THEORETICAL_MWH: "MWh/a",
+    HEAT_PUMP_CAPACITY_MW: "MW",
+    SOURCE_FULL_LOAD_HOURS: "h/a",
+    DH_DEMAND_2050_MWH: "MWh/a",
+    STUDY_SUPPLY_HT_MWH: "MWh/a",
+    STUDY_UTILIZATION_HT_MWH: "MWh/a",
+    STUDY_SUPPLY_LT_MWH: "MWh/a",
+    STUDY_UTILIZATION_LT_MWH: "MWh/a",
+    ELECTRIC_POWER_KW: "kW",
+    THERMAL_POWER_KW: "kW",
+    MAX_RATED_POWER_KW: "kW",
+    ELECTRICITY_MWH: "MWh/a",
+    CHP_HEAT_MWH: "MWh/a",
+    MAX_INTERNAL_DISTANCE: "m",
 }
 
 
@@ -422,6 +509,47 @@ LABELS_DE: dict[str, str] = {
     SOLAR_TROUGH_NS_SPECIFIC: "Parabolrinne N-S [kWh/m²*a]",
     SOLAR_TROUGH_EW_SPECIFIC: "Parabolrinne O-W [kWh/m²*a]",
     DISTANCE_TO_DEMAND: "Abstand Waermebedarf [m]",
+    SOURCE_NAME: "Name",
+    COMPANY: "Betreiber",
+    SUBSECTOR: "Branche",
+    SITE_ID: "Standort_ID",
+    WWTP_DESIGN_PE: "Ausbaugroesse [EW]",
+    WWTP_CONNECTED_PE: "Angeschlossen [EW]",
+    WASTEWATER_VOLUME: "Abwassermenge [m³/a]",
+    HEAT_EXTRACTION_KW: "Entzugsleistung [kW]",
+    HEAT_EXTRACTION_MWH: "Entzug [MWh/a]",
+    HEAT_HT_MWH: "Waerme HT-Szenario [MWh/a]",
+    HEAT_LT_MWH: "Waerme NT-Szenario [MWh/a]",
+    HEAT_MWH: "Waerme [MWh/a]",
+    EXCESS_HEAT_THEORETICAL_MWH: "Abwaerme theoretisch [MWh/a]",
+    HEAT_PUMP_CAPACITY_MW: "Waermepumpe Projekt [MW]",
+    RIVER_SIZE_CLASS: "Groessenklasse",
+    SOURCE_FULL_LOAD_HOURS: "Vlh [h/a]",
+    DH_AREA_ID: "Gebiet_ID",
+    DH_DEMAND_2050_MWH: "Waermenetzbedarf 2050 [MWh/a]",
+    DATA_SOURCE: "Quelle",
+    STUDY_SOURCE: "Waermequelle",
+    STUDY_SUPPLY_HT_MWH: "Angebot HT [MWh/a]",
+    STUDY_UTILIZATION_HT_MWH: "Nutzbar HT [MWh/a]",
+    STUDY_SUPPLY_LT_MWH: "Angebot NT [MWh/a]",
+    STUDY_UTILIZATION_LT_MWH: "Nutzbar NT [MWh/a]",
+    MASTR_UNIT_ID: "MaStR-Nr",
+    MASTR_EEG_ID: "MaStR-Nr EEG-Anlage",
+    MUNICIPALITY: "Gemeinde",
+    OPERATING_STATUS: "Status",
+    COMMISSIONING_DATE: "Inbetriebnahme",
+    EEG_COMMISSIONING_DATE: "Inbetriebnahme EEG",
+    FLEX_PREMIUM: "Flexpraemie",
+    ELECTRIC_POWER_KW: "Leistung el. [kW]",
+    THERMAL_POWER_KW: "Leistung th. [kW]",
+    MAX_RATED_POWER_KW: "Hoechstbemessungsleistung [kW]",
+    ELECTRICITY_MWH: "Strom [MWh/a]",
+    CHP_HEAT_MWH: "Waerme BHKW [MWh/a]",
+    THERMAL_BASIS: "Grundlage Waerme",
+    CLUSTER_ID: "Cluster",
+    N_UNITS: "Anzahl BHKW",
+    MAX_INTERNAL_DISTANCE: "Groesster Abstand [m]",
+    MASTR_UNIT_IDS: "MaStR-Nrn",
 }
 
 
@@ -456,6 +584,27 @@ SUMMARY_LABELS_DE: dict[str, str] = {
     MIN_OUTDOOR_TEMPERATURE: "Niedrigste Außentemperatur [°C]",
     HEATING_DEGREE_DAYS: "Gradtagzahl G20/15 [Kd]",
     TEMPERATURE_FALLBACK_REASON: "Hinweis Temperaturjahr",
+    TOTAL_WASTEWATER_EXTRACTION: "Kläranlagen im Umkreis (2 km): Entzug aus dem Abwasser [MWh/a]",
+    TOTAL_WASTEWATER_HEAT_HT: "Kläranlagen im Umkreis: Wärme nach Wärmepumpe, HT-Szenario [MWh/a]",
+    TOTAL_WASTEWATER_HEAT_LT: "Kläranlagen im Umkreis: Wärme nach Wärmepumpe, NT-Szenario [MWh/a]",
+    TOTAL_INDUSTRIAL_HEAT_HT: "Industrie-Abwärme im Umkreis (20 km), HT-Szenario 2050 [MWh/a]",
+    TOTAL_INDUSTRIAL_HEAT_LT: "Industrie-Abwärme im Umkreis (20 km), NT-Szenario 2050 [MWh/a]",
+    TOTAL_WASTE_INCINERATION_HT: "Müllverbrennung im Umkreis (20 km), HT-Szenario [MWh/a]",
+    TOTAL_WASTE_INCINERATION_LT: "Müllverbrennung im Umkreis (20 km), NT-Szenario [MWh/a]",
+    MAX_RIVER_HEAT: "Fluss-/Seewasser-Wärmepumpe im Umkreis (5 km), typisches Projekt [MWh/a]",
+    TOTAL_HYDROTHERMAL_HT: "Hydrothermie im Umkreis (15 km), HT-Szenario [MWh/a]",
+    TOTAL_HYDROTHERMAL_LT: "Hydrothermie im Umkreis (15 km), NT-Szenario [MWh/a]",
+}
+
+# German labels of the rows of PipelineState.study_potentials_df (STUDY_SOURCE)
+STUDY_SOURCE_LABELS_DE: dict[str, str] = {
+    "dh_demand": "Wärmenetzbedarf 2050",
+    "hydrothermal": "Hydrothermie",
+    "rivers_lakes": "Flüsse und Seen",
+    "industrial_eh": "Industrie-Abwärme",
+    "wte": "Müllverbrennung",
+    "wwtp": "Kläranlagen",
+    "sludge": "Klärschlamm",
 }
 
 

@@ -1,4 +1,4 @@
-"""Tests for fheat_nrw.cache and the cached download in fheat_nrw.download.
+"""Tests for fheat_core.cache and the cached download in fheat_nrw.download.
 
 All HTTP calls are mocked:
 - a cache hit does not download again; a newer index timestamp does
@@ -18,9 +18,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
-from fheat_core import cancel
-from fheat_core import cache as core_cache
-from fheat_nrw import cache
+from fheat_core import cache, cancel
 from fheat_nrw import download as dl
 
 CRS = "EPSG:25832"
@@ -74,8 +72,7 @@ class TestCacheDir:
 
     def test_default_in_home(self, tmp_path, monkeypatch):
         monkeypatch.delenv(cache.ENV_CACHE_DIR, raising=False)
-        # cache_dir lives in fheat_core.cache, fheat_nrw.cache re-exports it
-        monkeypatch.setattr(core_cache, "DEFAULT_CACHE_DIR", tmp_path / "home" / ".cache" / "fheat")
+        monkeypatch.setattr(cache, "DEFAULT_CACHE_DIR", tmp_path / "home" / ".cache" / "fheat")
         assert cache.cache_dir() == tmp_path / "home" / ".cache" / "fheat"
 
 

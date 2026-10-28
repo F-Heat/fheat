@@ -116,7 +116,7 @@ class TestPotentialSummary:
 
     def test_only_the_blocks_of_the_buildings(self, buildings_gdf):
         out = potential_summary(buildings_gdf.iloc[:2], _blocks())
-        assert out == {"ong_potential_mwh_a": 100.0, "mtg_potential_mwh_a": 0.0}
+        assert out == {"ong_potential_mwh_a": 100.0}   # no MTG potential in these blocks: left out
 
     def test_missing_layers_leave_the_keys_out(self, buildings_gdf):
         assert potential_summary(buildings_gdf) == {}

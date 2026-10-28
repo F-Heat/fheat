@@ -1,8 +1,8 @@
-"""Potential layers on the buildings and in the result summary.
+"""Potential and heat source layers on the buildings and in the result summary.
 
 The layers come from the adapter (``DataAdapter.fetch_geothermal_*``,
-``fetch_solar_thermal``). They inform the planner and are no input of the
-network calculation.
+``fetch_solar_thermal``, ``fetch_wastewater`` and the other heat sources).
+They inform the planner and are no input of the network calculation.
 """
 from __future__ import annotations
 
@@ -101,19 +101,63 @@ def potential_summary(
     ONG/MTG: sum over the blocks of ``buildings`` (each block once). Deep
     geothermal: the largest cell value around the area (one plant per cell,
     an upper bound). Solar thermal: sum of the flat plate yield of all Flure
-    around the area. A key is left out when its layer is missing.
+    around the area. A key is left out when its layer is missing or holds
+    no potential.
     """
     out: dict = {}
     if blocks is not None and not blocks.empty and buildings is not None and not buildings.empty:
         rows = _block_row_of(buildings, blocks).dropna().unique().astype(int)
         mine = blocks.loc[rows]
-        for key, column in ((cols.TOTAL_ONG_POTENTIAL, cols.ONG_POTENTIAL_MWH),
-                            (cols.TOTAL_MTG_POTENTIAL, cols.MTG_POTENTIAL_MWH)):
-            if column in mine.columns and mine[column].notna().any():
-                out[key] = round(float(mine[column].sum()), 3)
-    if deep is not None and not deep.empty and cols.DEEP_POTENTIAL_MWH in deep.columns:
-        out[cols.MAX_DEEP_POTENTIAL] = round(float(deep[cols.DEEP_POTENTIAL_MWH].max()), 3)
-    if solar is not None and not solar.empty and cols.SOLAR_FLAT_PLATE_MWH in solar.columns:
-        out[cols.TOTAL_SOLAR_THERMAL_FLAT_PLATE] = round(float(solar[cols.SOLAR_FLAT_PLATE_MWH].sum()), 3)
+        out[cols.TOTAL_ONG_POTENTIAL] = _total(mine, cols.ONG_POTENTIAL_MWH)
+        out[cols.TOTAL_MTG_POTENTIAL] = _total(mine, cols.MTG_POTENTIAL_MWH)
+    out[cols.MAX_DEEP_POTENTIAL] = _total(deep, cols.DEEP_POTENTIAL_MWH, "max")
+    out[cols.TOTAL_SOLAR_THERMAL_FLAT_PLATE] = _total(solar, cols.SOLAR_FLAT_PLATE_MWH)
+    if out[cols.TOTAL_SOLAR_THERMAL_FLAT_PLATE] is not None:
         out[cols.TOTAL_SOLAR_THERMAL_AREA] = round(float(solar[cols.SOLAR_USABLE_AREA].sum()), 1)
+    return {key: value for key, value in out.items() if value is not None}
+
+
+def _total(gdf: Optional[gpd.GeoDataFrame], column: str, how: str = "sum") -> Optional[float]:
+    if gdf is None or gdf.empty or column not in gdf.columns:
+        return None
+    values = pd.to_numeric(gdf[column], errors="coerce")
+    if values.notna().sum() == 0:
+        return None
+    total = round(float(values.max() if how == "max" else values.sum()), 3)
+    return total if total > 0 else None
+
+
+def heat_source_summary(
+    wastewater: Optional[gpd.GeoDataFrame] = None,
+    industrial: Optional[gpd.GeoDataFrame] = None,
+    incineration: Optional[gpd.GeoDataFrame] = None,
+    rivers: Optional[gpd.GeoDataFrame] = None,
+    hydrothermal: Optional[gpd.GeoDataFrame] = None,
+) -> dict:
+    """Short sums of the heat source layers for the result summary.
+
+    Each layer already holds the sources within its distance of the area, so
+    the sums are "around the area". Rivers and lakes: the largest typical
+    project, as a zone is no sum of projects. A cell without an HT value
+    (too cold for 85 °C) counts as 0. A key is left out when its layer is
+    missing or holds no heat (no potential there).
+    """
+    pairs = (
+        (cols.TOTAL_WASTEWATER_EXTRACTION, wastewater, cols.HEAT_EXTRACTION_MWH, "sum"),
+        (cols.TOTAL_WASTEWATER_HEAT_HT, wastewater, cols.HEAT_HT_MWH, "sum"),
+        (cols.TOTAL_WASTEWATER_HEAT_LT, wastewater, cols.HEAT_LT_MWH, "sum"),
+        (cols.TOTAL_INDUSTRIAL_HEAT_HT, industrial, cols.HEAT_HT_MWH, "sum"),
+        (cols.TOTAL_INDUSTRIAL_HEAT_LT, industrial, cols.HEAT_LT_MWH, "sum"),
+        (cols.TOTAL_WASTE_INCINERATION_HT, incineration, cols.HEAT_HT_MWH, "sum"),
+        (cols.TOTAL_WASTE_INCINERATION_LT, incineration, cols.HEAT_LT_MWH, "sum"),
+        (cols.MAX_RIVER_HEAT, rivers, cols.HEAT_MWH, "max"),
+        (cols.TOTAL_HYDROTHERMAL_HT, hydrothermal, cols.HEAT_HT_MWH, "sum"),
+        (cols.TOTAL_HYDROTHERMAL_LT, hydrothermal, cols.HEAT_LT_MWH, "sum"),
+    )
+    out: dict = {}
+    for key, gdf, column, how in pairs:
+        value = _total(gdf, column, how)
+        if value is not None:
+            out[key] = value
     return out
+

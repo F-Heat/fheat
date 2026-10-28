@@ -5,6 +5,7 @@ Covers pure geometry helpers (no state, no IO):
 - add_centroids: centroid column added without mutating input
 - closest_points_to_streets: nearest street + Anschlusspunkt per row
 - insert_connection_points: connection point inserted into correct street segment
+- cluster_points: single-linkage clusters by chains of points
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from fheat_core import columns as cols
 from fheat_core.algorithms.geometry import (
     add_centroids,
     closest_points_to_streets,
+    cluster_points,
     get_closest_point,
     insert_connection_points,
 )
@@ -231,3 +233,24 @@ class TestInsertConnectionPoints:
         _ = insert_connection_points(streets, conn)
         # original streets still has 2 coords
         assert len(list(streets.at[0, "geometry"].coords)) == 2
+
+
+# ---------------------------------------------------------------------------
+# cluster_points
+# ---------------------------------------------------------------------------
+
+class TestClusterPoints:
+    def _series(self, xy):
+        return gpd.GeoSeries([Point(x, y) for x, y in xy], crs=CRS)
+
+    def test_chain_is_one_cluster(self):
+        # A-B and B-C within 3 km, A-C 6 km apart: still one cluster
+        labels = cluster_points(self._series([(0, 0), (3000, 0), (6000, 0), (20_000, 0), (0, 3001)]), 3000.0)
+        assert labels.tolist() == [0, 0, 0, 1, 2]
+
+    def test_labels_follow_the_first_point(self):
+        labels = cluster_points(self._series([(50_000, 0), (0, 0), (50_100, 0)]), 3000.0)
+        assert labels.tolist() == [0, 1, 0]
+
+    def test_no_points(self):
+        assert cluster_points(self._series([]), 3000.0).tolist() == []

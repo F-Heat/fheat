@@ -26,6 +26,7 @@ _TABLES = (
     ("rohrmengen", "Rohre"),
     ("gebaeude_lastprofil", "Statistiken"),
     ("lastprofil", "Lastprofil"),
+    ("studie_waermequellen", "Studie Wärmequellen"),
 )
 
 # Sheets that get a bold total row in the workbook, like the QGIS plugin's
@@ -51,6 +52,12 @@ def collect_tables(state: PipelineState, translate: bool) -> dict[str, pd.DataFr
         tables["gebaeude_lastprofil"] = state.building_summary_df
     if state.load_profile_df is not None:
         tables["lastprofil"] = state.load_profile_df.rename_axis("Zeit" if translate else "time").reset_index()
+    if state.study_potentials_df is not None:
+        study = state.study_potentials_df
+        if translate:
+            study = study.assign(**{cols.STUDY_SOURCE: study[cols.STUDY_SOURCE].map(
+                lambda key: cols.STUDY_SOURCE_LABELS_DE.get(key, key))})
+        tables["studie_waermequellen"] = study
 
     if translate:
         tables = {name: cols.to_display(frame) for name, frame in tables.items()}

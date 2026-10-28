@@ -194,6 +194,15 @@ class FHeatOrchestrator:
             "geothermie_baubloecke": self.state.geothermal_blocks_gdf,
             "geothermie_tief": self.state.geothermal_deep_gdf,
             "solarthermie_freiflaechen": self.state.solar_thermal_gdf,
+            # heat sources around the area (only when the adapter provides them)
+            "klaeranlagen": self.state.wastewater_gdf,
+            "industrie_abwaerme": self.state.industrial_heat_gdf,
+            "muellverbrennung": self.state.waste_incineration_gdf,
+            "fluesse_seen": self.state.river_heat_gdf,
+            "hydrothermie": self.state.hydrothermal_gdf,
+            "waermenetzgebiete_studie": self.state.study_dh_areas_gdf,
+            "biogas_bhkw": self.state.biogas_gdf,
+            "biogas_cluster": self.state.biogas_clusters_gdf,
         }
         if layers is not None:
             wanted = set(layers)
@@ -261,7 +270,11 @@ def _check_inputs(phase: Phase, state: PipelineState) -> None:
         )
 
 
-_UNCLIPPED_LAYERS = frozenset({"netz", "source", "geothermie_tief", "solarthermie_freiflaechen"})
+_UNCLIPPED_LAYERS = frozenset({
+    "netz", "source", "geothermie_tief", "solarthermie_freiflaechen",
+    "klaeranlagen", "industrie_abwaerme", "muellverbrennung", "fluesse_seen", "hydrothermie",
+    "waermenetzgebiete_studie", "biogas_bhkw", "biogas_cluster",
+})
 # kept when their inner point lies in the area: a building block of the outer
 # area (LANUK: up to 100 km²) touches nearly every planning area
 _POINT_CLIPPED_LAYERS = frozenset({"buildings", "geothermie_baubloecke"})
@@ -271,7 +284,7 @@ def _clip_layer(name: str, gdf, planning_area):
     """Planning-area extract of one export layer.
 
     Network and source stay complete, and so do the layers around the area
-    (deep geothermal, solar thermal), whose candidates lie outside it.
+    (deep geothermal, solar thermal, heat sources), whose candidates lie outside it.
     """
     if gdf is None or gdf.empty or name in _UNCLIPPED_LAYERS:
         return gdf

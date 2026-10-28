@@ -169,5 +169,104 @@ Zelle lohnt sich nicht als Standard; Phase 3 lässt ihn deshalb weg (optional, s
 
 `gpd.read_file("/vsizip//vsicurl/<url>/<name>.gdb", bbox=...)` funktioniert ohne Download: TG-Raster
 0,9 s, FF-Solarthermie 12,4 s je Lauf (Burgsteinfurt, 19.10.2026). Der Zwischenspeicher
-(`fheat_nrw.cache`) braucht nach dem ersten Download 0,2 s bzw. 1,5 s und funktioniert auch, wenn
+(`fheat_core.cache`) braucht nach dem ersten Download 0,2 s bzw. 1,5 s und funktioniert auch, wenn
 der Server kurz nicht erreichbar ist. Deshalb wird `/vsicurl` nicht verwendet.
+
+## 9. Wärmequellen: Fraunhofer ISI (Manz et al. 2024) und LANUK-Kläranlagen
+
+Stand: 26.10.2026. Datensatz zu Manz et al. (2024), „Spatial analysis of renewable and excess heat
+potentials for climate-neutral district heating in Europe“, Renewable Energy 224, 120111: Fordatis
+Handle 341.5, DOI 10.24406/fordatis/280.5, Lizenz CC BY 4.0. GeoPackages in EPSG:3035, technische
+Potenziale eines klimaneutralen Jahres 2050 für zwei Netztemperaturen: HT (Vorlauf 70–90 °C) und NT
+(60–70 °C). Geladen über `fheat_eu` (für jeden Adapter), im Zwischenspeicher ohne Neuladen, weil das
+Handle eine feste Version ist.
+
+| Datei | Inhalt, Feld | Umrechnung in fheat | Abstand |
+|---|---|---|---|
+| `wwtp.gpkg` | Kläranlagen (Hotmaps), `Power in k` [kW] | × 4.421 Vlh = Entzug; nach Wärmepumpe × JAZ/(JAZ−1), JAZ 2,7 (HT) / 3,6 (NT); −999 und 0 entfallen | 2 km |
+| `industrial_eh.gpkg` | Industrie (ISI-Datenbank), `EH_95_GWh` / `EH_55_GWh` | HT / NT, GWh → MWh; Namen aus Hotmaps über `ID_Site` = `SiteID` | 20 km |
+| `wte.gpkg` | Müllverbrennung, `EH100PJ` (60 % des Energieeinsatzes) | × 277.778 MWh/PJ; × 0,66 (HT) / 0,76 (NT) | 20 km |
+| `rivers_lakes.gpkg` | Zonen mit ≥ 20 m³/s Winterabfluss, `Capa in MW` 30/80/150 | ein typisches Projekt × 2.000 / 3.000 / 3.000 Vlh | 5 km |
+| `hydrothermal_85/65.gpkg` | 1-km-Raster, `Energy_TWh` je Punkt, MultiPoint | HT (85 °C) / NT (65 °C), TWh → MWh, Zelle 1 × 1 km; nur außerhalb NRW (in NRW: LANUK-Raster, Abschnitt 4) | 15 km |
+| `dh_areas.gpkg` | Wärmenetzgebiete 2050, `Dem_GWh` | über `DH_LAU_Mapping` der Gemeinde (`DE_` + AGS) | Gemeinde |
+| `Results_DH_Matching_Cluster.xlsx` | `Matching_results`: Angebot und Nutzbares je Gemeinde | Tabelle `study_potentials_df`, GWh → MWh; nur Quellen mit Angebot, ohne Biomasse und Petrothermie | Gemeinde |
+
+Nicht geladen: `petrothermal_85/65.gpkg` und `biomass_nuts2.gpkg` (siehe unten). Ohne Wärme im Umkreis
+fehlt ein Wert in der Ergebnisübersicht, statt als 0 zu erscheinen.
+
+Geprüft gegen das Paper (Tabelle 2, EU): Industrie HT 19,9 TWh, Hydrothermie 814,9 / 2.097,7 TWh,
+Petrothermie HT 84,6 TWh stimmen mit den Summen der Dateien überein. Müllverbrennung DE: 45,7 TWh
+× 0,76 ≈ 35 TWh wie Tabelle 5. Kläranlagen DE: kW × 4.421 h ≈ 42 TWh (Paper: 43 TWh).
+
+Befunde und Grenzen:
+- **Kläranlagen NT < HT.** Bei gleichem Entzug liefert die bessere Wärmepumpe (JAZ 3,6) weniger Wärme
+  als die mit JAZ 2,7, weil weniger Strom dazukommt. Das Paper nennt für NT mehr Wärme (Tabelle 2), ohne
+  die Herleitung; seine Stromanteile passen eher zu JAZ 2,4 / 3,2. fheat rechnet mit festem Entzug.
+- **Hotmaps-Leistung** ist fast überall 64,4 W je Einwohnerwert der Ausbaugröße, nicht die echte
+  Abwassermenge. In NRW nimmt fheat deshalb die LANUK-Liste (unten).
+- **Flüsse und Seen:** Eine Zone ist kein Projekt und keine Summe; die Studie setzt in einer Zone
+  mehrere Entnahmestellen im Abstand von 10 km, deren Lage nicht veröffentlicht ist. Die Summe der
+  Zonen (101 TWh) ist deshalb viel kleiner als Tabelle 2 (1.156 TWh). Kein Quellenvorschlag.
+- **Petrothermie** ist eine Abschätzung aus der Temperatur in 2.000 m Tiefe mit fester Fördermenge,
+  fast überall gleich, und sagt über einen Ort nichts aus; fheat lädt sie nicht. Hydrothermie aus
+  GeoDH weicht in NRW völlig vom LANUK-Raster ab (Rangkorrelation ≈ 0,1 auf gemeinsamen Zellen) und
+  wird dort nicht geladen.
+- **Biomasse** gibt es nur als Wert der ganzen NUTS-2-Region (in NRW der Regierungsbezirk, z. B. das
+  ganze Münsterland), nicht für ein Gebiet; fheat lädt sie nicht.
+- **Industrie:** Werte für 2050 nach dem Umbau der Industrie, bei Stahl weit unter heute (HKM
+  Duisburg 31 GWh/a gegen 1.495 GWh/a heute laut Hotmaps). Standorte ab ID 5000 (in NRW 30, meist
+  Chemieparks) haben keinen Namen. Bei 19 NRW-Standorten weichen die Fordatis-Koordinaten von Hotmaps
+  ab (bis 55 km); geprüfte Fälle (WEPA Giershagen) zeigen Fordatis richtig, fheat nimmt deshalb sie.
+- **Müllverbrennung:** In `City` sind Umlaute als U+FFFD verloren („D?sseldorf“, 54 Namen). Der
+  NRW-Adapter stellt sie aus `cities.csv` wieder her. Auf Luftbildern sitzen die meisten Punkte auf der
+  Anlage, Essen-Karnap und Eschweiler-Weisweiler einige hundert Meter daneben.
+- **Studienwerte** gibt es nur für Gemeinden mit Wärmenetzgebiet der Studie: in NRW 181 von 396.
+- `hydrothermal_65.gpkg` hat einen beschädigten räumlichen Index (GDAL-Warnung); gelesen wird ohne ihn.
+
+**LANUK „Kommunale Kläranlagen NRW“** (`abwasser_kom/KomKlaeranlagen_EPSG25832_GeoPackage.zip`,
+Layer `komm_ka`, Datenlizenz Deutschland – Zero 2.0): 703 Zeilen, 601 Standorte (`standortnr`; ein
+Standort mit mehreren Einleitungen behält die Zeile mit der größten Menge), Stand 2025. Felder `name`,
+`ew_bemess` (Ausbaugröße), `ew` (angeschlossene Einwohner und Einwohnergleichwerte), `jabw_menge`
+(m³/a), alle als Text. Entzug = Jahresabwassermenge × 1,163 kWh/(m³·K) × 5 K; dann dieselbe
+Wärmepumpe wie oben. Abgleich mit Fordatis: 496 von 535 Fordatis-Punkten in NRW liegen höchstens
+100 m neben einer LANUK-Anlage, 25 auf freiem Feld; der Fordatis-Jahreswert liegt im Mittel bei 0,78
+des LANUK-Werts, je Anlage mit Abweichungen bis Faktor 5.
+
+## 10. Biogas-BHKW: Marktstammdatenregister (MaStR)
+
+Stand: 28.10.2026. Methode aus der Masterarbeit von J. Föcker (FH Münster, 2026), umgesetzt in
+`fheat_de.mastr` (Lesen) und `fheat_de.biogas` (Rechnen, Cluster).
+
+**Quelle:** Gesamtdatenexport der Bundesnetzagentur, Datenlizenz Deutschland – Namensnennung – 2.0.
+fheat nimmt den Stichtagsexport `Stichtag/Gesamtdatenexport_20261001_26.1.zip` (fester Stand).
+Das ZIP hat 3,2 GB und 440 XML-Dateien (UTF-16). Gebraucht werden drei davon:
+`EinheitenBiomasse.xml` (24.413 Einheiten), `AnlagenEegBiomasse.xml` (15.695 EEG-Anlagen) und
+`AnlagenKwk.xml` (92.653 KWK-Anlagen), zusammen 11 MB gepackt. Der Server beantwortet Range-Anfragen.
+fheat liest die drei Dateien deshalb direkt aus dem entfernten ZIP (9 s) und legt sie als CSV in den
+Zwischenspeicher (4 MB, danach 0,05 s). Der Server bricht ab und zu für 1 bis 20 s alle Verbindungen
+ab; eine Anfrage wird deshalb nach 1, 2, 4, 8 und 16 s wiederholt.
+
+**Auswahl:** Hauptbrennstoff Biogas (Katalogwert 2445; Biomethan, Klärgas und Deponiegas nicht),
+Status in Betrieb (35) oder in Planung (31), mindestens 250 kW netto, Höchstbemessungsleistung (HBL)
+der EEG-Anlage vorhanden. Die HBL gibt es nur für Anlagen mit Inbetriebnahme vor August 2014. Im
+Münsterland fallen deshalb 112 von 415 Biogas-Einheiten ab 250 kW weg (82 von 208 MW), in
+Deutschland 2.440 von 11.495.
+
+**Rechnung:** Strom der EEG-Anlage = HBL × 8.760 h. Er wird nach Nettoleistung auf **alle**
+Biogas-Einheiten der EEG-Anlage verteilt. Das Skript der Arbeit verteilt nur auf die Einheiten ab
+250 kW; dann bekommen die großen Einheiten den Anteil kleiner BHKW derselben Anlage dazu (Münsterland:
+33 EEG-Anlagen, +41,5 GWh/a Strom). Wärme = Strom × P_th/P_el der KWK-Anlage der Einheit
+(`ThermischeNutzleistung` / `ElektrischeKwkLeistung`). Für Biogas-Einheiten ab 250 kW liegt das
+Verhältnis im Median bei 1,01 (Arbeit: pauschal 0,45/0,41 = 1,10). Außerhalb von 0,5 bis 2,0 (4 %,
+meist W statt kW eingetragen) und ohne KWK-Daten (6 %) gelten die pauschalen Wirkungsgrade.
+
+**Abgleich Münsterland** (Kreise Borken, Coesfeld, Steinfurt, Warendorf, Stadt Münster): Es sind
+dieselben 303 Einheiten wie im Skript der Arbeit. Strom 739,9 statt 781,5 GWh/a (Verteilung), Wärme
+767,9 statt 857,7 GWh/a (Verteilung und KWK-Verhältnis). 3-km-Cluster: 90, davon 22 einzelne
+BHKW (Kreis mit 1,5 km Radius). 15 Cluster bestehen aus mehreren BHKW an derselben Stelle; sie
+bekommen wie alle Cluster aus mehreren BHKW die Hülle plus 500 m.
+
+**Grenzen:** Das ist der Bestand heute, kein Wert für 2050. Die Wärme ist die Erzeugung des BHKW, also
+eine Obergrenze: Ein Teil heizt den Fermenter, ein Teil wird schon verkauft. Bei flexibel betriebenen
+Anlagen (Flexprämie) liegen die Volllaststunden der HBL im Median bei 5.020 h, bei den übrigen bei
+8.341 h (NRW).
