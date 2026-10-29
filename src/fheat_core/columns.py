@@ -37,6 +37,9 @@ BLOCK_ID = "block_id"                      # building block of the source (NRW: 
 # one becomes HEAT_DEMAND (see steps/adjust.py).
 HEAT_DEMAND_DATASET = "heat_demand_dataset"        # as delivered by the data source [kWh/a]
 HEAT_DEMAND_CALCULATED = "heat_demand_calculated"  # floor area × specific demand of the age class [kWh/a]
+# Where the building comes from, as codes of the adapter (NRW: "dataset" for
+# WBM-NRW, "alkis_lod2"/"alkis_assumed" for buildings added from ALKIS).
+DATA_SOURCE = "data_source"
 
 
 # ============================================================
@@ -422,6 +425,7 @@ LABELS_DE: dict[str, str] = {
     # same names as the attributes of the former QGIS plugin
     HEAT_DEMAND_DATASET: "RW_WW [kWh/a]",
     HEAT_DEMAND_CALCULATED: "WB [kWh/a]",
+    DATA_SOURCE: "Datenquelle",
     # Streets
     ROUTABLE: "Moegliche_Route",
     # WLD

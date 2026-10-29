@@ -90,6 +90,7 @@ BuildingsSchema = FrameSchema(
         cols.BLOCK_ID: "str",
         cols.HEAT_DEMAND_DATASET: "float",
         cols.HEAT_DEMAND_CALCULATED: "float",
+        cols.DATA_SOURCE: "str",
     },
     geometry_type="Polygon",
 )

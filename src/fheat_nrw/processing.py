@@ -18,6 +18,12 @@ from fheat_nrw.download import ADDRESS_COLUMN
 BAK_BINS = [0, 1918, 1948, 1957, 1968, 1978, 1983, 1994, 2001, 9999]
 BAK_LABELS = ["B", "C", "D", "E", "F", "G", "H", "I", "J"]
 
+#: Column of the raw buildings that says where a building comes from:
+#: SOURCE_DATASET for WBM-NRW, the codes of fheat_nrw.building_gaps for
+#: buildings added from ALKIS.
+DATA_SOURCE = "Datenquelle"
+SOURCE_DATASET = "dataset"
+
 
 # ============================================================
 # Streets
@@ -69,6 +75,9 @@ def process_buildings(
     bld = bld[bld[heat_col] > 0].reset_index(drop=True)
     if bld.empty:
         raise ValueError("Keine Gebaeude mit Waermebedarf > 0 nach Filterung uebrig.")
+    if DATA_SOURCE not in bld.columns:
+        bld[DATA_SOURCE] = SOURCE_DATASET
+    bld[DATA_SOURCE] = bld[DATA_SOURCE].fillna(SOURCE_DATASET)
 
     has_alkis = "citygml_fu" in bld.columns
 
@@ -80,6 +89,7 @@ def process_buildings(
         if "nationalCadastralReference" in parcels.columns and "Flurstueck" in bld.columns:
             bld = _spatial_join_parcels(bld, parcels, ["validFrom"])
         bld = _add_bak(bld)
+        bld = _newest_class_for_added(bld, wg_demand_data)
         bld = _add_vlh_loadprofile(bld, building_info_db)
         if "Lastprofil" in bld.columns:
             bld = bld[bld["Lastprofil"].notna()].copy()
@@ -182,6 +192,7 @@ def _merge_buildings(
         "Vlh": "first",
         "Block_ID": "first",
         "Adresse": lambda x: next((v for v in x if v), ""),
+        DATA_SOURCE: "first",
     }
     if heat_col in gdf.columns:
         aggfunc_all[heat_col] = "sum"
@@ -276,6 +287,19 @@ def _add_bak(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     gdf["_jahr"] = gdf["validFrom"].apply(_extract_year)
     gdf["BAK"] = pd.cut(gdf["_jahr"], bins=BAK_BINS, labels=BAK_LABELS, right=True).astype(str)
     return gdf.drop(columns=["_jahr"])
+
+
+def _newest_class_for_added(gdf: gpd.GeoDataFrame, wg_data: pd.DataFrame) -> gpd.GeoDataFrame:
+    """Buildings added to the data source are new: the newest age class of ``wg_data``.
+
+    Their parcel is often older than the building, so its date would give
+    them a too old class.
+    """
+    added = gdf[DATA_SOURCE] != SOURCE_DATASET
+    if added.any():
+        classes = wg_data["Baualtersklasse"] if "Baualtersklasse" in wg_data.columns else pd.Series(BAK_LABELS)
+        gdf.loc[added, "BAK"] = str(max(classes.astype(str)))
+    return gdf
 
 
 def _add_vlh_loadprofile(gdf: gpd.GeoDataFrame, info_db: pd.DataFrame) -> gpd.GeoDataFrame:
@@ -404,6 +428,8 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         out[cols.CONSTRUCTION_CLASS] = gdf["BAK"]
     if "Block_ID" in gdf.columns:
         out[cols.BLOCK_ID] = gdf["Block_ID"].astype("string")
+    if DATA_SOURCE in gdf.columns:
+        out[cols.DATA_SOURCE] = gdf[DATA_SOURCE].astype("string")
 
     out["geometry"] = gdf["geometry"]
     df = pd.DataFrame(out)
