@@ -78,6 +78,15 @@ def test_round_trip_keeps_ids_and_values(state, config, tmp_path):
     assert all(f.gehoertZuBereich == bereich.id for f in gml.get_features() if hasattr(f, "gehoertZuBereich"))
 
 
+def test_a_member_of_an_association_gets_its_own_regional_key(state, config, tmp_path):
+    # Samtgemeinde, Amt, Verbandsgemeinde: the 4 digits of the association are not in the AGS
+    member = dataclasses.replace(config, municipality_key="03452005", regional_key="034525401005")
+    report = export_xwaermeplan(state, member, tmp_path / "plan.gml", schema_dir=XSD, boundary=AREA)
+    assert report.ok, report.issues
+    [plan] = [f for f in read(report.file).get_features() if f.get_name() == "WP_Plan"]
+    assert plan.planungsverantwortlicheStelle.regionalSchluessel12 == "034525401005"
+
+
 def test_ids_are_stable_across_runs(state, config, tmp_path):
     first = export_xwaermeplan(state, config, tmp_path / "a.gml", boundary=AREA)
     second = export_xwaermeplan(state, config, tmp_path / "b.gml", boundary=AREA)

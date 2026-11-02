@@ -38,6 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 nrw = ["owslib>=0.29", "lxml>=4.9"]         # NRW auto-download adapter (WFS + ZIP)
+nds = ["owslib>=0.29", "lxml>=4.9"]         # Lower Saxony auto-download adapter (WFS)
 holidays = ["workalendar>=17.0"]           # German public holidays for the SLP load profile
 excel = ["openpyxl>=3.1"]                  # only for the .xlsx table export (FHeatConfig.table_format="xlsx")
 plots = ["matplotlib>=3.7"]                # only for the load profile charts (FHeatConfig.plot_format)
@@ -81,4 +82,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "fheat_core.data" = ["*.csv"]
+"fheat_de.data" = ["*.json"]
 "fheat_nrw.data" = ["*.json", "*.csv"]
+"fheat_nds.data" = ["*.csv"]

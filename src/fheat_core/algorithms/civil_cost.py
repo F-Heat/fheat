@@ -19,7 +19,7 @@ legal axis (ALKIS land use) times the physical axis (OSM road surface).
 
 Each layer is a polygon GeoDataFrame with the column ``civil_cost_factor``
 and optionally ``civil_class`` (the class the factor stands for). Which data
-source fills them is an adapter concern (e.g. :mod:`fheat_nrw.civil_cost`).
+source fills them is an adapter concern (e.g. :mod:`fheat_de.alkis`).
 """
 from __future__ import annotations
 

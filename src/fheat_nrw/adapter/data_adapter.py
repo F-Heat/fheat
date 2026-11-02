@@ -1,7 +1,6 @@
 """NRW DataAdapter — produces BuildingsSchema-compliant data."""
 from __future__ import annotations
 
-import json
 import logging
 import xml.etree.ElementTree as ET
 from importlib.resources import files
@@ -17,14 +16,14 @@ from fheat_core import cache, cancel
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 
-from fheat_de import biogas, mastr
+from fheat_de import biogas, heat_demand, mastr
+from fheat_de.alkis import annotate_landuse_costs
+from fheat_de.osm_surface import annotate_osm_surface_costs, buffer_osm_lines
 from fheat_eu.loader import HeatSourceLoader
 from fheat_nrw import building_gaps as gaps_mod
 from fheat_nrw import download as dl
 from fheat_nrw import potentials as pot
 from fheat_nrw.area import boundary_from_parcels, clip_to_boundary
-from fheat_nrw.civil_cost import annotate_landuse_costs
-from fheat_nrw.osm_surface import annotate_osm_surface_costs, buffer_osm_lines
 from fheat_nrw.processing import DATA_SOURCE, process_buildings, process_streets
 
 logger = logging.getLogger(__name__)
@@ -783,35 +782,14 @@ class NRWDataAdapter(DataAdapter):
         with (files("fheat_nrw.data").joinpath("cities.csv")).open("rb") as f:
             return pd.read_csv(f)
 
-    @staticmethod
-    def _keyed_json_to_df(raw: dict, key_name: str) -> pd.DataFrame:
-        """Object-keyed JSON (TEASER-Stil) → DataFrame mit Schlüssel als Spalte."""
-        return pd.DataFrame.from_dict(raw, orient="index").reset_index(names=key_name)
-
     def _load_building_info(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Lädt Funktions- und Baualtersklassen-Lookup als DataFrames.
 
-        Quelle sind zwei JSON-Dateien (gekeyt nach Funktionscode bzw. Baualtersklasse);
-        zurückgegeben wird die DataFrame-Form, die die Merge-Logik in processing.py erwartet.
+        Die Tabellen von :mod:`fheat_de.heat_demand` (gekeyt nach Funktionscode bzw.
+        Baualtersklasse), sonst die eigenen Dateien des Konstruktors.
         """
-        if self._building_functions_path is not None:
-            functions = json.loads(Path(self._building_functions_path).read_text(encoding="utf-8"))
-        else:
-            with (files("fheat_nrw.data").joinpath("building_functions.json")).open(
-                "r", encoding="utf-8"
-            ) as f:
-                functions = json.load(f)
-
-        if self._building_age_classes_path is not None:
-            age = json.loads(Path(self._building_age_classes_path).read_text(encoding="utf-8"))
-        else:
-            with (files("fheat_nrw.data").joinpath("building_age_classes.json")).open(
-                "r", encoding="utf-8"
-            ) as f:
-                age = json.load(f)
-
-        db = self._keyed_json_to_df(functions, "Funktion")
-        wg = self._keyed_json_to_df(age, "Baualtersklasse")
+        db = heat_demand.load_building_functions(self._building_functions_path)
+        wg = heat_demand.load_age_classes(self._building_age_classes_path)
         return db, wg
 
     @staticmethod

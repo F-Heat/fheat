@@ -28,37 +28,30 @@ how the storeys were found.
 """
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely.geometry import Polygon
-from shapely.ops import unary_union
 
 from fheat_core import cancel
+from fheat_de.alkis import RESIDENTIAL_FUNCTIONS
+from fheat_de.heat_demand import NET_FLOOR_FACTOR
+# reading a LoD2 tile is the same in every state (fheat_de.lod2); named here as before
+from fheat_de.lod2 import LOD2_CRS as _LOD2_CRS
+from fheat_de.lod2 import read_lod2, tile_names
+from fheat_de.lod2 import lod2_frame as _lod2_frame
 from fheat_nrw import download as dl
 from fheat_nrw.processing import DATA_SOURCE, _resolve_heat_col
 
 SOURCE_LOD2 = "alkis_lod2"        # added from ALKIS, storeys from the LoD2 height
 SOURCE_ASSUMED = "alkis_assumed"  # added from ALKIS, storeys assumed
 
-#: ALKIS functions (last four digits of "31001_xxxx") of residential buildings:
-#: 1000-1299 are Wohnen and gemischt genutzt mit Wohnen; 13xx (Freizeit,
-#: Ferien-, Wochenend-, Gartenhaus) and all others are not added.
-RESIDENTIAL_FUNCTIONS = (1000, 1299)
-NET_FLOOR_FACTOR = 0.7
 #: WBM-NRW age classes from this year on count as new buildings.
 NEW_SINCE = 2015
 #: With fewer WBM-NRW buildings in the LoD2 footprints, all storeys are assumed.
 MIN_HEIGHT_SAMPLES = 30
-
-_NS = {"bldg": "http://www.opengis.net/citygml/building/1.0", "gml": "http://www.opengis.net/gml"}
-_BUILDING = f"{{{_NS['bldg']}}}Building"
-_GML_ID = f"{{{_NS['gml']}}}id"
-_LOD2_CRS = "EPSG:25832"
 
 
 def residential_gaps(
@@ -88,8 +81,7 @@ def residential_gaps(
 
 def lod2_tiles(geometries: gpd.GeoSeries) -> list[str]:
     """Names of the LoD2 tiles the points of ``geometries`` (EPSG:25832) lie in."""
-    corners = {(int(p.x // 1000), int(p.y // 1000)) for p in geometries.representative_point()}
-    return [dl.LOD2_TILE.format(x=x, y=y) for x, y in sorted(corners)]
+    return tile_names(geometries, dl.LOD2_TILE)
 
 
 def load_lod2(geometries: gpd.GeoSeries, cache_dir: Optional[Path] = None) -> gpd.GeoDataFrame:
@@ -103,21 +95,6 @@ def load_lod2(geometries: gpd.GeoSeries, cache_dir: Optional[Path] = None) -> gp
     if not frames:
         return _lod2_frame([])
     return gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=_LOD2_CRS)
-
-
-def read_lod2(path: Path) -> gpd.GeoDataFrame:
-    """Buildings of a LoD2 tile: ``lod2_id``, ``height`` (highest measuredHeight), footprint."""
-    rows = []
-    for _, element in ET.iterparse(str(path), events=("end",)):
-        if element.tag != _BUILDING:
-            continue
-        heights = [float(h.text) for h in element.iterfind(".//bldg:measuredHeight", _NS) if h.text]
-        grounds = [_footprint(p.text) for p in element.iterfind(".//bldg:GroundSurface//gml:posList", _NS)]
-        grounds = [g for g in grounds if g is not None]
-        if heights and grounds:
-            rows.append({"lod2_id": element.get(_GML_ID), "height": max(heights), "geometry": unary_union(grounds)})
-        element.clear()
-    return _lod2_frame(rows)
 
 
 def estimate_gaps(
@@ -206,17 +183,3 @@ def _storeys(heights: pd.Series, table: pd.Series) -> pd.Series:
         return table.iloc[np.abs(metres - np.floor(height)).argmin()]
 
     return heights.map(lookup).astype("float64")
-
-
-def _footprint(pos_list: Optional[str]) -> Optional[Polygon]:
-    values = [float(v) for v in (pos_list or "").split()]
-    ring = list(zip(values[0::3], values[1::3]))
-    if len(ring) < 3:
-        return None
-    polygon = Polygon(ring)
-    return polygon if polygon.is_valid else polygon.buffer(0)
-
-
-def _lod2_frame(rows: list[dict]) -> gpd.GeoDataFrame:
-    frame = pd.DataFrame(rows, columns=["lod2_id", "height", "geometry"])
-    return gpd.GeoDataFrame(frame, geometry="geometry", crs=_LOD2_CRS)

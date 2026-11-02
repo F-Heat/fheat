@@ -2,12 +2,9 @@
 from __future__ import annotations
 
 import ast
-import json
 import tempfile
 import urllib.error
-import urllib.parse
 import urllib.request
-from importlib.metadata import PackageNotFoundError, version
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
@@ -16,9 +13,19 @@ from zipfile import BadZipFile, ZipFile
 import geopandas as gpd
 import pandas as pd
 from owslib.wfs import WebFeatureService
-from shapely.geometry import LineString
 
 from fheat_core import cache, cancel
+from fheat_de.alkis import ADDRESS_COLUMN, ALKIS_BUILDING_COLUMNS
+from fheat_de.area import parse_bbox  # noqa: F401  (named here as before)
+# OSM covers every state: the Overpass download lives in fheat_de, named here
+# as before for the adapter
+from fheat_de.osm_surface import (
+    OSM_RETRIES,
+    OSM_RETRY_WAIT,
+    OSM_TIMEOUT,
+    OVERPASS_URL,
+    get_osm_surface_via_overpass,
+)
 from fheat_nrw.area import district_parcels
 
 URL_BUILDINGS = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/energie/kwp/"
@@ -45,16 +52,10 @@ LAYER_PARCELS = "cp:CadastralParcel"
 # "Straßenverkehr", "Fließgewässer"). Licence: Datenlizenz Deutschland – Zero 2.0.
 URL_LANDUSE = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht"
 LAYER_LANDUSE = "ave:Nutzung"
-# ALKIS buildings of the same service; "lagebeztxt" holds the address text
-# ("Steinstr. 18, 20; Wippert 3"), empty for annexes, garages and roofs.
+# ALKIS buildings of the same service, columns in fheat_de.alkis.
 # Checked 2026-10-15: a 12 x 12 km box returned all 35 798 buildings in 8 s.
-# Checked 2026-10-28: "oid" is the ALKIS id (18 characters, the first 16 are
-# the gml:id of the building in LoD2), "gfkzshh" the function code
-# ("31001_1000"), "funktion" its text, "gmdschl" the municipality key; the
-# layer has no number of storeys.
+# Checked 2026-10-28: the columns of fheat_de.alkis.ALKIS_BUILDING_COLUMNS.
 LAYER_ALKIS_BUILDINGS = "ave:GebaeudeBauwerk"
-ADDRESS_COLUMN = "lagebeztxt"
-ALKIS_BUILDING_COLUMNS = (ADDRESS_COLUMN, "oid", "gfkzshh", "funktion", "gmdschl")
 
 # 3D building model LoD2 NRW (CityGML 1.0), 1 x 1 km tiles named by the lower
 # left corner in km (EPSG:25832), with index.json. Checked 2026-10-28: the
@@ -89,38 +90,6 @@ GEOTHERMAL_UNIT_EWK = "W/m²@{hours}h/a"
 WFS_VERSION = "2.0.0"
 WFS_OUTPUT_FORMAT = "text/xml"
 HTTP_TIMEOUT = 120
-
-#: Default Overpass endpoint; NRWDataAdapter(osm_overpass_url=...) selects a mirror.
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-OSM_TIMEOUT = 90
-# The public instance is often busy (HTTP 504/429). On 2026-10-09 two of three
-# requests for Burgsteinfurt failed that way, and a whole-municipality request
-# for Steinfurt failed three times in a row while the next one answered in
-# 1.3 s (3.8 MB) - the size is no problem, the instance is just busy at times.
-# So busy answers are retried with growing pauses (5+10+15+20 s).
-OSM_RETRIES = 5
-OSM_RETRY_WAIT = 5  # s, multiplied by the attempt number
-_OSM_RETRY_STATUS = frozenset({429, 502, 503, 504})
-_OSM_COLUMNS = ("osm_id", "highway", "surface", "tracktype", "width", "lanes")
-
-
-def _user_agent() -> str:
-    # overpass-api.de answers 406 to requests without a meaningful User-Agent.
-    try:
-        v = version("fheat")
-    except PackageNotFoundError:
-        v = "dev"
-    return f"fheat/{v} (+https://github.com/F-Heat/fheat)"
-
-
-def parse_bbox(value) -> list[float]:
-    if pd.isna(value):
-        raise ValueError("bbox-Wert ist leer/NaN")
-    s = str(value).strip().replace("(", "").replace(")", "")
-    parts = [p.strip() for p in s.split(",")]
-    if len(parts) != 4:
-        raise ValueError(f"bbox muss 4 Komponenten haben, gefunden {len(parts)}: '{value}'")
-    return [float(p) for p in parts]
 
 
 def file_list_from_url(url: str) -> list:
@@ -223,7 +192,7 @@ def get_parcels_from_wfs(wfs_url: str, key: str, bbox, layer_name: str) -> gpd.G
 def get_landuse_from_wfs(wfs_url: str, bbox, layer_name: str, timeout: int = HTTP_TIMEOUT) -> gpd.GeoDataFrame:
     """ALKIS "Tatsächliche Nutzung" in a bbox (EPSG:25832), raw WFS attributes.
 
-    :func:`fheat_nrw.civil_cost.annotate_landuse_costs` maps the object type
+    :func:`fheat_de.alkis.annotate_landuse_costs` maps the object type
     to a civil works factor.
     """
     try:
@@ -248,61 +217,6 @@ def get_alkis_buildings_from_wfs(wfs_url: str, bbox, layer_name: str, timeout: i
         if column not in gdf.columns:
             gdf[column] = None
     return gdf[[*ALKIS_BUILDING_COLUMNS, "geometry"]]
-
-
-def get_osm_surface_via_overpass(
-    bbox_wgs84: tuple[float, float, float, float],
-    overpass_url: str = OVERPASS_URL,
-    timeout: int = OSM_TIMEOUT,
-    retries: int = OSM_RETRIES,
-) -> gpd.GeoDataFrame:
-    """OSM ``highway`` lines in a bbox via the Overpass API.
-
-    ``bbox_wgs84`` = (south, west, north, east) in EPSG:4326. Returns a
-    GeoDataFrame in EPSG:4326 with the columns ``osm_id``, ``highway``,
-    ``surface`` (often missing), ``tracktype``, ``width`` and ``lanes``.
-    """
-    south, west, north, east = bbox_wgs84
-    query = (
-        f"[out:json][timeout:{int(timeout)}];"
-        f'way["highway"]({south},{west},{north},{east});'
-        "out tags geom;"
-    )
-    data = urllib.parse.urlencode({"data": query}).encode("utf-8")
-    req = urllib.request.Request(
-        overpass_url, data=data, headers={"User-Agent": _user_agent()}
-    )
-    for attempt in range(1, max(1, retries) + 1):
-        cancel.raise_if_cancelled()
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
-            break
-        except urllib.error.HTTPError as e:
-            if e.code in _OSM_RETRY_STATUS and attempt < retries:
-                cancel.sleep(OSM_RETRY_WAIT * attempt)
-                continue
-            raise RuntimeError(f"Overpass-Anfrage an '{overpass_url}' fehlgeschlagen: {e}") from e
-        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
-            raise RuntimeError(f"Overpass-Anfrage an '{overpass_url}' fehlgeschlagen: {e}") from e
-
-    rows: list[dict] = []
-    geoms: list = []
-    for el in payload.get("elements", []):
-        if el.get("type") != "way":
-            continue
-        geom = el.get("geometry")
-        if not geom or len(geom) < 2:
-            continue
-        line = LineString([(pt["lon"], pt["lat"]) for pt in geom])
-        if line.is_empty:
-            continue
-        tags = el.get("tags", {}) or {}
-        rows.append({"osm_id": el.get("id"), **{c: tags.get(c) for c in _OSM_COLUMNS[1:]}})
-        geoms.append(line)
-    if not rows:
-        return gpd.GeoDataFrame({c: [] for c in _OSM_COLUMNS}, geometry=[], crs="EPSG:4326")
-    return gpd.GeoDataFrame(rows, geometry=geoms, crs="EPSG:4326")
 
 
 def get_geothermal_from_wfs(

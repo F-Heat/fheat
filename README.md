@@ -12,11 +12,12 @@ The repository is a monorepo of four installable packages:
 |---|---|
 | [`fheat_core`](src/fheat_core/) | Adapter-agnostic pipeline: orchestrator, data schemas, geometry/network/SLP algorithms, and the step functions. This is the engine. |
 | [`fheat_nrw`](src/fheat_nrw/) | Adapter that **downloads NRW open geodata** (building heat model via OpenGeoData NRW, cadastral parcels via the ALKIS WFS) and processes it into schema-compliant frames. |
+| [`fheat_nds`](src/fheat_nds/) | Adapter that **downloads Lower Saxony open geodata** of the LGLN (ALKIS buildings, parcels and land use via the "ALKIS vereinfacht" WFS, street axes of the Basis-DLM, LoD2 tiles) and **calculates the heat demand** of every building, since Lower Saxony publishes none: storeys from the LoD2 eaves height, age class from the Zensus 2022 grid, specific demand by age class, type and function. Area catalogue `fheat_nds/data/cities.csv` (built by `scripts/build_nds_catalog.py`). |
 | [`fheat_flex`](src/fheat_flex/) | Adapter for **user-supplied** GeoPackages, with a column mapping onto the core schema. Use this when you bring your own data. |
 | [`fheat_eu`](src/fheat_eu/) | **Europe-wide heat source data** (Fraunhofer ISI, Hotmaps) for any adapter: wastewater plants, industrial excess heat, waste incineration, rivers, hydrothermal. |
-| [`fheat_de`](src/fheat_de/) | **Germany-wide open data** for any adapter: biogas CHP units of the Marktstammdatenregister and their clusters. |
+| [`fheat_de`](src/fheat_de/) | **What every German state adapter shares**: biogas CHP units of the Marktstammdatenregister and their clusters; ALKIS land use → civil works factor and the ALKIS building columns; OSM road surfaces and their Overpass download; heat demand, full load hours and load profile from ALKIS function and age class (tables in `fheat_de/data`); the CityGML LoD2 reader; age classes from the Zensus 2022 grid; district outlines and street preparation. Where a state serves its data stays in its own package. |
 
-All five are import packages shipped from a single distribution named `fheat` (see [Installation](#installation)). The whole logic is derived from the former QGIS plugin to adress the flexibility with other applications.
+All six are import packages shipped from a single distribution named `fheat` (see [Installation](#installation)). The whole logic is derived from the former QGIS plugin to adress the flexibility with other applications.
 
 ## Architecture
 
@@ -153,7 +154,9 @@ The layers come from the adapter (`DataAdapter.fetch_landuse`, `fetch_osm_surfac
 
 Both are loaded for the bounding box of the loaded buildings, streets and source. If a download fails (service down, Overpass busy), the adapter logs one warning, the layer is left out and its factor is 1.0 — the pipeline continues. `NRWDataAdapter(download_landuse=False, download_osm_surface=False)` switches them off, `landuse_path=` / `osm_surface_path=` use local files instead, `landuse_wfs=` / `osm_overpass_url=` other endpoints. A state resumed from `STATUS` without the layers gets them from the adapter in the network step.
 
-**Open points.** The factor tables ([`fheat_nrw/civil_cost.py`](src/fheat_nrw/civil_cost.py), [`fheat_nrw/osm_surface.py`](src/fheat_nrw/osm_surface.py)) and the pipe costs are the values of the previous F|Heat version; the source of the pipe costs is still to be documented, and both are to be calibrated with values from practice. topotherm's own cost regression (`a`, `b`) is not yet aligned with `pipe_data.csv`.
+The factor tables and the Overpass download are the same for every state ([`fheat_de/alkis.py`](src/fheat_de/alkis.py), [`fheat_de/osm_surface.py`](src/fheat_de/osm_surface.py)); only the WFS that serves the land use belongs to the state.
+
+**Open points.** The factor tables and the pipe costs are the values of the previous F|Heat version; the source of the pipe costs is still to be documented, and both are to be calibrated with values from practice. topotherm's own cost regression (`a`, `b`) is not yet aligned with `pipe_data.csv`.
 
 ### Expansion potential of the pipes
 

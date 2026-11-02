@@ -1,6 +1,8 @@
 """NRW-specific building/street processing.
 
 Transforms raw NRW data (ALKIS + LANUV) into BuildingsSchema-compliant output.
+The heat demand from ALKIS function and age class is the same in every state
+(:mod:`fheat_de.heat_demand`); the WBM-NRW columns and their merge are NRW's.
 """
 from __future__ import annotations
 
@@ -9,41 +11,25 @@ from collections import Counter
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely.geometry import LineString, MultiLineString
 
 from fheat_core import columns as cols
-from fheat_nrw.download import ADDRESS_COLUMN
-
-# BAK-Klassifikation (Baualtersklassen nach DIN/BDEW)
-BAK_BINS = [0, 1918, 1948, 1957, 1968, 1978, 1983, 1994, 2001, 9999]
-BAK_LABELS = ["B", "C", "D", "E", "F", "G", "H", "I", "J"]
+from fheat_de.alkis import ADDRESS_COLUMN
+from fheat_de.heat_demand import (
+    BAK_BINS,
+    BAK_LABELS,
+    add_calculated_heat_demand as _add_custom_heat_demand,
+    add_construction_class as _add_bak,
+    add_full_load_hours_and_profile as _add_vlh_loadprofile,
+    add_thermal_power as _add_power,
+    extract_year as _extract_year,
+)
+from fheat_de.streets import process_streets  # noqa: F401  (named here as before)
 
 #: Column of the raw buildings that says where a building comes from:
 #: SOURCE_DATASET for WBM-NRW, the codes of fheat_nrw.building_gaps for
 #: buildings added from ALKIS.
 DATA_SOURCE = "Datenquelle"
 SOURCE_DATASET = "dataset"
-
-
-# ============================================================
-# Streets
-# ============================================================
-
-def process_streets(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Round coordinates to 3 decimals, force LineString, add Moegliche_Route=1."""
-    gdf = gdf.copy()
-
-    def to_linestring(geom):
-        if isinstance(geom, MultiLineString):
-            return LineString(list(geom.geoms)[0].coords)
-        return geom
-
-    def round_coords(line):
-        return LineString([(round(x, 3), round(y, 3)) for x, y in line.coords])
-
-    gdf["geometry"] = gdf["geometry"].apply(to_linestring).apply(round_coords)
-    gdf[cols.ROUTABLE] = 1
-    return gdf
 
 
 # ============================================================
@@ -125,17 +111,6 @@ def _resolve_heat_col(gdf: gpd.GeoDataFrame, heat_att: str) -> str:
         f"heat_attribute '{heat_att}' nicht in Gebaeudedaten gefunden "
         f"(weder '{heat_att}' noch '{suffixed}')."
     )
-
-
-def _extract_year(date_str):
-    if pd.isna(date_str):
-        return np.nan
-    if hasattr(date_str, "year"):
-        return int(date_str.year)
-    try:
-        return int(str(date_str)[:4])
-    except Exception:
-        return np.nan
 
 
 def _add_lanuv_age_and_type(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -280,15 +255,6 @@ def _spatial_join_parcels(
     return bld
 
 
-def _add_bak(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    if "validFrom" not in gdf.columns:
-        gdf["BAK"] = pd.NA
-        return gdf
-    gdf["_jahr"] = gdf["validFrom"].apply(_extract_year)
-    gdf["BAK"] = pd.cut(gdf["_jahr"], bins=BAK_BINS, labels=BAK_LABELS, right=True).astype(str)
-    return gdf.drop(columns=["_jahr"])
-
-
 def _newest_class_for_added(gdf: gpd.GeoDataFrame, wg_data: pd.DataFrame) -> gpd.GeoDataFrame:
     """Buildings added to the data source are new: the newest age class of ``wg_data``.
 
@@ -299,92 +265,6 @@ def _newest_class_for_added(gdf: gpd.GeoDataFrame, wg_data: pd.DataFrame) -> gpd
     if added.any():
         classes = wg_data["Baualtersklasse"] if "Baualtersklasse" in wg_data.columns else pd.Series(BAK_LABELS)
         gdf.loc[added, "BAK"] = str(max(classes.astype(str)))
-    return gdf
-
-
-def _add_vlh_loadprofile(gdf: gpd.GeoDataFrame, info_db: pd.DataFrame) -> gpd.GeoDataFrame:
-    """Merge in Vlh + Lastprofil from building_functions.json (lookup by Funktion)."""
-    if "citygml_fu" not in gdf.columns:
-        return gdf
-    info_db = info_db.copy()
-    info_db["Funktion"] = info_db["Funktion"].astype(str)
-    gdf = gdf.copy()
-    gdf["GFK_last_four"] = gdf["citygml_fu"].astype(str).str[-4:]
-    gdf = gdf.merge(
-        info_db[["Funktion", "Lastprofil", "Vlh"]],
-        left_on="GFK_last_four",
-        right_on="Funktion",
-        how="left",
-    )
-    gdf = gdf.drop(columns=["GFK_last_four", "Funktion"], errors="ignore")
-    if "type" in gdf.columns:
-        gdf["Lastprofil"] = np.where(
-            (gdf["Lastprofil"] == "EFH") & (gdf["type"] != "EFH"),
-            "MFH",
-            gdf["Lastprofil"],
-        )
-    return gdf
-
-
-def _add_custom_heat_demand(
-    gdf: gpd.GeoDataFrame,
-    wg_data: pd.DataFrame,
-    info_db: pd.DataFrame,
-    heat_col: str,
-) -> gpd.GeoDataFrame:
-    """Recompute Waermebedarf based on WG/NWG-specific factors × NF."""
-    if "NF" not in gdf.columns or "Lastprofil" not in gdf.columns:
-        return gdf
-    if "BAK" not in gdf.columns:
-        gdf["BAK"] = pd.NA
-    if "citygml_fu" not in gdf.columns:
-        gdf["citygml_fu"] = pd.NA
-
-    wg_cols = ["Baualtersklasse", "waerme_mfh_kwh_m2a", "waerme_efh_kwh_m2a"]
-    if not all(c in wg_data.columns for c in wg_cols):
-        return gdf
-    nwg_cols = ["Funktion", "WVBRpEBF"]
-    if not all(c in info_db.columns for c in nwg_cols):
-        return gdf
-
-    merged = gdf.merge(wg_data[wg_cols], left_on="BAK", right_on="Baualtersklasse", how="left")
-    merged["GFK_last_four"] = merged["citygml_fu"].astype(str).str[-4:]
-    nwg_lookup = info_db[nwg_cols].copy()
-    nwg_lookup["Funktion"] = nwg_lookup["Funktion"].astype(str)
-    merged = merged.merge(nwg_lookup, left_on="GFK_last_four", right_on="Funktion", how="left")
-
-    merged["Spez_Waermebedarf"] = np.where(
-        merged["Lastprofil"] == "MFH",
-        merged["waerme_mfh_kwh_m2a"],
-        np.where(
-            merged["Lastprofil"] == "EFH",
-            merged["waerme_efh_kwh_m2a"],
-            merged["WVBRpEBF"],
-        ),
-    )
-    merged = merged.drop(
-        columns=[
-            "Baualtersklasse",
-            "waerme_mfh_kwh_m2a",
-            "waerme_efh_kwh_m2a",
-            "Funktion",
-            "WVBRpEBF",
-            "GFK_last_four",
-        ],
-        errors="ignore",
-    )
-    merged["Waermebedarf"] = merged["NF"] * merged["Spez_Waermebedarf"]
-    # Override original heat column with custom value where it's available
-    mask = merged["Waermebedarf"].notna() & (merged["Waermebedarf"] > 0)
-    merged.loc[mask, heat_col] = merged.loc[mask, "Waermebedarf"]
-    return merged
-
-
-def _add_power(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
-    if "Vlh" not in gdf.columns:
-        gdf["Vlh"] = 1600
-    vlh = gdf["Vlh"].where(gdf["Vlh"] != 0, 1600)
-    gdf["power_th"] = gdf[heat_col] / vlh
     return gdf
 
 
