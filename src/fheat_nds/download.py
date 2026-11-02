@@ -6,6 +6,7 @@ Namensnennung 2.0. Default CRS EPSG:25832.
 """
 from __future__ import annotations
 
+import tempfile
 import urllib.error
 from pathlib import Path
 from typing import Optional
@@ -120,21 +121,27 @@ def lod2_tiles(geometries: gpd.GeoSeries) -> list[str]:
     return tile_names(geometries, LOD2_TILE)
 
 
-def load_lod2(geometries: gpd.GeoSeries, cache_dir: Optional[Path] = None) -> gpd.GeoDataFrame:
-    """LoD2 buildings of the tiles ``geometries`` lie in, through the cache.
+def load_lod2(
+    geometries: gpd.GeoSeries, cache_dir: Optional[Path] = None, keep_tiles: bool = False
+) -> gpd.GeoDataFrame:
+    """LoD2 buildings of the tiles ``geometries`` lie in.
 
-    A tile the LGLN does not have (outside Lower Saxony) is skipped.
+    Every building of a municipality needs its tile, about 17 MB per km², so
+    a tile is read from a temporary folder and deleted again; ``keep_tiles``
+    keeps them in the cache (``cache_dir``) for the next run. A tile the LGLN
+    does not have (outside Lower Saxony) is skipped.
     """
     frames = []
     for name in lod2_tiles(geometries):
         cancel.raise_if_cancelled()
-        try:
-            path = cache.cached_download(URL_LOD2 + name, name, None, cache_dir)
-        except RuntimeError as e:
-            if isinstance(e.__cause__, urllib.error.HTTPError) and e.__cause__.code == 404:
-                continue
-            raise
-        frames.append(read_lod2(path))
+        with tempfile.TemporaryDirectory() as temp:
+            try:
+                path = cache.cached_download(URL_LOD2 + name, name, None, cache_dir if keep_tiles else temp)
+            except RuntimeError as e:
+                if isinstance(e.__cause__, urllib.error.HTTPError) and e.__cause__.code == 404:
+                    continue
+                raise
+            frames.append(read_lod2(path))
     if not frames:
         return lod2_frame([])
     return gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=CRS)

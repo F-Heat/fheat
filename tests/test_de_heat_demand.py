@@ -49,7 +49,10 @@ class TestTables:
 class TestConstructionClass:
     def test_class_from_the_year_of_the_date(self):
         gdf = _buildings(validFrom=["1910-05-01", "1975-01-01", "2005-03-03", None])
-        assert hd.add_construction_class(gdf)["BAK"].tolist() == ["B", "F", "J", "nan"]
+        classes = hd.add_construction_class(gdf)["BAK"].tolist()
+        assert classes[:3] == ["B", "F", "J"]
+        # without a date no class: "nan" up to pandas 2, missing with pandas 3
+        assert pd.isna(classes[3]) or classes[3] == "nan"
 
     def test_without_dates_no_class(self):
         assert hd.add_construction_class(_buildings(NF=[100.0]))["BAK"].isna().all()

@@ -54,8 +54,10 @@ class NDSDataAdapter(DataAdapter):
         Geschosshöhe [m], mit der die Traufhöhe aus LoD2 in Geschosse umgerechnet wird.
     download_lod2 : bool
         Wenn True (Standard), kommen die Geschosse aus der Traufhöhe des 3D-
-        Gebäudemodells LoD2 (Kacheln im Zwischenspeicher). Fehler → Warnung,
-        Geschosse angenommen.
+        Gebäudemodells LoD2. Fehler → Warnung, Geschosse angenommen.
+    keep_lod2_tiles : bool
+        Wenn True, bleiben die LoD2-Kacheln (etwa 17 MB je km²) im
+        Zwischenspeicher; Standard False: jede Kachel wird nach dem Lesen gelöscht.
     download_zensus : bool
         Wenn True (Standard), kommt die Baualtersklasse aus dem Zensus 2022
         (100-m-Gitter, einmal in den Zwischenspeicher). Fehler → Warnung,
@@ -78,6 +80,7 @@ class NDSDataAdapter(DataAdapter):
         building_age_classes_path: Optional[Path] = None,
         storey_height: float = heat_demand.STOREY_HEIGHT_M,
         download_lod2: bool = True,
+        keep_lod2_tiles: bool = False,
         download_zensus: bool = True,
         download_landuse: bool = True,
         landuse_path: Optional[Path] = None,
@@ -97,6 +100,7 @@ class NDSDataAdapter(DataAdapter):
         self._building_age_classes_path = building_age_classes_path
         self._storey_height = float(storey_height)
         self._download_lod2 = bool(download_lod2)
+        self._keep_lod2_tiles = bool(keep_lod2_tiles)
         self._download_zensus = bool(download_zensus)
         self._download_landuse = bool(download_landuse)
         self._landuse_path = Path(landuse_path) if landuse_path is not None else None
@@ -259,7 +263,7 @@ class NDSDataAdapter(DataAdapter):
         if not self._download_lod2 or alkis.empty:
             return None
         try:
-            return dl.load_lod2(alkis.to_crs(CRS).geometry, self._cache_dir)
+            return dl.load_lod2(alkis.to_crs(CRS).geometry, self._cache_dir, self._keep_lod2_tiles)
         except (RuntimeError, OSError, ET.ParseError) as e:
             logger.warning("LoD2 nicht geladen, Geschosse angenommen: %s", e)
             return None

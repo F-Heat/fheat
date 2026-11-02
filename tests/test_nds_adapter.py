@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 from importlib.resources import files
+from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
@@ -56,7 +57,7 @@ def adapter(monkeypatch, tmp_path):
     monkeypatch.setattr(dl, "get_alkis_buildings", _alkis)
     monkeypatch.setattr(dl, "get_streets", lambda bbox: gpd.GeoDataFrame(
         geometry=[LineString([(0, 30), (600, 30)]), LineString([(5000, 0), (5100, 0)])], crs=CRS))
-    monkeypatch.setattr(dl, "load_lod2", lambda geoms, cache_dir=None: None)
+    monkeypatch.setattr(dl, "load_lod2", lambda geoms, cache_dir=None, keep_tiles=False: None)
     monkeypatch.setattr(zensus, "construction_classes", lambda points, cache_dir=None: pd.Series("F", index=points.index))
 
     def make(**kw):
@@ -168,6 +169,25 @@ class TestDownload:
         geoms = gpd.GeoSeries([box(375100, 5796100, 375110, 5796110)], crs=CRS)
         assert dl.lod2_tiles(geoms) == ["LoD2_32_375_5796_1_ni.gml"]
         assert dl.load_lod2(geoms).empty
+
+    def test_lod2_tiles_are_deleted_after_reading_unless_kept(self, monkeypatch, tmp_path):
+        from fheat_de.lod2 import lod2_frame
+
+        saved = []
+
+        def download(url, name, timestamp, cache_dir):
+            path = Path(cache_dir) / name
+            path.write_text("<gml/>", encoding="utf-8")
+            saved.append(path)
+            return path
+
+        monkeypatch.setattr(dl.cache, "cached_download", download)
+        monkeypatch.setattr(dl, "read_lod2", lambda path: lod2_frame([]))
+        geoms = gpd.GeoSeries([box(375100, 5796100, 375110, 5796110)], crs=CRS)
+        dl.load_lod2(geoms, cache_dir=tmp_path)
+        assert saved[-1].parent != tmp_path and not saved[-1].exists()
+        dl.load_lod2(geoms, cache_dir=tmp_path, keep_tiles=True)
+        assert saved[-1] == tmp_path / "LoD2_32_375_5796_1_ni.gml" and saved[-1].exists()
 
 
 class TestCatalog:
