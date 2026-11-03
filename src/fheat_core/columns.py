@@ -29,6 +29,7 @@ BUILDING_TYPE = "building_type"
 USAGE = "usage"
 ADDRESS = "address"                  # address text of the building (NRW: ALKIS lagebeztxt)
 FLOOR_AREA = "floor_area"            # net floor area [m²]
+STOREYS = "storeys"                  # full storeys
 AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
 CONSTRUCTION_YEAR = "construction_year"    # year of construction, where the source knows it
@@ -418,6 +419,7 @@ LABELS_DE: dict[str, str] = {
     USAGE: "Nutzung",
     ADDRESS: "Adresse",
     FLOOR_AREA: "NF [m²]",
+    STOREYS: "STKW",
     AGE: "Alter",
     CONSTRUCTION_CLASS: "BAK",
     CONSTRUCTION_YEAR: "Baujahr",

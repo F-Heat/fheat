@@ -14,7 +14,7 @@ The repository is a monorepo of four installable packages:
 | [`fheat_nrw`](src/fheat_nrw/) | Adapter that **downloads NRW open geodata** (building heat model via OpenGeoData NRW, cadastral parcels via the ALKIS WFS) and processes it into schema-compliant frames. |
 | [`fheat_flex`](src/fheat_flex/) | Adapter for **user-supplied** GeoPackages, with a column mapping onto the core schema. Use this when you bring your own data. |
 | [`fheat_eu`](src/fheat_eu/) | **Europe-wide heat source data** (Fraunhofer ISI, Hotmaps) for any adapter: wastewater plants, industrial excess heat, waste incineration, rivers, hydrothermal. |
-| [`fheat_de`](src/fheat_de/) | **Germany-wide open data** for any adapter: biogas CHP units of the Marktstammdatenregister and their clusters. |
+| [`fheat_de`](src/fheat_de/) | **Germany-wide open data** for any adapter: biogas CHP units of the Marktstammdatenregister and their clusters; the estimate of a building added by hand from its ALKIS function, storeys and age class (`fheat_de.building_estimate`). |
 
 All five are import packages shipped from a single distribution named `fheat` (see [Installation](#installation)). The whole logic is derived from the former QGIS plugin to adress the flexibility with other applications.
 
@@ -262,7 +262,7 @@ pip install -e ".[xwp]"       # + XWärmeplan export (xplan-tools; Python 3.13 a
 pip install -e ".[dwd]"       # + DWD temperature year at the planning area (wetterdienst; Python >= 3.11)
 ```
 
-All five import packages — `fheat_core`, `fheat_nrw`, `fheat_flex`, `fheat_eu`, `fheat_de` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_nrw/data/*.json`) — so no package reads Excel of its own. The separate `[excel]` extra adds `openpyxl` for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`) and for reading the study workbook of the heat sources (without it that table is left out), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
+All five import packages — `fheat_core`, `fheat_nrw`, `fheat_flex`, `fheat_eu`, `fheat_de` — ship from the single `fheat` distribution. The extras only add the optional third-party dependencies a given adapter needs: the NRW adapter pulls in `owslib`/`lxml`, and holiday-aware load profiles pull in `workalendar`. All bundled reference data ships as plain text — CSV for tabular tables (pipe catalogue, example temperature year, NRW city index) and JSON for the keyed building-typology lookups (`fheat_de/data/*.json`) — so no package reads Excel of its own. The separate `[excel]` extra adds `openpyxl` for the optional `.xlsx` *export* of the result tables (`table_format="xlsx"`) and for reading the study workbook of the heat sources (without it that table is left out), and `[plots]` adds `matplotlib` only for the optional load profile charts (`plot_format`, see below).
 
 ## Quick start
 

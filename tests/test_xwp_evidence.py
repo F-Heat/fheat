@@ -193,7 +193,7 @@ def test_lanuv_age_classes_fall_into_the_category_with_most_of_their_years():
 
 
 def test_every_function_of_the_nrw_adapter_has_a_building_type():
-    known = json.loads(files("fheat_nrw.data").joinpath("building_functions.json").read_text(encoding="utf-8"))
+    known = json.loads(files("fheat_de.data").joinpath("building_functions.json").read_text(encoding="utf-8"))
     assert set(mapping.FUNCTION_TYPES) == set(known)
 
 
