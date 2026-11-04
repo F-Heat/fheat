@@ -71,6 +71,15 @@ def test_given_values_replace_the_estimate():
     assert house[cols.THERMAL_POWER] == pytest.approx(house[cols.HEAT_DEMAND] / 2000)
 
 
+def test_a_given_specific_demand_replaces_the_one_of_the_tables():
+    house = est.estimate_building(100.0)
+    assert house[cols.SPECIFIC_HEAT_DEMAND] == est.age_classes()["L"]["waerme_efh_kwh_m2a"]
+    given = est.estimate_building(100.0, specific_heat_demand=50.0, full_load_hours=2000)
+    assert given[cols.SPECIFIC_HEAT_DEMAND] == 50.0
+    assert given[cols.HEAT_DEMAND] == given[cols.HEAT_DEMAND_CALCULATED] == pytest.approx(140.0 * 50.0)
+    assert given[cols.THERMAL_POWER] == pytest.approx(140.0 * 50.0 / 2000)
+
+
 def test_a_given_heat_demand_has_no_calculated_one():
     house = est.estimate_building(100.0, heat_demand=32000.0)
     assert house[cols.HEAT_DEMAND] == 32000.0
@@ -100,6 +109,7 @@ def test_the_estimate_is_a_building_for_the_pipeline(basis):
         {"building_type": "NWG"},
         {"storeys": 0},
         {"floor_area": -1.0},
+        {"specific_heat_demand": -1.0},
         {"load_profile": "XYZ"},
         {"full_load_hours": 0},
         {"heat_demand": -1.0},

@@ -16,8 +16,8 @@ adapter estimates its buildings (:mod:`fheat_nrw.processing`,
   demand / full load hours.
 
 Every derived value may be given instead (``floor_area``, ``load_profile``,
-``full_load_hours``, ``heat_demand``); what follows from it is calculated
-with the given value.
+``specific_heat_demand``, ``full_load_hours``, ``heat_demand``); what follows
+from it is calculated with the given value.
 """
 from __future__ import annotations
 
@@ -89,6 +89,7 @@ def estimate_building(
     building_type: Optional[str] = None,
     floor_area: Optional[float] = None,
     load_profile: Optional[str] = None,
+    specific_heat_demand: Optional[float] = None,
     full_load_hours: Optional[float] = None,
     heat_demand: Optional[float] = None,
 ) -> dict[str, Any]:
@@ -137,7 +138,11 @@ def estimate_building(
         full_load_hours = info.get("Vlh") or DEFAULT_FULL_LOAD_HOURS
     _positive("full_load_hours", full_load_hours)
 
-    if load_profile == "EFH":
+    if specific_heat_demand is not None:
+        if not specific_heat_demand >= 0:
+            raise ValueError(f"specific_heat_demand must not be negative, got {specific_heat_demand!r}.")
+        specific = specific_heat_demand
+    elif load_profile == "EFH":
         specific = age["waerme_efh_kwh_m2a"]
     elif load_profile == "MFH":
         specific = age["waerme_mfh_kwh_m2a"]
@@ -152,6 +157,7 @@ def estimate_building(
         cols.CONSTRUCTION_CLASS: age_class,
         cols.STOREYS: float(storeys),
         cols.FLOOR_AREA: float(floor_area),
+        cols.SPECIFIC_HEAT_DEMAND: float(specific),
         cols.LOAD_PROFILE: load_profile,
         cols.FULL_LOAD_HOURS: float(full_load_hours),
     }
