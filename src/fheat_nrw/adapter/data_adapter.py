@@ -797,7 +797,7 @@ class NRWDataAdapter(DataAdapter):
         if self._building_functions_path is not None:
             functions = json.loads(Path(self._building_functions_path).read_text(encoding="utf-8"))
         else:
-            with (files("fheat_nrw.data").joinpath("building_functions.json")).open(
+            with (files("fheat_de.data").joinpath("building_functions.json")).open(
                 "r", encoding="utf-8"
             ) as f:
                 functions = json.load(f)
@@ -805,7 +805,7 @@ class NRWDataAdapter(DataAdapter):
         if self._building_age_classes_path is not None:
             age = json.loads(Path(self._building_age_classes_path).read_text(encoding="utf-8"))
         else:
-            with (files("fheat_nrw.data").joinpath("building_age_classes.json")).open(
+            with (files("fheat_de.data").joinpath("building_age_classes.json")).open(
                 "r", encoding="utf-8"
             ) as f:
                 age = json.load(f)

@@ -81,4 +81,5 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "fheat_core.data" = ["*.csv"]
+"fheat_de.data" = ["*.json"]
 "fheat_nrw.data" = ["*.json", "*.csv"]

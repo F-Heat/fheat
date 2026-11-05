@@ -29,6 +29,8 @@ BUILDING_TYPE = "building_type"
 USAGE = "usage"
 ADDRESS = "address"                  # address text of the building (NRW: ALKIS lagebeztxt)
 FLOOR_AREA = "floor_area"            # net floor area [m²]
+STOREYS = "storeys"                  # full storeys
+SPECIFIC_HEAT_DEMAND = "specific_heat_demand"  # heat demand per m² net floor area [kWh/(m²·a)]
 AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
 CONSTRUCTION_YEAR = "construction_year"    # year of construction, where the source knows it
@@ -314,6 +316,7 @@ UNITS: dict[str, str] = {
     THERMAL_POWER: "kW",
     FULL_LOAD_HOURS: "h",
     FLOOR_AREA: "m²",
+    SPECIFIC_HEAT_DEMAND: "kWh/(m²·a)",
     LENGTH: "m",
     HEAT_LINE_DENSITY: "kWh/(a·m)",
     AREA: "m²",
@@ -418,6 +421,8 @@ LABELS_DE: dict[str, str] = {
     USAGE: "Nutzung",
     ADDRESS: "Adresse",
     FLOOR_AREA: "NF [m²]",
+    STOREYS: "STKW",
+    SPECIFIC_HEAT_DEMAND: "WB_spez [kWh/m²a]",
     AGE: "Alter",
     CONSTRUCTION_CLASS: "BAK",
     CONSTRUCTION_YEAR: "Baujahr",
