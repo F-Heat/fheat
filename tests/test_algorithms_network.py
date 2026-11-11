@@ -378,3 +378,38 @@ class TestComputeNetwork:
         )
         # 100 m street + 2 × 5 m Hausanschluss = 110 m
         assert net[cols.LENGTH].sum() == pytest.approx(110.0, rel=1e-9)
+
+
+class TestComputeNetworkTies:
+    """Street grid with 10 m blocks: many equally short routes."""
+
+    def _grid(self, size=8):
+        G = nx.grid_2d_graph(size, size)
+        G = nx.relabel_nodes(G, lambda n: (n[0] * 10.0, n[1] * 10.0))
+        nx.set_edge_attributes(G, "Straßenleitung", cols.TYPE)
+        G = add_edge_lengths(G)
+        nodes = [n for n in G.nodes if n != (0.0, 0.0)]
+        bld = gpd.GeoDataFrame(
+            {cols.THERMAL_POWER: [10.0] * (len(nodes) + 1),
+             # the last building is not on the graph and must be skipped
+             cols.CENTROID: [Point(n) for n in nodes] + [Point(999, 999)],
+             "geometry": [Point(n) for n in nodes] + [Point(999, 999)]},
+            crs=CRS, geometry="geometry",
+        )
+        src = gpd.GeoDataFrame({"geometry": [Point(0, 0)]}, crs=CRS, geometry="geometry")
+        return G, bld, src, len(nodes)
+
+    def test_net_is_a_tree(self, small_pipe_info):
+        G, bld, src, n_reachable = self._grid()
+        net = compute_network(G, bld, src, small_pipe_info, cols.THERMAL_POWER, 80, 50, CRS)
+
+        # every reachable building is a node, so a tree has exactly that many edges
+        assert len(net) == n_reachable
+        at_source = net.geometry.apply(lambda g: Point(0, 0) in (Point(g.coords[0]), Point(g.coords[-1])))
+        assert net.loc[at_source, cols.THERMAL_POWER].sum() == pytest.approx(10.0 * n_reachable)
+
+    def test_source_not_on_the_graph_gives_an_empty_net(self, small_pipe_info):
+        G, bld, _, _ = self._grid()
+        src = gpd.GeoDataFrame({"geometry": [Point(-50, -50)]}, crs=CRS, geometry="geometry")
+        net = compute_network(G, bld, src, small_pipe_info, cols.THERMAL_POWER, 80, 50, CRS)
+        assert net.empty

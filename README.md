@@ -89,7 +89,7 @@ The `NETWORK` phase dispatches to an interchangeable backend, selected by `FHeat
 
 | Mode | Backend | How the route is found |
 |---|---|---|
-| `"phase0"` *(default)* | [`dijkstra.py`](src/fheat_core/network/dijkstra.py) | union of the shortest paths from the source to every building along the street graph |
+| `"phase0"` *(default)* | [`dijkstra.py`](src/fheat_core/network/dijkstra.py) | union of the shortest paths from the source to every building along the street graph (one Dijkstra search from the source, so the net is a tree) |
 | `"expert"` | [`topotherm_backend.py`](src/fheat_core/network/topotherm_backend.py) | mixed-integer optimisation ([topotherm](https://github.com/jylambert/topotherm) single-time-step MILP) |
 
 **topotherm determines the topology only** — which street segments are built, and (in `optimization_mode="economic"`) which buildings are worth connecting. The simultaneity factor (GLF), volume flow, DN, velocity and heat losses are then computed by F|Heat with the *same* functions Phase 0 uses, from F|Heat's own pipe catalogue. That keeps the two modes directly comparable and every column meaning the same thing in both.
