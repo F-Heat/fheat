@@ -28,8 +28,9 @@ URL = "https://fake/kwp/"
 class _ChunkedResponse:
     """urlopen stand-in that hands out its content in pieces."""
 
-    def __init__(self, content: bytes, fail_after: int | None = None):
+    def __init__(self, content: bytes, fail_after: int | None = None, length: int | None = None):
         self._buf = io.BytesIO(content)
+        self.headers = {"Content-Length": str(len(content) if length is None else length)}
         self._fail_after = fail_after
         self._reads = 0
 
@@ -50,11 +51,11 @@ class _ChunkedResponse:
 def downloads(monkeypatch):
     """Serve ``content`` for every URL and count the calls."""
     calls: list[str] = []
-    state = {"content": b"v1", "fail_after": None}
+    state = {"content": b"v1", "fail_after": None, "length": None}
 
     def fake_urlopen(url, timeout=None):
         calls.append(url)
-        return _ChunkedResponse(state["content"], state["fail_after"])
+        return _ChunkedResponse(state["content"], state["fail_after"], state["length"])
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     return calls, state
@@ -113,6 +114,14 @@ class TestCachedDownload:
         state["content"] = b"x" * (3 * cache.CHUNK_SIZE)
         state["fail_after"] = 1
         with pytest.raises(RuntimeError, match="fehlgeschlagen"):
+            cache.cached_download(URL + "a.zip", "a.zip", None, tmp_path)
+        assert list(tmp_path.iterdir()) == []
+
+    def test_short_download_leaves_no_file(self, tmp_path, downloads):
+        # connection dropped silently: the server announced more than it sent
+        _, state = downloads
+        state["content"], state["length"] = b"x" * 1_000, 100_000
+        with pytest.raises(RuntimeError, match="1000 von 100000"):
             cache.cached_download(URL + "a.zip", "a.zip", None, tmp_path)
         assert list(tmp_path.iterdir()) == []
 
