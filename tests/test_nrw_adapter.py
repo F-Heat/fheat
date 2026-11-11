@@ -767,3 +767,47 @@ def test_merge_keeps_touching_parts_with_different_addresses_apart():
     assert sorted(out["Adresse"].tolist()) == ["Steinstr. 2", "Steinstr. 4"]
     # the annex joins No. 4; the shed touches both and joins the first, No. 2 and No. 4 stay apart
     assert sorted(out["RW_WW"].tolist()) == [1050.0, 2300.0]
+
+
+# ---------------------------------------------------------------------------
+# Renovation state and hot water of LANUV (needed for the heat suitability screening)
+# ---------------------------------------------------------------------------
+
+
+def test_merge_keeps_renovation_state_of_largest_part_and_sums_hot_water():
+    from fheat_nrw.processing import _merge_buildings
+
+    bld = gpd.GeoDataFrame(
+        {
+            "Flurstueck": ["1", "1", "1"],
+            "citygml_fu": ["31001_1000"] * 3,
+            "Fortschrei": ["2020"] * 3,
+            "type": ["a"] * 3,
+            "NF": [50.0, 120.0, 30.0],
+            "RW_WW": [600.0, 1200.0, 300.0],
+            "WW": [60.0, 140.0, np.nan],
+            "sanierungs": [3, 6, np.nan],
+        },
+        geometry=[box(0, 0, 5, 10), box(5, 0, 17, 10), box(17, 0, 20, 10)],
+        crs=CRS,
+    )
+    out = _merge_buildings(bld, "RW_WW")
+    assert len(out) == 1
+    assert out["sanierungs"].iloc[0] == 6  # the 120 m² part, not a mean of the codes
+    assert out["WW"].iloc[0] == pytest.approx(200.0)
+
+
+def test_rename_to_schema_writes_renovation_state_and_hot_water():
+    gdf = gpd.GeoDataFrame(
+        {
+            "RW_WW": [1000.0, 2000.0],
+            "WW": [100.0, np.nan],
+            "sanierungs": ["5", None],
+            "geometry": [box(0, 0, 10, 10), box(20, 0, 30, 10)],
+        },
+        crs=CRS, geometry="geometry",
+    )
+    out = _rename_to_schema(gdf.assign(Vlh=1600, power_th=1.0), "RW_WW")
+    assert out[cols.RENOVATION_STATE].iloc[0] == 5.0 and np.isnan(out[cols.RENOVATION_STATE].iloc[1])
+    assert out[cols.HOT_WATER_DEMAND].iloc[0] == 100.0 and np.isnan(out[cols.HOT_WATER_DEMAND].iloc[1])
+    BuildingsSchema.validate(out)

@@ -35,6 +35,8 @@ AGE = "age"
 CONSTRUCTION_CLASS = "construction_class"  # construction age class (BAK)
 CONSTRUCTION_YEAR = "construction_year"    # year of construction, where the source knows it
 BLOCK_ID = "block_id"                      # building block of the source (NRW: LANUV Block_ID)
+RENOVATION_STATE = "renovation_state"      # renovation state of the source (NRW: LANUV sanierungs, 1 … 9; 0 = unheated)
+HOT_WATER_DEMAND = "hot_water_demand"      # hot water part of the data source heat demand [kWh/a] (NRW: LANUV WW)
 # Both heat demand values, so FHeatConfig.heat_demand_basis can choose which
 # one becomes HEAT_DEMAND (see steps/adjust.py).
 HEAT_DEMAND_DATASET = "heat_demand_dataset"        # as delivered by the data source [kWh/a]
@@ -313,6 +315,7 @@ UNITS: dict[str, str] = {
     HEAT_DEMAND: "kWh/a",
     HEAT_DEMAND_DATASET: "kWh/a",
     HEAT_DEMAND_CALCULATED: "kWh/a",
+    HOT_WATER_DEMAND: "kWh/a",
     THERMAL_POWER: "kW",
     FULL_LOAD_HOURS: "h",
     FLOOR_AREA: "m²",
@@ -427,6 +430,8 @@ LABELS_DE: dict[str, str] = {
     CONSTRUCTION_CLASS: "BAK",
     CONSTRUCTION_YEAR: "Baujahr",
     BLOCK_ID: "Block_ID",
+    RENOVATION_STATE: "Sanierungsstand",
+    HOT_WATER_DEMAND: "WW [kWh/a]",
     # same names as the attributes of the former QGIS plugin
     HEAT_DEMAND_DATASET: "RW_WW [kWh/a]",
     HEAT_DEMAND_CALCULATED: "WB [kWh/a]",
