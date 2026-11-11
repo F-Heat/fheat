@@ -178,6 +178,15 @@ def _merge_buildings(
             return str(max_list[0])
         return ", ".join(map(str, sorted(max_list)))
 
+    def of_largest_part(x):
+        # a code, not a quantity: take the value of the part with the largest floor area
+        valid = x.dropna()
+        if valid.empty:
+            return np.nan
+        if "NF" not in gdf.columns:
+            return valid.iloc[0]
+        return valid.loc[gdf.loc[valid.index, "NF"].fillna(0).idxmax()]
+
     aggfunc_all = {
         "Fest_ID": "first",
         "Nutzung": "first",
@@ -189,6 +198,7 @@ def _merge_buildings(
         "RW_WW_spez": lambda x: weighted_mean(x, gdf.loc[x.index, "NF"]),
         "RW_WW": "sum",
         "age_LANUV": mode_or_string,
+        "sanierungs": of_largest_part,
         "Vlh": "first",
         "Block_ID": "first",
         "Adresse": lambda x: next((v for v in x if v), ""),
@@ -428,6 +438,10 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         out[cols.CONSTRUCTION_CLASS] = gdf["BAK"]
     if "Block_ID" in gdf.columns:
         out[cols.BLOCK_ID] = gdf["Block_ID"].astype("string")
+    if "sanierungs" in gdf.columns:
+        out[cols.RENOVATION_STATE] = pd.to_numeric(gdf["sanierungs"], errors="coerce").astype("float64")
+    if "WW" in gdf.columns:
+        out[cols.HOT_WATER_DEMAND] = pd.to_numeric(gdf["WW"], errors="coerce").astype("float64")
     if DATA_SOURCE in gdf.columns:
         out[cols.DATA_SOURCE] = gdf[DATA_SOURCE].astype("string")
 
