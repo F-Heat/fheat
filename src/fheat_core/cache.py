@@ -104,6 +104,10 @@ def cached_download(
                 if not chunk:
                     break
                 out.write(chunk)
+            # a dropped connection ends read() with b"" instead of an error
+            expected = resp.headers.get("Content-Length")
+            if expected is not None and out.tell() != int(expected):
+                raise OSError(f"nur {out.tell()} von {expected} Bytes empfangen")
         os.replace(part, target)
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         raise RuntimeError(f"Download von '{url}' fehlgeschlagen: {e}") from e
