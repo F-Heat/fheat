@@ -282,13 +282,52 @@ class TestAddBak:
             ],
         })
         out = _add_bak(gdf)
-        # 1900 → 'B' (≤1918), 1955 → 'D' (1948-1957 right=True so 1957→D),
-        # 2010 → 'J' (≤9999, last bin)
+        # 1900 → 'B' (vor 1918), 1955 → 'D' (1949-1957), 2010 → 'J' (2002-2010)
         assert out["BAK"].tolist() == ["B", "D", "J"]
+
+    @pytest.mark.parametrize(
+        "year, label",
+        [
+            (1917, "B"), (1918, "C"), (1948, "C"), (1949, "D"),
+            (1978, "F"), (1979, "G"), (1987, "G"), (1988, "H"),
+            (1993, "H"), (1994, "I"), (2001, "I"), (2002, "J"),
+            (2010, "J"), (2011, "K"), (2015, "K"), (2016, "L"), (2025, "L"),
+        ],
+    )
+    def test_edges_follow_the_table(self, year, label):
+        out = _add_bak(pd.DataFrame({"validFrom": [f"{year}-06-01"]}))
+        assert out["BAK"].iloc[0] == label
 
     def test_bins_and_labels_are_consistent(self):
         # one fewer bin edge than labels because pd.cut uses N bins from N+1 edges
         assert len(BAK_BINS) == len(BAK_LABELS) + 1
+
+    def test_bins_match_the_age_class_table(self):
+        """Each class covers the years its ``baujahre`` in building_age_classes.json names.
+
+        A last year that is the next class's first ("2011 - 2016", "ab 2016")
+        belongs to the next class.
+        """
+        from fheat_de.building_estimate import age_classes
+
+        def years(text):
+            text = text.strip()
+            if text.startswith("vor "):
+                return None, int(text[4:]) - 1
+            if text.startswith("ab "):
+                return int(text[3:]), None
+            first, last = (int(part) for part in text.split("-"))
+            return first, last
+
+        table = {label: years(age_classes()[label]["baujahre"]) for label in BAK_LABELS}
+        for i, label in enumerate(BAK_LABELS):
+            first, last = table[label]
+            if i + 1 < len(BAK_LABELS):
+                next_first = table[BAK_LABELS[i + 1]][0]
+                last = min(last, next_first - 1)
+            first_bin = None if i == 0 else BAK_BINS[i] + 1
+            last_bin = None if i == len(BAK_LABELS) - 1 else BAK_BINS[i + 1]
+            assert (first_bin, last_bin) == (first, last), label
 
 
 class TestSpatialJoinParcels:

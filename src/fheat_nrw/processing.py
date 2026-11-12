@@ -14,9 +14,12 @@ from shapely.geometry import LineString, MultiLineString
 from fheat_core import columns as cols
 from fheat_nrw.download import ADDRESS_COLUMN
 
-# BAK-Klassifikation (Baualtersklassen nach DIN/BDEW)
-BAK_BINS = [0, 1918, 1948, 1957, 1968, 1978, 1983, 1994, 2001, 9999]
-BAK_LABELS = ["B", "C", "D", "E", "F", "G", "H", "I", "J"]
+#: Age classes by year (``pd.cut``, right edge included), the ``baujahre`` of
+#: fheat_de/data/building_age_classes.json: B until 1917, C 1918–1948, …, L from
+#: 2016. The table gives K as "2011 - 2016" and L as "ab 2016"; 2016 is L.
+#: The year is that of the parcel record (``validFrom``), not of the building.
+BAK_BINS = [0, 1917, 1948, 1957, 1968, 1978, 1987, 1993, 2001, 2010, 2015, 9999]
+BAK_LABELS = ["B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 
 #: Column of the raw buildings that says where a building comes from:
 #: SOURCE_DATASET for WBM-NRW, the codes of fheat_nrw.building_gaps for
