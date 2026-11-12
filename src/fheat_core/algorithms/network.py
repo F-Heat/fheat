@@ -113,15 +113,21 @@ def compute_network(
     ltemp: float,
     crs,
 ) -> gpd.GeoDataFrame:
+    """Union of the shortest paths from the source to every building.
+
+    One Dijkstra search from the source serves all buildings: much faster on
+    large towns than one search per building, and among equally short routes
+    it always picks the same one, so the net is a tree without loops.
+    """
     net = nx.Graph()
     start = (source_gdf["geometry"].iloc[0].x, source_gdf["geometry"].iloc[0].y)
+    paths = nx.single_source_dijkstra_path(G, start, weight=cols.LENGTH) if start in G else {}
 
     for _, row in buildings_gdf.iterrows():
         end = (row[cols.CENTROID].x, row[cols.CENTROID].y)
         power = row[power_att]
-        try:
-            path = nx.shortest_path(G, start, end, weight=cols.LENGTH)
-        except Exception:
+        path = paths.get(end)
+        if path is None:  # building not reachable from the source
             continue
         for i in range(len(path) - 1):
             u, v = path[i], path[i + 1]
