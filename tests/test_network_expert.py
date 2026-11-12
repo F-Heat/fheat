@@ -100,6 +100,7 @@ def test_invalid_optimization_mode_raises():
     [
         ({"mip_gap": -1e-3}, "mip_gap"),
         ({"time_limit": 0}, "time_limit"),
+        ({"threads": 0}, "threads"),
     ],
 )
 def test_topotherm_config_rejects_invalid_numbers(kwargs, match):
@@ -972,6 +973,19 @@ def test_solver_limits_reach_highs_and_the_legacy_plugins():
     gurobi = pyo.SolverFactory("gurobi")
     _set_solver_limits(gurobi, 300, 0.01)
     assert (gurobi.options["timelimit"], gurobi.options["mipgap"]) == (300, 0.01)
+    assert "threads" not in gurobi.options
+
+
+def test_solver_threads_reach_highs_and_the_legacy_plugins():
+    pyo = pytest.importorskip("pyomo.environ")
+    highs = pyo.SolverFactory("highs")
+    _set_solver_limits(highs, 300, 0.01, threads=2)
+    assert highs.config.threads == 2
+    assert "threads" not in highs.options
+
+    gurobi = pyo.SolverFactory("gurobi")
+    _set_solver_limits(gurobi, 300, 0.01, threads=2)
+    assert gurobi.options["threads"] == 2
 
 
 @pytest.mark.parametrize("should_stop", [None, lambda: False], ids=["without_check", "with_check"])
@@ -985,7 +999,7 @@ def test_reaching_the_time_limit_is_reported_as_such(tt, expert_state, expert_ad
     pytest.importorskip("highspy")
     set_limits = topotherm_backend._set_solver_limits
     monkeypatch.setattr(
-        topotherm_backend, "_set_solver_limits", lambda opt, time_limit, mip_gap: set_limits(opt, 1e-6, mip_gap)
+        topotherm_backend, "_set_solver_limits", lambda opt, time_limit, mip_gap, threads=None: set_limits(opt, 1e-6, mip_gap, threads)
     )
     with cancellable(should_stop):
         with pytest.raises(NetworkBackendError, match="maxTimeLimit") as excinfo:
@@ -1075,10 +1089,10 @@ def test_the_callbacks_keep_the_solver_limits():
     pyo = pytest.importorskip("pyomo.environ")
     pytest.importorskip("highspy")
     opt = pyo.SolverFactory("highs")
-    _set_solver_limits(opt, 300, 0.01)
+    _set_solver_limits(opt, 300, 0.01, threads=2)
     with cancellable(lambda: False):
         assert _interrupt_on_cancel(opt, _hard_milp()) is not None
-    assert (opt.config.time_limit, opt.config.rel_gap) == (300, 0.01)
+    assert (opt.config.time_limit, opt.config.rel_gap, opt.config.threads) == (300, 0.01, 2)
 
 
 def test_a_cancel_stops_the_expert_mode_before_the_optimisation(tt, expert_state, expert_adapter):

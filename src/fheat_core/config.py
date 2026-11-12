@@ -29,6 +29,9 @@ class TopothermConfig:
     solver: str = "highs"
     mip_gap: float = 1e-4
     time_limit: int = 10_000
+    threads: Optional[int] = None
+    """Threads the solver may use; None keeps the solver's own default.
+    Set it when several calculations share one machine."""
 
     # --- physical boundary conditions ------------------------------------
     ambient_temperature: float = -12.0        # °C, design outdoor temperature
@@ -70,6 +73,8 @@ class TopothermConfig:
             raise ValueError("mip_gap must be >= 0.")
         if self.time_limit <= 0:
             raise ValueError("time_limit must be > 0.")
+        if self.threads is not None and self.threads < 1:
+            raise ValueError("threads must be >= 1 or None.")
         if self.connection_buffer is not None:
             warnings.warn(
                 "TopothermConfig.connection_buffer is ignored: buildings are always "

@@ -107,8 +107,10 @@ def _relative_gap(result) -> float | None:
     return float(abs(upper - lower) / max(abs(upper), abs(lower), 1e-10))
 
 
-def _set_solver_limits(opt, time_limit: float, mip_gap: float) -> None:
-    """Hand the time limit and the relative MIP gap to a Pyomo solver.
+def _set_solver_limits(opt, time_limit: float, mip_gap: float, threads: int | None = None) -> None:
+    """Hand the time limit, the relative MIP gap and the threads to a Pyomo solver.
+
+    ``threads`` None keeps the solver's default.
 
     Pyomo's newer interface (``pyomo.contrib.solver``; ``SolverFactory("highs")``
     since Pyomo 6.9) passes ``options`` to the solver unchanged, and HiGHS
@@ -122,9 +124,13 @@ def _set_solver_limits(opt, time_limit: float, mip_gap: float) -> None:
     if config is not None and "time_limit" in config and "rel_gap" in config:
         config.time_limit = time_limit
         config.rel_gap = mip_gap
+        if threads is not None:
+            config.threads = threads
     else:
         opt.options["timelimit"] = time_limit
         opt.options["mipgap"] = mip_gap
+        if threads is not None:
+            opt.options["threads"] = threads
 
 
 def _interrupt_on_cancel(opt, model):
@@ -147,7 +153,7 @@ def _interrupt_on_cancel(opt, model):
         return None
     # set_instance resets opt.config: keep the limits set before
     config = getattr(opt, "config", None)
-    limits = {key: getattr(config, key) for key in ("time_limit", "rel_gap") if config is not None and key in config}
+    limits = {key: getattr(config, key) for key in ("time_limit", "rel_gap", "threads") if config is not None and key in config}
     opt.set_instance(model)
     for key, value in limits.items():
         setattr(config, key, value)
@@ -429,7 +435,7 @@ class TopothermBackend(NetworkBackend):
                 "e.g. `pip install highspy` for the open-source HiGHS solver.",
                 code=SOLVER_UNAVAILABLE,
             )
-        _set_solver_limits(opt, settings.solver.time_limit, settings.solver.mip_gap)
+        _set_solver_limits(opt, settings.solver.time_limit, settings.solver.mip_gap, tcfg.threads)
         raise_if_cancelled()
         stopped = _interrupt_on_cancel(opt, model)
         raise_if_cancelled()
