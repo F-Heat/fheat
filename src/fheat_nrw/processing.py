@@ -212,7 +212,8 @@ def _merge_buildings(
 
     aggfunc = {k: v for k, v in aggfunc_all.items() if k in gdf.columns}
     gdf = gdf.assign(_touch_group=_touching_groups(gdf, by_cols, addresses))
-    merged = gdf.dissolve(by=by_cols + ["_touch_group"], as_index=False, aggfunc=aggfunc)
+    # dropna=False: parts with an empty key are kept instead of silently dropped
+    merged = gdf.dissolve(by=by_cols + ["_touch_group"], as_index=False, aggfunc=aggfunc, dropna=False)
     return merged.drop(columns="_touch_group")
 
 

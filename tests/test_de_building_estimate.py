@@ -113,6 +113,8 @@ def test_the_estimate_is_a_building_for_the_pipeline(basis):
         {"load_profile": "XYZ"},
         {"full_load_hours": 0},
         {"heat_demand": -1.0},
+        {"heat_demand": float("nan")},
+        {"specific_heat_demand": float("nan")},
     ],
 )
 def test_unusable_input_is_an_error(kwargs):

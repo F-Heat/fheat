@@ -808,6 +808,25 @@ def test_merge_keeps_touching_parts_with_different_addresses_apart():
     assert sorted(out["RW_WW"].tolist()) == [1050.0, 2300.0]
 
 
+def test_merge_keeps_parts_with_an_empty_key():
+    from fheat_nrw.processing import _merge_buildings
+
+    bld = gpd.GeoDataFrame(
+        {
+            "Flurstueck": ["1", None, None, "2"],
+            "citygml_fu": ["31001_1000"] * 4,
+            "Fortschrei": ["2020", "2020", "2020", None],
+            "type": ["a"] * 4,
+            "RW_WW": [1000.0, 2000.0, 300.0, 400.0],
+        },
+        # the two parts without parcel touch each other; the others stand alone
+        geometry=[box(0, 0, 10, 10), box(30, 0, 40, 10), box(40, 0, 45, 10), box(60, 0, 70, 10)],
+        crs=CRS,
+    )
+    out = _merge_buildings(bld, "RW_WW")
+    assert sorted(out["RW_WW"].tolist()) == [400.0, 1000.0, 2300.0]
+
+
 # ---------------------------------------------------------------------------
 # Renovation state and hot water of LANUV (needed for the heat suitability screening)
 # ---------------------------------------------------------------------------
