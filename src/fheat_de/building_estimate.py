@@ -53,7 +53,14 @@ def building_functions() -> dict[str, dict[str, Any]]:
 
 @lru_cache(maxsize=None)
 def age_classes() -> dict[str, dict[str, Any]]:
-    """The age classes ("A" … "L"): ``baujahre``, ``waerme_efh_kwh_m2a``, ``waerme_mfh_kwh_m2a``."""
+    """The age classes ("A" … "L"): ``baujahre``, ``waerme_efh_kwh_m2a``, ``waerme_mfh_kwh_m2a``.
+
+    The specific heat demands are the useful heat for space heating and hot
+    water per m² living area of the IWU type buildings, reference year 2025
+    (Loga, Stein 2026, v1.2, https://doi.org/10.5281/zenodo.18166030,
+    CC BY 4.0), averaged per type and class: source cells and derivation in
+    ``docs/age_class_values.md``, repeated by ``scripts/derive_age_classes.py``.
+    """
     return _read("building_age_classes.json")
 
 
