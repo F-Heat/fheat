@@ -305,6 +305,22 @@ adjust step on (`"calculated"` falls back to the data source value where no
 specific demand exists); the thermal power is then heat demand ÷ full load
 hours. The QGIS plugin offers the same choice as `RW_WW [kWh/a]` / `WB [kWh/a]`.
 
+The specific demands of the age classes for EFH and MFH
+([`building_age_classes.json`](src/fheat_de/data/building_age_classes.json))
+are the useful heat for space heating and hot water of the IWU type buildings,
+reference year 2025, calibrated to typical consumption: Loga, Stein (2026),
+*Tabellenwerte des Typgebäude-Modells zur energetischen Bewertung des
+Wohngebäudebestands*, v1.2, Institut Wohnen und Umwelt,
+[zenodo.org/records/18166030](https://zenodo.org/records/18166030)
+(DOI [10.5281/zenodo.18166030](https://doi.org/10.5281/zenodo.18166030)),
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). F|Heat averages the
+EFH and MFH variants weighted by their living area, maps each age class to the
+IWU class of its years and takes the floor area of WBM-NRW as living area.
+The cells used and every step are in
+[docs/age_class_values.md](docs/age_class_values.md);
+[`scripts/derive_age_classes.py`](scripts/derive_age_classes.py) repeats them
+and checks the JSON against the source file.
+
 The adapter downloads a whole municipality (`municipality_name`) or a whole
 district (*Gemarkung*: `city_name`, or the unique `district_key` from the
 `schluessel` column of [`cities.csv`](src/fheat_nrw/data/cities.csv)). Some

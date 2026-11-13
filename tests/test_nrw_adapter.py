@@ -567,8 +567,8 @@ class TestBundledReferenceData:
             crs=CRS, geometry="geometry",
         )
         out = _add_custom_heat_demand(gdf, wg, db, "RW_WW")
-        # BAK "A", EFH → waerme_efh_kwh_m2a (188.2) × NF (100) = 18820
-        assert out["RW_WW"].iloc[0] == pytest.approx(18820.0)
+        # BAK "A", EFH → waerme_efh_kwh_m2a (162.4) × NF (100) = 16240
+        assert out["RW_WW"].iloc[0] == pytest.approx(16240.0)
 
     def test_process_buildings_keeps_dataset_and_calculated_heat_demand(self):
         db, wg = self._adapter()._load_building_info()
