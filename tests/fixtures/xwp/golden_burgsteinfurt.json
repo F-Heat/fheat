@@ -10,9 +10,9 @@
   "sums": {
     "WP_GebaeudeBaublock.nutzflaeche": 12.8,
     "WP_Waermelinie.laenge": 12481.4,
-    "WP_Waermelinie.waermeMenge": 14274.6,
+    "WP_Waermelinie.waermeMenge": 14285.0,
     "WP_Waermenetz.laenge": 5171.6,
-    "WP_WaermeversorgungsgebietZieljahr.waermeMenge": 14282.1
+    "WP_WaermeversorgungsgebietZieljahr.waermeMenge": 14292.4
   },
   "network": {
     "anzahlGebaeudeAnschluss": 294,
