@@ -164,8 +164,8 @@ def estimate_building(
     if heat_demand is None:
         out[cols.HEAT_DEMAND_CALCULATED] = calculated
         heat_demand = calculated
-    elif heat_demand < 0:
-        raise ValueError("heat_demand must not be negative.")
+    elif not heat_demand >= 0:  # also rejects NaN, e.g. an empty table cell
+        raise ValueError(f"heat_demand must not be negative, got {heat_demand!r}.")
     out[cols.HEAT_DEMAND] = float(heat_demand)
     out[cols.THERMAL_POWER] = float(heat_demand) / float(full_load_hours)
     return out
