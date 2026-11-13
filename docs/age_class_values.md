@@ -73,24 +73,29 @@ Age classes in each block: bis 1918, 1919–1948, 1949–1978, 1979–1994,
    the three MFH variants are averaged, weighted by their living area in the
    stock (`Tabellen Anhang A`, column `H`), so the value stands for the
    average m² of that type and age class.
-3. **F|Heat age classes.** Each F|Heat class takes the IWU class of its years
-   (the year labels `baujahre` in the JSON are not changed). Where one F|Heat
-   class spans two IWU classes, both are averaged, again weighted by living area:
+3. **F|Heat age classes.** The F|Heat classes are those of the IWU residential
+   building typology (Loga et al. 2015, *Deutsche Wohngebäudetypologie*), with
+   its letters and years; the edges follow the German thermal insulation and
+   energy saving ordinances (WSchVO 1977, 1984, 1995, EnEV 2002, 2009, 2016).
+   The type building model of 2025 merges some of them, so each F|Heat class
+   takes the model class that contains its years. L spans two model classes;
+   both are averaged, again weighted by living area:
 
-   | F\|Heat class | `baujahre` | IWU class(es) |
+   | F\|Heat class | `baujahre` | Model class(es) 2025 |
    |---|---|---|
-   | A, B | vor 1918 | bis 1918 |
-   | C | 1918–1948 | 1919–1948 |
+   | A, B | bis 1918 | bis 1918 |
+   | C | 1919–1948 | 1919–1948 |
    | D, E, F | 1949–1957, 1958–1968, 1969–1978 | 1949–1978 |
-   | G, H | 1979–1987, 1988–1993 | 1979–1994 |
-   | I | 1994–2001 | 1995–2001 |
-   | J | 2002–2010 | 2002–2009 |
-   | K | 2011–2016 | 2010–2015 |
+   | G, H | 1979–1983, 1984–1994 | 1979–1994 |
+   | I | 1995–2001 | 1995–2001 |
+   | J | 2002–2009 | 2002–2009 |
+   | K | 2010–2015 | 2010–2015 |
    | L | ab 2016 | 2016–2020 and 2021–2025 |
 
-   The IWU model has no finer classes between 1949 and 1994, so D–F and G–H
-   share a value. The single years 1918, 1994, 2010 and 2016 fall into the
-   neighbouring IWU class.
+   D–F and G–H share a value. A is kept as a copy of B: the typology's A
+   (until 1859) has no class of its own in the model, and the NRW adapter
+   never assigns it. The NRW adapter assigns the classes by the year of the
+   parcel record with the same edges (`BAK_BINS` in `fheat_nrw/processing.py`).
 4. **Rounding** to one decimal.
 5. **No area conversion.** The IWU values are per m² living area. F|Heat
    multiplies by the floor area of WBM-NRW, which LANUV defines as footprint ×
@@ -129,6 +134,8 @@ of reading wrong cells.
 ## Previous values
 
 Until this change the table held the ARGE values, whose source the repository
-does not document (EFH 188.2, MFH 155.0 for the oldest class; MFH 40.9 for L). With the new values the
+does not document (EFH 188.2, MFH 155.0 for the oldest class; MFH 40.9 for L),
+with year ranges that differed from the IWU classes at 1918, 1984–1994 and
+from 2002 on. With the new values the
 heat demand of the Burgsteinfurt test example (`tests/test_xwp_golden.py`)
 falls by about 10 %.

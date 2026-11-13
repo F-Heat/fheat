@@ -15,10 +15,10 @@ from fheat_core import columns as cols
 from fheat_nrw.download import ADDRESS_COLUMN
 
 #: Age classes by year (``pd.cut``, right edge included), the ``baujahre`` of
-#: fheat_de/data/building_age_classes.json: B until 1917, C 1918–1948, …, L from
-#: 2016. The table gives K as "2011 - 2016" and L as "ab 2016"; 2016 is L.
+#: fheat_de/data/building_age_classes.json: the classes of the IWU residential
+#: building typology, B until 1918, C 1919–1948, …, L from 2016.
 #: The year is that of the parcel record (``validFrom``), not of the building.
-BAK_BINS = [0, 1917, 1948, 1957, 1968, 1978, 1987, 1993, 2001, 2010, 2015, 9999]
+BAK_BINS = [0, 1918, 1948, 1957, 1968, 1978, 1983, 1994, 2001, 2009, 2015, 9999]
 BAK_LABELS = ["B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 
 #: Column of the raw buildings that says where a building comes from:

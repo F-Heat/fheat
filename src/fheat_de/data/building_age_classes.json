@@ -1,16 +1,16 @@
 {
   "A": {
-    "baujahre": "vor 1918",
+    "baujahre": "bis 1918",
     "waerme_efh_kwh_m2a": 162.4,
     "waerme_mfh_kwh_m2a": 137.2
   },
   "B": {
-    "baujahre": "vor 1918",
+    "baujahre": "bis 1918",
     "waerme_efh_kwh_m2a": 162.4,
     "waerme_mfh_kwh_m2a": 137.2
   },
   "C": {
-    "baujahre": "1918-1948",
+    "baujahre": "1919-1948",
     "waerme_efh_kwh_m2a": 162.0,
     "waerme_mfh_kwh_m2a": 138.5
   },
@@ -30,27 +30,27 @@
     "waerme_mfh_kwh_m2a": 124.7
   },
   "G": {
-    "baujahre": "1979-1987",
+    "baujahre": "1979-1983",
     "waerme_efh_kwh_m2a": 137.4,
     "waerme_mfh_kwh_m2a": 126.5
   },
   "H": {
-    "baujahre": "1988-1993",
+    "baujahre": "1984-1994",
     "waerme_efh_kwh_m2a": 137.4,
     "waerme_mfh_kwh_m2a": 126.5
   },
   "I": {
-    "baujahre": "1994-2001",
+    "baujahre": "1995-2001",
     "waerme_efh_kwh_m2a": 111.4,
     "waerme_mfh_kwh_m2a": 106.8
   },
   "J": {
-    "baujahre": "2002-2010",
+    "baujahre": "2002-2009",
     "waerme_efh_kwh_m2a": 93.8,
     "waerme_mfh_kwh_m2a": 88.6
   },
   "K": {
-    "baujahre": "2011 - 2016",
+    "baujahre": "2010-2015",
     "waerme_efh_kwh_m2a": 76.4,
     "waerme_mfh_kwh_m2a": 70.7
   },

@@ -282,16 +282,16 @@ class TestAddBak:
             ],
         })
         out = _add_bak(gdf)
-        # 1900 → 'B' (vor 1918), 1955 → 'D' (1949-1957), 2010 → 'J' (2002-2010)
-        assert out["BAK"].tolist() == ["B", "D", "J"]
+        # 1900 → 'B' (bis 1918), 1955 → 'D' (1949-1957), 2010 → 'K' (2010-2015)
+        assert out["BAK"].tolist() == ["B", "D", "K"]
 
     @pytest.mark.parametrize(
         "year, label",
         [
-            (1917, "B"), (1918, "C"), (1948, "C"), (1949, "D"),
-            (1978, "F"), (1979, "G"), (1987, "G"), (1988, "H"),
-            (1993, "H"), (1994, "I"), (2001, "I"), (2002, "J"),
-            (2010, "J"), (2011, "K"), (2015, "K"), (2016, "L"), (2025, "L"),
+            (1918, "B"), (1919, "C"), (1948, "C"), (1949, "D"),
+            (1978, "F"), (1979, "G"), (1983, "G"), (1984, "H"),
+            (1994, "H"), (1995, "I"), (2001, "I"), (2002, "J"),
+            (2009, "J"), (2010, "K"), (2015, "K"), (2016, "L"), (2025, "L"),
         ],
     )
     def test_edges_follow_the_table(self, year, label):
@@ -305,13 +305,14 @@ class TestAddBak:
     def test_bins_match_the_age_class_table(self):
         """Each class covers the years its ``baujahre`` in building_age_classes.json names.
 
-        A last year that is the next class's first ("2011 - 2016", "ab 2016")
-        belongs to the next class.
+        A last year that is the next class's first belongs to the next class.
         """
         from fheat_de.building_estimate import age_classes
 
         def years(text):
             text = text.strip()
+            if text.startswith("bis "):
+                return None, int(text[4:])
             if text.startswith("vor "):
                 return None, int(text[4:]) - 1
             if text.startswith("ab "):
