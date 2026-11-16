@@ -108,7 +108,8 @@ class FHeatConfig:
     # Which heat demand of the buildings the pipeline uses, when the adapter
     # provides both: "calculated" (floor area × specific demand of the age
     # class, the data source value where none can be calculated) or "dataset"
-    # (the value of the data source, for NRW the LANUV RW_WW).
+    # (the value of the data source, for NRW the LANUV RW_WW, for EFH and MFH
+    # scaled to district heating final energy, docs/age_class_values.md).
     heat_demand_basis: str = "calculated"
 
     # Share of the standardised pipe costs that is civil works (trench,

@@ -300,8 +300,9 @@ def map_baubloecke(buildings_gdf: Optional[gpd.GeoDataFrame], boundary: BaseGeom
     building (heat demand > 0) counts when its representative point lies
     inside ``boundary``; its footprint is cut to it. The key, also written
     as ``baublockId``, is the hash of the area (S8). WP_EnergieBaublock is
-    not written: its heat demand is "Erzeugernutzwärme", F|Heat's is useful
-    heat (LANUV "Nutzenergie").
+    not written: its heat demand is "Erzeugernutzwärme"; F|Heat has that only
+    for houses (district heating final energy), not for non-residential
+    buildings (docs/xwp_mapping.md).
     """
     if buildings_gdf is None or buildings_gdf.empty:
         return []

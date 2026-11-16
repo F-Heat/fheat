@@ -596,6 +596,7 @@ class TestBundledReferenceData:
                 "Fortschrei": ["1"],
                 "NF": [100.0],
                 "RW_WW": [10000.0],
+                "RW": [9000.0],
             },
             geometry=[box(0, 0, 10, 10)],
             crs=CRS,
@@ -605,6 +606,9 @@ class TestBundledReferenceData:
             geometry=[box(-5, -5, 15, 15)],
             crs=CRS,
         )
+        # the factor is for heating + hot water: space heating alone keeps the LANUV value
+        only_rw = process_buildings(raw, parcels, db, wg, "RW")
+        assert only_rw[cols.HEAT_DEMAND_DATASET].iloc[0] == pytest.approx(9000.0)
         out = process_buildings(raw, parcels, db, wg, "RW_WW")
         # 1900 → BAK "B"; EFH → NF × waerme_efh_kwh_m2a of class "B"
         expected = 100.0 * wg.loc[wg["Baualtersklasse"] == "B", "waerme_efh_kwh_m2a"].iloc[0]

@@ -188,7 +188,10 @@ both bases mean the heat the network delivers. This also applies to
 buildings added from ALKIS, whose demand comes from LANUV's specific demand
 (`fheat_nrw.building_gaps`). Non-residential buildings, buildings without an
 age class and an own `building_age_classes.json` without the factors keep
-the LANUV value.
+the LANUV value. The factor is for heating and hot water together, so it
+applies only with `heat_attribute="RW_WW"` (the default); `RW` (space
+heating) or `WW` (hot water) alone stay useful heat, because their losses
+differ a lot (first EZFH row: 1.08 for heating, 2.00 for hot water).
 
 1. Per variant and IWU class: final energy district heating (`AH`) ÷ useful
    heat (`L` + `M`), both with standard boundary conditions.

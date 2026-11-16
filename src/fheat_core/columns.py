@@ -39,7 +39,7 @@ RENOVATION_STATE = "renovation_state"      # renovation state of the source (NRW
 HOT_WATER_DEMAND = "hot_water_demand"      # hot water part of the data source heat demand [kWh/a] (NRW: LANUV WW)
 # Both heat demand values, so FHeatConfig.heat_demand_basis can choose which
 # one becomes HEAT_DEMAND (see steps/adjust.py).
-HEAT_DEMAND_DATASET = "heat_demand_dataset"        # as delivered by the data source [kWh/a]
+HEAT_DEMAND_DATASET = "heat_demand_dataset"        # of the data source [kWh/a] (NRW: LANUV RW_WW, EFH/MFH × factor to final energy)
 HEAT_DEMAND_CALCULATED = "heat_demand_calculated"  # floor area × specific demand of the age class [kWh/a]
 # Where the building comes from, as codes of the adapter (NRW: "dataset" for
 # WBM-NRW, "alkis_lod2"/"alkis_assumed" for buildings added from ALKIS).

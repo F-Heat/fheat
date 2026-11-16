@@ -27,6 +27,9 @@ BAK_LABELS = ["B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 DATA_SOURCE = "Datenquelle"
 SOURCE_DATASET = "dataset"
 
+#: The heat attribute the LANUV factors of building_age_classes.json apply to.
+LANUV_FACTOR_ATTRIBUTE = "RW_WW"
+
 
 # ============================================================
 # Streets
@@ -96,7 +99,9 @@ def process_buildings(
         # heat_col may be renamed by merge; re-resolve
         heat_col = _resolve_heat_col(bld, heat_attribute)
         # the custom heat demand overrides heat_col; keep the data source value
-        bld["_heat_dataset"] = bld[heat_col] * _lanuv_factor(bld, wg_demand_data)
+        # the factor is for heating + hot water: RW or WW alone stay as LANUV gives them
+        factor = _lanuv_factor(bld, wg_demand_data) if heat_attribute == LANUV_FACTOR_ATTRIBUTE else 1.0
+        bld["_heat_dataset"] = bld[heat_col] * factor
         bld = _add_custom_heat_demand(bld, wg_demand_data, building_info_db, heat_col)
         bld = _add_power(bld, heat_col)
     else:
