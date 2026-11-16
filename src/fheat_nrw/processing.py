@@ -9,7 +9,7 @@ from collections import Counter
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely.geometry import LineString, MultiLineString
+import shapely
 
 from fheat_core import columns as cols
 from fheat_nrw.download import ADDRESS_COLUMN
@@ -30,18 +30,15 @@ SOURCE_DATASET = "dataset"
 # ============================================================
 
 def process_streets(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Round coordinates to 3 decimals, force LineString, add Moegliche_Route=1."""
+    """Round coordinates to 3 decimals, add Moegliche_Route=1.
+
+    Streets made of several pieces keep every piece; the core joins only
+    pieces that touch.
+    """
     gdf = gdf.copy()
-
-    def to_linestring(geom):
-        if isinstance(geom, MultiLineString):
-            return LineString(list(geom.geoms)[0].coords)
-        return geom
-
-    def round_coords(line):
-        return LineString([(round(x, 3), round(y, 3)) for x, y in line.coords])
-
-    gdf["geometry"] = gdf["geometry"].apply(to_linestring).apply(round_coords)
+    gdf["geometry"] = gdf["geometry"].apply(
+        lambda geom: shapely.transform(geom, lambda c: np.round(c, 3))
+    )
     gdf[cols.ROUTABLE] = 1
     return gdf
 

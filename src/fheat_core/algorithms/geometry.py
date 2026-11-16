@@ -6,7 +6,7 @@ import geopandas as gpd
 import networkx as nx
 import pandas as pd
 import shapely
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, MultiLineString, Point
 
 from fheat_core import columns as cols
 
@@ -57,23 +57,21 @@ def insert_connection_points(
         street_id = int(street_id)
         anschlusspunkt = row[cols.CONNECTION_POINT]
         line = streets.at[street_id, "geometry"]
-        line_coords = (
-            [coord for geom in line.geoms for coord in geom.coords]
-            if line.geom_type == "MultiLineString"
-            else list(line.coords)
-        )
-        if (anschlusspunkt.x, anschlusspunkt.y) in line_coords:
+        geoms = line.geoms if line.geom_type == "MultiLineString" else [line]
+        pieces = [list(g.coords) for g in geoms]
+        point = (anschlusspunkt.x, anschlusspunkt.y)
+        if any(point in coords for coords in pieces):
             continue
-        min_dist = float("inf")
-        pos = None
-        for i in range(1, len(line_coords)):
-            seg = LineString([line_coords[i - 1], line_coords[i]])
-            d = seg.distance(anschlusspunkt)
-            if d < min_dist:
-                min_dist = d
-                pos = i
-        line_coords.insert(pos, (anschlusspunkt.x, anschlusspunkt.y))
-        streets.at[street_id, "geometry"] = LineString(line_coords)
+        # nearest segment within a piece; the gap between two pieces is no segment
+        _, k, pos = min(
+            (LineString(coords[i - 1:i + 1]).distance(anschlusspunkt), k, i)
+            for k, coords in enumerate(pieces)
+            for i in range(1, len(coords))
+        )
+        pieces[k].insert(pos, point)
+        streets.at[street_id, "geometry"] = (
+            LineString(pieces[0]) if len(pieces) == 1 else MultiLineString(pieces)
+        )
     return streets
 
 

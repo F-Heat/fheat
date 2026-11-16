@@ -4,7 +4,7 @@ Covers:
 - NRWDataAdapter constructor validation
 - _filter_cities and _load_cities
 - _build_source (WGS84 → target CRS)
-- processing.process_streets (MultiLineString flattening, rounding,
+- processing.process_streets (MultiLineString pieces kept, rounding,
   Moegliche_Route=1)
 - processing.process_buildings (non-ALKIS branch — simpler, deterministic)
 - processing._resolve_heat_col, _extract_year, _add_lanuv_age_and_type
@@ -182,14 +182,16 @@ class TestProcessStreets:
         assert (out[cols.ROUTABLE] == 1).all()
         StreetsSchema.validate(out)
 
-    def test_flattens_multilinestring(self):
+    def test_keeps_every_piece_of_a_multilinestring(self):
         ml = MultiLineString([
             LineString([(0, 0), (1, 0)]),
-            LineString([(1, 0), (2, 0)]),
+            LineString([(5.00049, 0), (6, 0)]),
         ])
         gdf = gpd.GeoDataFrame({"geometry": [ml]}, crs=CRS, geometry="geometry")
         out = process_streets(gdf)
-        assert all(g.geom_type == "LineString" for g in out.geometry)
+        pieces = [list(g.coords) for g in out.geometry.iloc[0].geoms]
+        assert pieces == [[(0.0, 0.0), (1.0, 0.0)], [(5.0, 0.0), (6.0, 0.0)]]
+        StreetsSchema.validate(out)
 
     def test_rounds_coordinates_to_3_decimals(self):
         gdf = gpd.GeoDataFrame(

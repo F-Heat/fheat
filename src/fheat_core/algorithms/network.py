@@ -63,19 +63,30 @@ def calculate_velocity_loss(
     return pipe["DN"], velocity, loss, loss_extra
 
 
+#: Pieces of one street whose ends are closer than this [m] are joined (float
+#: noise in the data); larger gaps have no street and stay open.
+PIECE_GAP_TOLERANCE = 0.01
+
+
 def build_street_graph(streets_gdf: gpd.GeoDataFrame, crs) -> nx.Graph:
     G = nx.Graph()
     for _, row in streets_gdf.iterrows():
         line = row["geometry"]
-        coords = (
-            [coord for geom in line.geoms for coord in geom.coords]
-            if line.geom_type == "MultiLineString"
-            else list(line.coords)
-        )
-        for i in range(len(coords)):
-            G.add_node(coords[i])
-            if i > 0:
-                G.add_edge(coords[i - 1], coords[i], **{cols.TYPE: "Straßenleitung"})
+        pieces = list(line.geoms) if line.geom_type == "MultiLineString" else [line]
+        prev_end = None
+        for piece in pieces:
+            coords = list(piece.coords)
+            for i in range(len(coords)):
+                G.add_node(coords[i])
+                if i > 0:
+                    G.add_edge(coords[i - 1], coords[i], **{cols.TYPE: "Straßenleitung"})
+            if (
+                prev_end is not None
+                and prev_end != coords[0]
+                and Point(prev_end).distance(Point(coords[0])) < PIECE_GAP_TOLERANCE
+            ):
+                G.add_edge(prev_end, coords[0], **{cols.TYPE: "Straßenleitung"})
+            prev_end = coords[-1]
     return G
 
 

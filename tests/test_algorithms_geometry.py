@@ -12,7 +12,7 @@ from __future__ import annotations
 import geopandas as gpd
 import pandas as pd
 import pytest
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.geometry import (
@@ -202,6 +202,24 @@ class TestInsertConnectionPoints:
         # point already at (5,0); no duplicate insertion
         assert coords.count((5.0, 0.0)) == 1
         assert len(coords) == 3
+
+    def test_point_inserted_into_nearest_piece_of_a_multilinestring(self):
+        streets = gpd.GeoDataFrame(
+            {"geometry": [MultiLineString([[(0, 0), (10, 0)], [(100, 0), (110, 0)]])]},
+            crs=CRS, geometry="geometry",
+        )
+        conn = gpd.GeoDataFrame(
+            {"street_id": [0], cols.CONNECTION_POINT: [Point(105, 0)],
+             "geometry": [Point(105, 0)]},
+            crs=CRS, geometry="geometry",
+        )
+        out = insert_connection_points(streets, conn)
+        geom = out.at[0, "geometry"]
+        assert geom.geom_type == "MultiLineString"
+        assert [list(g.coords) for g in geom.geoms] == [
+            [(0.0, 0.0), (10.0, 0.0)],
+            [(100.0, 0.0), (105.0, 0.0), (110.0, 0.0)],
+        ]
 
     def test_nan_street_id_skipped(self):
         streets = gpd.GeoDataFrame(
