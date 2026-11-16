@@ -126,6 +126,25 @@ slightly (e.g. G 1979–1987, H 1988–1993).
 | K | 81.5 | 76.4 | 74.1 | 70.7 |
 | L | 70.1 | 72.6 | 40.9 | 66.8 |
 
+## Example: EFH, class A/B (bis 1918)
+
+1. Heating + hot water per variant (`Tabellen Anhang B`, `CM` + `CN`, rows 57, 66, 75):
+
+   | Variant | Heating | Hot water | Sum | Living area of the stock (`Tabellen Anhang A`, `H`) |
+   |---|---|---|---|---|
+   | EZFH freistehend | 159.3 | 8.5 | 167.8 | 188.8 Mio. m² |
+   | EZFH Doppelhaushälfte | 147.0 | 8.9 | 155.9 | 25.3 Mio. m² |
+   | EZFH Reihenhaus | 139.5 | 9.1 | 148.6 | 62.1 Mio. m² |
+
+2. Weighted by living area:
+   (167.8 × 188.8 + 155.9 × 25.3 + 148.6 × 62.1) / (188.8 + 25.3 + 62.1)
+   = 44,853 / 276.2 = **162.4 kWh/(m²·a)**, the value of A and B for EFH.
+   (The cells hold more decimals; the script uses them and also gets 162.4.)
+
+3. For a building of this class with 100 m² footprint and 2 storeys:
+   floor area 0.7 × 100 × 2 = 140 m², heat demand 140 × 162.4 = 22,736 kWh/a,
+   thermal power 22,736 / 1,600 full load hours (Wohnhaus) = 14.2 kW.
+
 ## Repeat or check
 
 ```bash
