@@ -19,6 +19,29 @@ by age class. F|Heat multiplies them by the building's floor area:
 Non-residential buildings take `WVBRpEBF` of `building_functions.json`
 instead; they are not affected.
 
+## What the value means
+
+The values are the **final energy of a building supplied by district heating**
+for space heating and hot water, calculated with the **standard boundary
+conditions** of the TABULA method:
+
+- **District heating:** the heat delivered at the building's substation, which
+  the heat network has to supply: the useful heat plus the losses inside the
+  building (substation, distribution, hot water storage and circulation),
+  without the losses of a boiler. "Bezogen auf Brennwert" in the column title
+  only matters for fuels; for district heating the final energy is the
+  delivered heat.
+- **Standard boundary conditions, not calibrated:** the whole building heated
+  to the standard indoor temperature, standard climate and standard hot water
+  demand. The workbook also gives values calibrated to typical consumption;
+  their calibration factors (0.77 to 1.04) show that the standard calculation
+  is about 20–30 % above the typical consumption of old buildings, and close
+  to it for buildings from 2002 on.
+
+LANUV's `RW_WW` of WBM-NRW is useful heat ("Raumwärmebedarf (Nutzenergie)"
+plus hot water). With `heat_demand_basis="dataset"` the demand of a building
+is therefore lower than with `"calculated"`.
+
 ## Source
 
 Loga, Tobias; Stein, Britta (2026): *Tabellenwerte des Typgebäude-Modells zur
@@ -38,37 +61,39 @@ published on Zenodo.
 
 The workbook models the average German residential building of each size and
 age class in the reference year 2025, including the renovations made since
-construction. Its values are calculated with the TABULA method and calibrated
-to typical consumption.
+construction, with the TABULA method.
 
 ## Cells used
 
 | What | Sheet | Cells |
 |---|---|---|
-| Useful heat demand, space heating [kWh/(m²·a) living area] | `Tabellen Anhang B` | column `CM`, rows 57–110 |
-| Useful heat demand, hot water [kWh/(m²·a) living area] | `Tabellen Anhang B` | column `CN`, rows 57–110 |
+| Final energy district heating, heating + hot water [kWh/(m²·a) living area] | `Tabellen Anhang C` | column `AH`, rows 21–74 |
 | Living area of the German stock [Mio. m²] | `Tabellen Anhang A` | column `H`, rows 53–106 |
 
-In `Tabellen Anhang B` these rows belong to the block "TABULA-Berechnungsverfahren /
-kalibriert auf typisches Verbrauchsniveau" (cell `CF56`), "Differenziertes
-Modell 2025". Both sheets list six building variants with nine age classes each:
+In `Tabellen Anhang C` column `AH` belongs to the block "(Teil-)Energiekennwerte
+für monovalente Zentralheizsysteme – Niedertemperaturkessel / Heizöl und
+Fernwärme, TABULA-Berechnung mit Standardrandbedingungen" (cell `W5`), supply
+system "Fernwärme" (cell `AF8`), column "Heizung + Warmwasser" of
+"Endenergiebedarf" (cell `AH10`), rows of the "Differenziertes Modell 2025".
+The auxiliary energy (column `AI`, electricity) is not included. Both sheets
+list six building variants with nine age classes each:
 
-| Variant | Anhang B rows | Anhang A rows | F\|Heat type |
+| Variant | Anhang C rows | Anhang A rows | F\|Heat type |
 |---|---|---|---|
-| EZFH freistehend (detached) | 57–65 | 53–61 | EFH |
-| EZFH Doppelhaushälfte (semi-detached) | 66–74 | 62–70 | EFH |
-| EZFH Reihenhaus (und sonstige) (terraced) | 75–83 | 71–79 | EFH |
-| MFH mit 3 bis 6 Wohnungen | 84–92 | 80–88 | MFH |
-| MFH mit 7 bis 20 Wohnungen | 93–101 | 89–97 | MFH |
-| MFH mit 21 oder mehr Wohnungen | 102–110 | 98–106 | MFH |
+| EZFH freistehend (detached) | 21–29 | 53–61 | EFH |
+| EZFH Doppelhaushälfte (semi-detached) | 30–38 | 62–70 | EFH |
+| EZFH Reihenhaus (und sonstige) (terraced) | 39–47 | 71–79 | EFH |
+| MFH mit 3 bis 6 Wohnungen | 48–56 | 80–88 | MFH |
+| MFH mit 7 bis 20 Wohnungen | 57–65 | 89–97 | MFH |
+| MFH mit 21 oder mehr Wohnungen | 66–74 | 98–106 | MFH |
 
 Age classes in each block: bis 1918, 1919–1948, 1949–1978, 1979–1994,
 1995–2001, 2002–2009, 2010–2015, 2016–2020, 2021–2025.
 
 ## Derivation
 
-1. **Heating + hot water.** Per variant and IWU age class: `CM + CN`. F|Heat
-   uses one demand for space heating and hot water, like `RW_WW` of WBM-NRW.
+1. **Heating + hot water.** Column `AH` per variant and IWU age class, the sum
+   the workbook gives. F|Heat uses one demand for space heating and hot water.
 2. **EFH and MFH.** F|Heat knows only EFH and MFH. The three EFH variants and
    the three MFH variants are averaged, weighted by their living area in the
    stock (`Tabellen Anhang A`, column `H`), so the value stands for the
@@ -114,36 +139,37 @@ slightly (e.g. G 1979–1987, H 1988–1993).
 
 | Class | EFH old | EFH | MFH old | MFH |
 |---|---|---|---|---|
-| A, B | 188.2 | 162.4 | 155.0 | 137.2 |
-| C | 199.0 | 162.0 | 159.0 | 138.5 |
-| D | 202.0 | 151.0 | 156.8 | 124.7 |
-| E | 196.6 | 151.0 | 154.4 | 124.7 |
-| F | 185.5 | 151.0 | 147.9 | 124.7 |
-| G | 155.7 | 137.4 | 129.6 | 126.5 |
-| H | 144.0 | 137.4 | 122.5 | 126.5 |
-| I | 114.5 | 111.4 | 115.3 | 106.8 |
-| J | 91.4 | 93.8 | 96.1 | 88.6 |
-| K | 81.5 | 76.4 | 74.1 | 70.7 |
-| L | 70.1 | 72.6 | 40.9 | 66.8 |
+| A, B | 188.2 | 233.0 | 155.0 | 169.7 |
+| C | 199.0 | 230.3 | 159.0 | 171.3 |
+| D | 202.0 | 208.1 | 156.8 | 150.7 |
+| E | 196.6 | 208.1 | 154.4 | 150.7 |
+| F | 185.5 | 208.1 | 147.9 | 150.7 |
+| G | 155.7 | 183.9 | 129.6 | 153.4 |
+| H | 144.0 | 183.9 | 122.5 | 153.4 |
+| I | 114.5 | 144.4 | 115.3 | 126.8 |
+| J | 91.4 | 119.1 | 96.1 | 104.2 |
+| K | 81.5 | 99.7 | 74.1 | 84.7 |
+| L | 70.1 | 94.2 | 40.9 | 79.6 |
 
 ## Example: EFH, class A/B (bis 1918)
 
-1. Heating + hot water per variant (`Tabellen Anhang B`, `CM` + `CN`, rows 57, 66, 75):
+1. Heating + hot water per variant (`Tabellen Anhang C`, `AH`, rows 21, 30, 39):
 
-   | Variant | Heating | Hot water | Sum | Living area of the stock (`Tabellen Anhang A`, `H`) |
-   |---|---|---|---|---|
-   | EZFH freistehend | 159.3 | 8.5 | 167.8 | 188.8 Mio. m² |
-   | EZFH Doppelhaushälfte | 147.0 | 8.9 | 155.9 | 25.3 Mio. m² |
-   | EZFH Reihenhaus | 139.5 | 9.1 | 148.6 | 62.1 Mio. m² |
+   | Variant | Heating + hot water | Living area of the stock (`Tabellen Anhang A`, `H`) |
+   |---|---|---|
+   | EZFH freistehend | 244.0 | 188.8 Mio. m² |
+   | EZFH Doppelhaushälfte | 219.0 | 25.3 Mio. m² |
+   | EZFH Reihenhaus | 205.4 | 62.1 Mio. m² |
 
 2. Weighted by living area:
-   (167.8 × 188.8 + 155.9 × 25.3 + 148.6 × 62.1) / (188.8 + 25.3 + 62.1)
-   = 44,853 / 276.2 = **162.4 kWh/(m²·a)**, the value of A and B for EFH.
-   (The cells hold more decimals; the script uses them and also gets 162.4.)
+   (244.0 × 188.8 + 219.0 × 25.3 + 205.4 × 62.1) / (188.8 + 25.3 + 62.1)
+   = 64,363 / 276.2 = **233.0 kWh/(m²·a)**, the value of A and B for EFH.
+   276.2 Mio. m² is the living area of all EFH up to 1918. (The cells hold more
+   decimals; the script uses them and also gets 233.0.)
 
 3. For a building of this class with 100 m² footprint and 2 storeys:
-   floor area 0.7 × 100 × 2 = 140 m², heat demand 140 × 162.4 = 22,736 kWh/a,
-   thermal power 22,736 / 1,600 full load hours (Wohnhaus) = 14.2 kW.
+   floor area 0.7 × 100 × 2 = 140 m², heat demand 140 × 233.0 = 32,620 kWh/a,
+   thermal power 32,620 / 1,600 full load hours (Wohnhaus) = 20.4 kW.
 
 ## Repeat or check
 
@@ -153,15 +179,13 @@ python scripts/derive_age_classes.py Typgebaeude-Tabellenwerte_v1.2.xlsx        
 python scripts/derive_age_classes.py Typgebaeude-Tabellenwerte_v1.2.xlsx --write  # write into the JSON
 ```
 
-The script checks the block label and every variant and age class label before
-it reads a value, so a different layout of a later version stops it instead
-of reading wrong cells.
+The script checks the block, supply system and column titles and every
+variant and age class label before it reads a value, so a different layout
+of a later version stops it instead of reading wrong cells.
 
 ## Previous values
 
 Until this change the table held the ARGE values, whose source the repository
 does not document (EFH 188.2, MFH 155.0 for the oldest class; MFH 40.9 for L),
 with year ranges that differed from the IWU classes at 1918, 1984–1994 and
-from 2002 on. With the new values the
-heat demand of the Burgsteinfurt test example (`tests/test_xwp_golden.py`)
-falls by about 10 %.
+from 2002 on.

@@ -134,7 +134,7 @@ The years of the main categories are checked against the XSD (`tests/test_xwp_ev
 
 **Not written.**
 
-- `WP_EnergieBaublock`: its `waermeMenge` and `waermeDichte` are "Erzeugernutzwärme" (XSD), the heat the generators deliver, losses in the building included. F\|Heat's heat demand is useful heat: LANUV "Raumwärmebedarf (Nutzenergie)" plus hot water, or the calculated demand. F\|Heat has no Erzeugernutzwärme, and without the two the class would carry nothing. The heat lines and supply areas take the heat demand, because their XSD documentation asks for "Wärmeverbrauch oder Wärmebedarf" without that restriction.
+- `WP_EnergieBaublock`: its `waermeMenge` and `waermeDichte` are "Erzeugernutzwärme" (XSD), the heat the generators deliver, losses in the building included. F\|Heat's heat demand is either useful heat (LANUV "Raumwärmebedarf (Nutzenergie)" plus hot water, `heat_demand_basis="dataset"`) or, for residential buildings under `"calculated"`, the heat delivered at the substation of a district heating supplied building (IWU type buildings, see [age_class_values.md](age_class_values.md)), which comes close to Erzeugernutzwärme; non-residential buildings and the dataset basis have no such value, so F\|Heat writes no Erzeugernutzwärme, and without the two the class would carry nothing. The heat lines and supply areas take the heat demand, because their XSD documentation asks for "Wärmeverbrauch oder Wärmebedarf" without that restriction.
 - `verteilungBaujahr`: optional, the predominant category is what the plan asks for.
 
 **Data protection.** A block is a single building; whether the municipality publishes them at this resolution is its decision. The report's notes say so whenever blocks are written.

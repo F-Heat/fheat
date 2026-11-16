@@ -29,12 +29,12 @@ JSON = Path(__file__).resolve().parents[1] / "src" / "fheat_de" / "data" / "buil
 IWU_CLASSES = ["bis 1918", "1919 – 1948", "1949 – 1978", "1979 – 1994", "1995 – 2001",
                "2002 – 2009", "2010 – 2015", "2016 – 2020", "2021 – 2025"]
 
-#: The six building variants: first row in "Tabellen Anhang B" (energy figures)
+#: The six building variants: first row in "Tabellen Anhang C" (energy figures)
 #: and "Tabellen Anhang A" (stock), and the start of their label. Each block
 #: has one row per IWU class.
 VARIANTS = {
-    "EFH": [(57, 53, "EZFH freistehend"), (66, 62, "EZFH"), (75, 71, "EZFH Reihenhaus")],
-    "MFH": [(84, 80, "MFH"), (93, 89, "MFH"), (102, 98, "MFH mit 21")],
+    "EFH": [(21, 53, "EZFH freistehend"), (30, 62, "EZFH"), (39, 71, "EZFH Reihenhaus")],
+    "MFH": [(48, 80, "MFH"), (57, 89, "MFH"), (66, 98, "MFH mit 21")],
 }
 
 #: F|Heat age class -> IWU classes it takes (several: weighted by living area).
@@ -45,9 +45,11 @@ CLASS_MAP = {
     "J": ["2002 – 2009"], "K": ["2010 – 2015"], "L": ["2016 – 2020", "2021 – 2025"],
 }
 
-SHEET_B, SHEET_A = "Tabellen Anhang B", "Tabellen Anhang A"
-#: Anhang B: block label, type label, age class, useful heat heating, useful heat hot water.
-B_BLOCK, B_TYPE, B_CLASS, B_HEATING, B_HOT_WATER = "CF56", "CG", "CH", "CM", "CN"
+SHEET_C, SHEET_A = "Tabellen Anhang C", "Tabellen Anhang A"
+#: Anhang C, block "Niedertemperaturkessel / Heizöl und Fernwärme, TABULA-Berechnung
+#: mit Standardrandbedingungen": block label, supply system, column title, type
+#: label, age class, final energy district heating for heating + hot water.
+C_BLOCK, C_SYSTEM, C_TITLE, C_TYPE, C_CLASS, C_VALUE = "W5", "AF8", "AH10", "X", "Y", "AH"
 #: Anhang A: type label, age class, living area of the stock [Mio. m²].
 A_TYPE, A_CLASS, A_AREA = "D", "E", "H"
 
@@ -57,25 +59,32 @@ def _text(value) -> str:
 
 
 def read_source(path: Path) -> dict[str, dict[str, tuple[float, float]]]:
-    """Per building type and IWU class: [(useful heat heating + hot water [kWh/m²a], living area [Mio. m²])]."""
+    """Per building type and IWU class: [(final energy district heating, heating + hot water [kWh/m²a],
+    living area [Mio. m²])]."""
     book = load_workbook(path, read_only=True, data_only=True)
-    b, a = book[SHEET_B], book[SHEET_A]
-    if "kalibriert auf typisches Verbrauchsniveau" not in _text(b[B_BLOCK].value):
-        raise ValueError(f"{SHEET_B}!{B_BLOCK} is not the calibrated block: {b[B_BLOCK].value!r}")
+    c, a = book[SHEET_C], book[SHEET_A]
+    checks = [
+        (C_BLOCK, lambda t: "Fernwärme" in t and "Standardrandbedingungen" in t, "the district heating block "
+         "with standard boundary conditions"),
+        (C_SYSTEM, lambda t: t == "Fernwärme", "'Fernwärme'"),
+        (C_TITLE, lambda t: t.replace("-", "") == "Heizung + Warmwasser", "'Heizung + Warmwasser'"),
+    ]
+    for coordinate, ok, expected in checks:
+        if not ok(_text(c[coordinate].value)):
+            raise ValueError(f"{SHEET_C}!{coordinate} is {c[coordinate].value!r}, expected {expected}")
     data: dict[str, dict[str, list[tuple[float, float]]]] = {}
     for building_type, variants in VARIANTS.items():
-        per_class = data.setdefault(building_type, {c: [] for c in IWU_CLASSES})
-        for row_b, row_a, label in variants:
-            for name, cell in ((SHEET_B, b[f"{B_TYPE}{row_b}"]), (SHEET_A, a[f"{A_TYPE}{row_a}"])):
+        per_class = data.setdefault(building_type, {k: [] for k in IWU_CLASSES})
+        for row_c, row_a, label in variants:
+            for name, cell in ((SHEET_C, c[f"{C_TYPE}{row_c}"]), (SHEET_A, a[f"{A_TYPE}{row_a}"])):
                 if not _text(cell.value).startswith(label):
                     raise ValueError(f"{name}!{cell.coordinate} is {cell.value!r}, expected {label!r}")
             for i, iwu_class in enumerate(IWU_CLASSES):
-                rb, ra = row_b + i, row_a + i
-                for name, cell in ((SHEET_B, b[f"{B_CLASS}{rb}"]), (SHEET_A, a[f"{A_CLASS}{ra}"])):
+                rc, ra = row_c + i, row_a + i
+                for name, cell in ((SHEET_C, c[f"{C_CLASS}{rc}"]), (SHEET_A, a[f"{A_CLASS}{ra}"])):
                     if _text(cell.value) != iwu_class:
                         raise ValueError(f"{name}!{cell.coordinate} is {cell.value!r}, expected {iwu_class!r}")
-                useful = float(b[f"{B_HEATING}{rb}"].value) + float(b[f"{B_HOT_WATER}{rb}"].value)
-                per_class[iwu_class].append((useful, float(a[f"{A_AREA}{ra}"].value)))
+                per_class[iwu_class].append((float(c[f"{C_VALUE}{rc}"].value), float(a[f"{A_AREA}{ra}"].value)))
     return data
 
 

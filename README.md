@@ -307,8 +307,10 @@ hours. The QGIS plugin offers the same choice as `RW_WW [kWh/a]` / `WB [kWh/a]`.
 
 The specific demands of the age classes for EFH and MFH
 ([`building_age_classes.json`](src/fheat_de/data/building_age_classes.json))
-are the useful heat for space heating and hot water of the IWU type buildings,
-reference year 2025, calibrated to typical consumption: Loga, Stein (2026),
+are the final energy for space heating and hot water of a building supplied by
+district heating (the heat delivered at its substation, losses in the building
+included) of the IWU type buildings, reference year 2025, TABULA calculation
+with standard boundary conditions: Loga, Stein (2026),
 *Tabellenwerte des Typgebäude-Modells zur energetischen Bewertung des
 Wohngebäudebestands*, v1.2, Institut Wohnen und Umwelt,
 [zenodo.org/records/18166030](https://zenodo.org/records/18166030)
