@@ -18,7 +18,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import pytest
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.network import (
@@ -207,6 +207,32 @@ class TestBuildStreetGraph:
         assert G.number_of_nodes() == 3
         assert G.has_edge((0, 0), (10, 0))
         assert G.has_edge((10, 0), (10, 10))
+
+    def test_gap_between_pieces_of_a_street_is_not_bridged(self):
+        streets = gpd.GeoDataFrame(
+            {"geometry": [MultiLineString([[(0, 0), (10, 0)], [(100, 0), (110, 0)]])]},
+            crs=CRS, geometry="geometry",
+        )
+        G = build_street_graph(streets, CRS)
+        assert G.number_of_edges() == 2
+        assert not G.has_edge((10.0, 0.0), (100.0, 0.0))
+
+    def test_pieces_that_nearly_touch_are_joined(self):
+        streets = gpd.GeoDataFrame(
+            {"geometry": [MultiLineString([[(0, 0), (10, 0)], [(10.001, 0), (20, 0)]])]},
+            crs=CRS, geometry="geometry",
+        )
+        G = build_street_graph(streets, CRS)
+        assert nx.has_path(G, (0.0, 0.0), (20.0, 0.0))
+
+    def test_pieces_that_touch_share_a_node(self):
+        streets = gpd.GeoDataFrame(
+            {"geometry": [MultiLineString([[(0, 0), (10, 0)], [(10, 0), (20, 0)]])]},
+            crs=CRS, geometry="geometry",
+        )
+        G = build_street_graph(streets, CRS)
+        assert G.number_of_nodes() == 3
+        assert nx.number_of_selfloops(G) == 0
 
 
 # ---------------------------------------------------------------------------
