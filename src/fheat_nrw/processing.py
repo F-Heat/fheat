@@ -96,7 +96,7 @@ def process_buildings(
         # heat_col may be renamed by merge; re-resolve
         heat_col = _resolve_heat_col(bld, heat_attribute)
         # the custom heat demand overrides heat_col; keep the data source value
-        bld["_heat_dataset"] = bld[heat_col]
+        bld["_heat_dataset"] = bld[heat_col] * _lanuv_factor(bld, wg_demand_data)
         bld = _add_custom_heat_demand(bld, wg_demand_data, building_info_db, heat_col)
         bld = _add_power(bld, heat_col)
     else:
@@ -335,6 +335,25 @@ def _add_vlh_loadprofile(gdf: gpd.GeoDataFrame, info_db: pd.DataFrame) -> gpd.Ge
             gdf["Lastprofil"],
         )
     return gdf
+
+
+def _lanuv_factor(gdf: gpd.GeoDataFrame, wg_data: pd.DataFrame) -> pd.Series:
+    """Factor from the LANUV demand (useful heat) to final energy of a house supplied by district heating.
+
+    EFH and MFH (by load profile) get ``faktor_lanuv_efh``/``_mfh`` of their
+    age class; other buildings, a building without class and a table without
+    the factors get 1.
+    """
+    factor = pd.Series(1.0, index=gdf.index)
+    if "BAK" not in gdf.columns or "Lastprofil" not in gdf.columns or "Baualtersklasse" not in wg_data.columns:
+        return factor
+    by_class = wg_data.set_index(wg_data["Baualtersklasse"].astype(str))
+    for profile in ("EFH", "MFH"):
+        column = f"faktor_lanuv_{profile.lower()}"
+        if column in by_class.columns:
+            house = gdf["Lastprofil"].astype(str) == profile
+            factor[house] = gdf.loc[house, "BAK"].astype(str).map(by_class[column]).fillna(1.0)
+    return factor
 
 
 def _add_custom_heat_demand(

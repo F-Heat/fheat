@@ -573,6 +573,18 @@ class TestBundledReferenceData:
         # BAK "A", EFH → waerme_efh_kwh_m2a (233.0) × NF (100) = 23300
         assert out["RW_WW"].iloc[0] == pytest.approx(23300.0)
 
+    def test_lanuv_factor_only_for_houses(self):
+        from fheat_nrw.processing import _lanuv_factor
+
+        _, wg = self._adapter()._load_building_info()
+        gdf = pd.DataFrame({
+            "Lastprofil": ["EFH", "MFH", "MFH", "GHD", "EFH", None],
+            "BAK": ["B", "L", "nan", "B", "K", "B"],
+        })
+        assert _lanuv_factor(gdf, wg).tolist() == [1.137, 1.244, 1.0, 1.0, 1.334, 1.0]
+        # a table without the factors (own building_age_classes.json) leaves the demand as it is
+        assert _lanuv_factor(gdf, wg.drop(columns=["faktor_lanuv_efh", "faktor_lanuv_mfh"])).eq(1.0).all()
+
     def test_process_buildings_keeps_dataset_and_calculated_heat_demand(self):
         db, wg = self._adapter()._load_building_info()
         raw = gpd.GeoDataFrame(
@@ -596,7 +608,8 @@ class TestBundledReferenceData:
         out = process_buildings(raw, parcels, db, wg, "RW_WW")
         # 1900 → BAK "B"; EFH → NF × waerme_efh_kwh_m2a of class "B"
         expected = 100.0 * wg.loc[wg["Baualtersklasse"] == "B", "waerme_efh_kwh_m2a"].iloc[0]
-        assert out[cols.HEAT_DEMAND_DATASET].iloc[0] == pytest.approx(10000.0)
+        # the LANUV useful heat × the factor to final energy of class "B", EFH
+        assert out[cols.HEAT_DEMAND_DATASET].iloc[0] == pytest.approx(10000.0 * 1.137)
         assert out[cols.HEAT_DEMAND_CALCULATED].iloc[0] == pytest.approx(expected)
         assert out[cols.HEAT_DEMAND].iloc[0] == pytest.approx(expected)
 

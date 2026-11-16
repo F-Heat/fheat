@@ -318,6 +318,9 @@ Wohngebäudebestands*, v1.2, Institut Wohnen und Umwelt,
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). F|Heat averages the
 EFH and MFH variants weighted by their living area, maps each age class to the
 IWU class of its years and takes the floor area of WBM-NRW as living area.
+Because LANUV's `RW_WW` is useful heat, the adapter multiplies it for EFH and
+MFH by the IWU ratio final energy ÷ useful heat of their age class
+(1.12–1.36), so `"dataset"` also means final energy with district heating.
 The cells used and every step are in
 [docs/age_class_values.md](docs/age_class_values.md);
 [`scripts/derive_age_classes.py`](scripts/derive_age_classes.py) repeats them

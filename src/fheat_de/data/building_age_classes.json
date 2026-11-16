@@ -2,61 +2,85 @@
   "A": {
     "baujahre": "bis 1918",
     "waerme_efh_kwh_m2a": 233.0,
-    "waerme_mfh_kwh_m2a": 169.7
+    "waerme_mfh_kwh_m2a": 169.7,
+    "faktor_lanuv_efh": 1.137,
+    "faktor_lanuv_mfh": 1.116
   },
   "B": {
     "baujahre": "bis 1918",
     "waerme_efh_kwh_m2a": 233.0,
-    "waerme_mfh_kwh_m2a": 169.7
+    "waerme_mfh_kwh_m2a": 169.7,
+    "faktor_lanuv_efh": 1.137,
+    "faktor_lanuv_mfh": 1.116
   },
   "C": {
     "baujahre": "1919-1948",
     "waerme_efh_kwh_m2a": 230.3,
-    "waerme_mfh_kwh_m2a": 171.3
+    "waerme_mfh_kwh_m2a": 171.3,
+    "faktor_lanuv_efh": 1.14,
+    "faktor_lanuv_mfh": 1.118
   },
   "D": {
     "baujahre": "1949-1957",
     "waerme_efh_kwh_m2a": 208.1,
-    "waerme_mfh_kwh_m2a": 150.7
+    "waerme_mfh_kwh_m2a": 150.7,
+    "faktor_lanuv_efh": 1.154,
+    "faktor_lanuv_mfh": 1.13
   },
   "E": {
     "baujahre": "1958-1968",
     "waerme_efh_kwh_m2a": 208.1,
-    "waerme_mfh_kwh_m2a": 150.7
+    "waerme_mfh_kwh_m2a": 150.7,
+    "faktor_lanuv_efh": 1.154,
+    "faktor_lanuv_mfh": 1.13
   },
   "F": {
     "baujahre": "1969-1978",
     "waerme_efh_kwh_m2a": 208.1,
-    "waerme_mfh_kwh_m2a": 150.7
+    "waerme_mfh_kwh_m2a": 150.7,
+    "faktor_lanuv_efh": 1.154,
+    "faktor_lanuv_mfh": 1.13
   },
   "G": {
     "baujahre": "1979-1983",
     "waerme_efh_kwh_m2a": 183.9,
-    "waerme_mfh_kwh_m2a": 153.4
+    "waerme_mfh_kwh_m2a": 153.4,
+    "faktor_lanuv_efh": 1.172,
+    "faktor_lanuv_mfh": 1.126
   },
   "H": {
     "baujahre": "1984-1994",
     "waerme_efh_kwh_m2a": 183.9,
-    "waerme_mfh_kwh_m2a": 153.4
+    "waerme_mfh_kwh_m2a": 153.4,
+    "faktor_lanuv_efh": 1.172,
+    "faktor_lanuv_mfh": 1.126
   },
   "I": {
     "baujahre": "1995-2001",
     "waerme_efh_kwh_m2a": 144.4,
-    "waerme_mfh_kwh_m2a": 126.8
+    "waerme_mfh_kwh_m2a": 126.8,
+    "faktor_lanuv_efh": 1.22,
+    "faktor_lanuv_mfh": 1.153
   },
   "J": {
     "baujahre": "2002-2009",
     "waerme_efh_kwh_m2a": 119.1,
-    "waerme_mfh_kwh_m2a": 104.2
+    "waerme_mfh_kwh_m2a": 104.2,
+    "faktor_lanuv_efh": 1.271,
+    "faktor_lanuv_mfh": 1.186
   },
   "K": {
     "baujahre": "2010-2015",
     "waerme_efh_kwh_m2a": 99.7,
-    "waerme_mfh_kwh_m2a": 84.7
+    "waerme_mfh_kwh_m2a": 84.7,
+    "faktor_lanuv_efh": 1.334,
+    "faktor_lanuv_mfh": 1.229
   },
   "L": {
     "baujahre": "ab 2016",
     "waerme_efh_kwh_m2a": 94.2,
-    "waerme_mfh_kwh_m2a": 79.6
+    "waerme_mfh_kwh_m2a": 79.6,
+    "faktor_lanuv_efh": 1.36,
+    "faktor_lanuv_mfh": 1.244
   }
 }

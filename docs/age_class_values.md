@@ -2,7 +2,8 @@
 
 Where the EFH and MFH values in
 [`src/fheat_de/data/building_age_classes.json`](../src/fheat_de/data/building_age_classes.json)
-(`waerme_efh_kwh_m2a`, `waerme_mfh_kwh_m2a`) come from and how they were derived.
+(`waerme_efh_kwh_m2a`, `waerme_mfh_kwh_m2a`, and the LANUV factors
+`faktor_lanuv_efh`, `faktor_lanuv_mfh`) come from and how they were derived.
 [`scripts/derive_age_classes.py`](../scripts/derive_age_classes.py) repeats every
 step below and checks the JSON against the source.
 
@@ -39,8 +40,9 @@ conditions** of the TABULA method:
   to it for buildings from 2002 on.
 
 LANUV's `RW_WW` of WBM-NRW is useful heat ("Raumwärmebedarf (Nutzenergie)"
-plus hot water). With `heat_demand_basis="dataset"` the demand of a building
-is therefore lower than with `"calculated"`.
+plus hot water). So that `heat_demand_basis="dataset"` means final energy as
+well, the NRW adapter multiplies it by a factor, see
+[Factor for the LANUV data](#factor-for-the-lanuv-data).
 
 ## Source
 
@@ -69,13 +71,18 @@ construction, with the TABULA method.
 |---|---|---|
 | Final energy district heating, heating + hot water [kWh/(m²·a) living area] | `Tabellen Anhang C` | column `AH`, rows 21–74 |
 | Living area of the German stock [Mio. m²] | `Tabellen Anhang A` | column `H`, rows 53–106 |
+| Useful heat, heating and hot water [kWh/(m²·a) living area] (only for the LANUV factor) | `Tabellen Anhang C` | columns `L` and `M`, rows 21–74 |
 
 In `Tabellen Anhang C` column `AH` belongs to the block "(Teil-)Energiekennwerte
 für monovalente Zentralheizsysteme – Niedertemperaturkessel / Heizöl und
 Fernwärme, TABULA-Berechnung mit Standardrandbedingungen" (cell `W5`), supply
 system "Fernwärme" (cell `AF8`), column "Heizung + Warmwasser" of
 "Endenergiebedarf" (cell `AH10`), rows of the "Differenziertes Modell 2025".
-The auxiliary energy (column `AI`, electricity) is not included. Both sheets
+The auxiliary energy (column `AI`, electricity) is not included. Columns `L`
+("Heizung") and `M` ("Warmwasser") of "Nutzwärmebedarf" (cells `L10`, `M10`)
+belong to the block "… – Brennwert-Kessel / Erdgas, TABULA-Berechnung mit
+Standardrandbedingungen" (cell `E5`); the useful heat is the same for every
+supply system. Both sheets
 list six building variants with nine age classes each:
 
 | Variant | Anhang C rows | Anhang A rows | F\|Heat type |
@@ -170,6 +177,45 @@ slightly (e.g. G 1979–1987, H 1988–1993).
 3. For a building of this class with 100 m² footprint and 2 storeys:
    floor area 0.7 × 100 × 2 = 140 m², heat demand 140 × 233.0 = 32,620 kWh/a,
    thermal power 32,620 / 1,600 full load hours (Wohnhaus) = 20.4 kW.
+
+## Factor for the LANUV data
+
+LANUV's `RW_WW` is useful heat, the values above are final energy with
+district heating. With `heat_demand_basis="dataset"` the NRW adapter
+multiplies `RW_WW` of every building with load profile EFH or MFH by the
+factor of its age class and type (`fheat_nrw.processing._lanuv_factor`), so
+both bases mean the heat the network delivers. This also applies to
+buildings added from ALKIS, whose demand comes from LANUV's specific demand
+(`fheat_nrw.building_gaps`). Non-residential buildings, buildings without an
+age class and an own `building_age_classes.json` without the factors keep
+the LANUV value.
+
+1. Per variant and IWU class: final energy district heating (`AH`) ÷ useful
+   heat (`L` + `M`), both with standard boundary conditions.
+2. The plain mean of the three EFH and of the three MFH variants, **not**
+   weighted by living area (the method agreed in the project; weighting would
+   give 0.002–0.013 lower factors). L takes the plain mean of the six values
+   of 2016–2020 and 2021–2025.
+3. Rounding to three decimals.
+
+| Class | EFH | MFH |
+|---|---|---|
+| A, B | 1.137 | 1.116 |
+| C | 1.140 | 1.118 |
+| D, E, F | 1.154 | 1.130 |
+| G, H | 1.172 | 1.126 |
+| I | 1.220 | 1.153 |
+| J | 1.271 | 1.186 |
+| K | 1.334 | 1.229 |
+| L | 1.360 | 1.244 |
+
+The factor grows for newer buildings: their useful heat is small, while the
+losses in the building (distribution, storage, circulation) stay similar.
+
+Example EFH, class A/B: 244.0 / 216.9 = 1.125 (freistehend),
+219.0 / 192.4 = 1.138 (Doppelhaushälfte), 205.4 / 179.0 = 1.147 (Reihenhaus);
+mean (1.125 + 1.138 + 1.147) / 3 = **1.137**. A building with `RW_WW`
+= 30,000 kWh/a gets 34,110 kWh/a.
 
 ## Repeat or check
 

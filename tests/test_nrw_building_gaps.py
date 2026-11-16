@@ -200,4 +200,5 @@ class TestProcessing:
         assert new[cols.CONSTRUCTION_CLASS] == "L"
         expected = 140.0 * wg.loc[wg["Baualtersklasse"] == "L", "waerme_efh_kwh_m2a"].iloc[0]
         assert new[cols.HEAT_DEMAND_CALCULATED] == pytest.approx(expected)
-        assert new[cols.HEAT_DEMAND_DATASET] == pytest.approx(140.0 * 60.0)
+        # the LANUV specific demand (useful heat) × the factor to final energy of class L, EFH
+        assert new[cols.HEAT_DEMAND_DATASET] == pytest.approx(140.0 * 60.0 * 1.360)
