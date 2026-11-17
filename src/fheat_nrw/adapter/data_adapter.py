@@ -694,11 +694,10 @@ class NRWDataAdapter(DataAdapter):
                 f"Keine NRW-Daten fuer Gemeindeschluessel '{municipality_key}' gefunden."
             )
 
-        raw_buildings = dl.read_shapefile_from_zip(
-            dl.URL_BUILDINGS, buildings_zip, f"WBM-NRW_{padded_key}"
-        )
-        raw_streets = dl.read_shapefile_from_zip(
-            dl.URL_BUILDINGS, buildings_zip, f"WBM-NRW-Waermelinien_{padded_key}"
+        zip_path = dl.cached_file(dl.URL_BUILDINGS, buildings_zip, self._cache_dir, all_files)
+        raw_buildings = gpd.read_file(cache.vector_source(zip_path, f"WBM-NRW_{padded_key}"), encoding="utf-8")
+        raw_streets = gpd.read_file(
+            cache.vector_source(zip_path, f"WBM-NRW-Waermelinien_{padded_key}"), encoding="utf-8"
         )
 
         # Download parcels via WFS

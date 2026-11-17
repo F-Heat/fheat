@@ -3,15 +3,12 @@ from __future__ import annotations
 
 import ast
 import json
-import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
 from importlib.metadata import PackageNotFoundError, version
-from io import BytesIO
 from pathlib import Path
 from typing import Optional
-from zipfile import BadZipFile, ZipFile
 
 import geopandas as gpd
 import pandas as pd
@@ -179,33 +176,6 @@ def search_filename(files: list, city_id: str) -> str:
         if str(city_id) in item.get("name", ""):
             return item["name"]
     return "No data found"
-
-
-def read_shapefile_from_zip(
-    url: str,
-    zipfile_name: str,
-    file_pattern: str,
-    encoding: str = "utf-8",
-) -> gpd.GeoDataFrame:
-    full_url = url + zipfile_name
-    try:
-        with urllib.request.urlopen(full_url, timeout=HTTP_TIMEOUT) as resp:
-            zip_bytes = resp.read()
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise RuntimeError(f"ZIP-Download von '{full_url}' fehlgeschlagen: {e}") from e
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with ZipFile(BytesIO(zip_bytes)) as z:
-                z.extractall(temp_dir)
-                matching = [f for f in z.namelist() if file_pattern in f and f.endswith(".shp")]
-                if not matching:
-                    raise RuntimeError(
-                        f"In ZIP '{zipfile_name}' wurde kein Shapefile mit "
-                        f"Muster '{file_pattern}.shp' gefunden."
-                    )
-                return gpd.read_file(str(Path(temp_dir) / matching[0]), encoding=encoding)
-    except BadZipFile as e:
-        raise RuntimeError(f"ZIP-Datei '{zipfile_name}' ist beschaedigt: {e}") from e
 
 
 def get_parcels_from_wfs(wfs_url: str, key: str, bbox, layer_name: str) -> gpd.GeoDataFrame:
