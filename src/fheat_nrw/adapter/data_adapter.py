@@ -689,6 +689,13 @@ class NRWDataAdapter(DataAdapter):
                 dl.get_parcels_from_wfs(dl.URL_PARCELS, row.schluessel, row.bbox, dl.LAYER_PARCELS)
             )
         parcels = pd.concat(parcel_list, ignore_index=True)
+        # without parcels there is no district outline; never fall back to the whole municipality
+        if parameter == "city" and parcels.empty:
+            keys = ", ".join(filtered["schluessel"].astype(str))
+            raise RuntimeError(
+                f"Keine Flurstuecke fuer Gemarkung {keys} vom WFS erhalten; "
+                "der Bezirk kann nicht abgegrenzt werden."
+            )
 
         # Repair geometries
         if not raw_buildings.empty:
@@ -697,7 +704,7 @@ class NRWDataAdapter(DataAdapter):
             parcels["geometry"] = parcels["geometry"].buffer(0)
 
         # Clip to the district outline if applicable
-        if parameter == "city" and not parcels.empty:
+        if parameter == "city":
             self._boundary = boundary_from_parcels(parcels)
             raw_buildings = clip_to_boundary(raw_buildings, self._boundary)
             raw_streets = clip_to_boundary(raw_streets, self._boundary)

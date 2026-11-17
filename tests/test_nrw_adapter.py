@@ -147,6 +147,27 @@ class TestFilterCities:
             NRWDataAdapter._filter_cities("Z", df, "city")
 
 
+class TestDistrictWithoutParcels:
+    def test_district_without_parcels_is_an_error(self, monkeypatch):
+        """No parcels from the WFS must not turn a district run into a municipality run."""
+        from fheat_nrw import download as dl
+
+        cities = pd.DataFrame({
+            "name": ["Burgsteinfurt"], "gemeinde": ["Steinfurt"],
+            "schluessel": ["55190"], "gmdschl": ["5566084"], "bbox": [(0, 0, 1, 1)],
+        })
+        raw = gpd.GeoDataFrame(geometry=[box(0, 0, 1, 1)], crs=CRS)
+        monkeypatch.setattr(dl, "file_list_from_url", lambda url: [])
+        monkeypatch.setattr(dl, "search_filename", lambda files, key: "x.zip")
+        monkeypatch.setattr(dl, "read_shapefile_from_zip", lambda *a: raw.copy())
+        monkeypatch.setattr(dl, "get_parcels_from_wfs", lambda *a: gpd.GeoDataFrame(geometry=[], crs=CRS))
+        adapter = NRWDataAdapter(district_key=55190)
+        monkeypatch.setattr(adapter, "_load_cities", lambda: cities)
+
+        with pytest.raises(RuntimeError, match="Keine Flurstuecke fuer Gemarkung 55190"):
+            adapter.fetch_buildings()
+
+
 class TestBuildSource:
     def test_reprojects_wgs84_to_target_crs(self):
         adapter = NRWDataAdapter(
