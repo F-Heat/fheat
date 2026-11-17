@@ -237,6 +237,28 @@ N_UNITS = "n_units"                          # number of units in the cluster
 MAX_INTERNAL_DISTANCE = "max_internal_distance"  # largest distance of two units in the cluster [m]
 MASTR_UNIT_IDS = "mastr_unit_ids"            # MaStR numbers of the units in the cluster, "; "-separated
 
+# Census 2022 100 m grid (fheat_de.census): dwellings per cell by the main
+# heating type and the energy carrier of the heating of their building
+# (Stichtag 15.05.2022)
+CENSUS_CELL_ID = "census_cell_id"            # INSPIRE grid id, e.g. CRS3035RES100mN2862000E4421200
+HEATING_TOTAL = "heating_total"
+HEATING_DISTRICT = "heating_district"        # Fernheizung
+HEATING_FLOOR = "heating_floor"              # Etagenheizung
+HEATING_BLOCK = "heating_block"              # Blockheizung
+HEATING_CENTRAL = "heating_central"          # Zentralheizung
+HEATING_STOVES = "heating_stoves"            # Einzel-/Mehrraumöfen
+HEATING_NONE = "heating_none"                # keine Heizung
+CARRIER_TOTAL = "carrier_total"
+CARRIER_GAS = "carrier_gas"
+CARRIER_OIL = "carrier_oil"
+CARRIER_WOOD = "carrier_wood"                # Holz, Holzpellets
+CARRIER_BIOMASS = "carrier_biomass"          # Biomasse, Biogas
+CARRIER_SOLAR_HEAT_PUMP = "carrier_solar_heat_pump"  # Solar, Geothermie, Wärmepumpen
+CARRIER_ELECTRICITY = "carrier_electricity"
+CARRIER_COAL = "carrier_coal"
+CARRIER_DISTRICT_HEAT = "carrier_district_heat"
+CARRIER_NONE = "carrier_none"
+
 
 # ============================================================
 # Internal geometry helper columns
@@ -564,6 +586,25 @@ LABELS_DE: dict[str, str] = {
     N_UNITS: "Anzahl BHKW",
     MAX_INTERNAL_DISTANCE: "Groesster Abstand [m]",
     MASTR_UNIT_IDS: "MaStR-Nrn",
+    # Census 2022: the column names of the Destatis tables
+    CENSUS_CELL_ID: "GITTER_ID_100m",
+    HEATING_TOTAL: "Insgesamt_Heizungsart",
+    HEATING_DISTRICT: "Fernheizung",
+    HEATING_FLOOR: "Etagenheizung",
+    HEATING_BLOCK: "Blockheizung",
+    HEATING_CENTRAL: "Zentralheizung",
+    HEATING_STOVES: "Einzel_Mehrraumoefen",
+    HEATING_NONE: "keine_Heizung",
+    CARRIER_TOTAL: "Insgesamt_Energietraeger",
+    CARRIER_GAS: "Gas",
+    CARRIER_OIL: "Heizoel",
+    CARRIER_WOOD: "Holz_Holzpellets",
+    CARRIER_BIOMASS: "Biomasse_Biogas",
+    CARRIER_SOLAR_HEAT_PUMP: "Solar_Geothermie_Waermepumpen",
+    CARRIER_ELECTRICITY: "Strom",
+    CARRIER_COAL: "Kohle",
+    CARRIER_DISTRICT_HEAT: "Fernwaerme",
+    CARRIER_NONE: "kein_Energietraeger",
 }
 
 

@@ -11,7 +11,7 @@ from shapely.geometry import Point, box
 
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
-from fheat_de import biogas, mastr
+from fheat_de import biogas, census, mastr
 from fheat_eu.loader import HeatSourceLoader
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,11 @@ class FlexDataAdapter(DataAdapter):
         Umkreis je Wärmequelle in m (Standard: Höchstabstände des Papers).
     fordatis_path : Path | None
         Eigener Ordner mit den Fordatis-Dateien (statt des Downloads).
+    download_census : bool
+        Wenn True, werden die 100-m-Zellen des Zensus 2022 in der Box der
+        Gebäude geladen: Wohnungen je Zelle nach Heizungsart und nach
+        Energieträger der Heizung ihres Gebäudes (Destatis, einmal in den Zwischenspeicher). Standard
+        False. Fehler → Warnung, kein Layer.
     cache_dir : Path | None
         Ordner für die Downloads (Standard: ``FHEAT_CACHE_DIR`` oder
         ``~/.cache/fheat``).
@@ -88,6 +93,7 @@ class FlexDataAdapter(DataAdapter):
         lau_id: Optional[str] = None,
         heat_source_buffers: Optional[dict] = None,
         fordatis_path: Optional[Union[str, Path]] = None,
+        download_census: bool = False,
         cache_dir: Optional[Union[str, Path]] = None,
     ) -> None:
         self._buildings_path = Path(buildings_path)
@@ -102,6 +108,9 @@ class FlexDataAdapter(DataAdapter):
         self._heat_source_buffers = dict(heat_source_buffers or {})
         self._fordatis_path = Path(fordatis_path) if fordatis_path is not None else None
         self._cache_dir = Path(cache_dir) if cache_dir is not None else None
+        self._download_census = bool(download_census)
+        self._census: Optional[gpd.GeoDataFrame] = None
+        self._census_loaded = False
         self._heat_layers: dict = {}
         self._heat_loader: Optional[HeatSourceLoader] = None
 
@@ -163,6 +172,18 @@ class FlexDataAdapter(DataAdapter):
 
     def fetch_biogas_clusters(self) -> Optional[gpd.GeoDataFrame]:
         return self._heat_source("biogas_clusters")
+
+    def fetch_census(self) -> Optional[gpd.GeoDataFrame]:
+        """Census 2022 cells in the box of the buildings (None without download_census or on failure)."""
+        if not self._census_loaded and self._download_census:
+            buildings = self.fetch_buildings()
+            try:
+                cells = census.read_census(box(*buildings.total_bounds), buildings.crs, self._cache_dir)
+                self._census = None if cells.empty else cells
+            except Exception as e:  # network/IO dependent: never stop the pipeline
+                logger.warning("Zensus 2022 konnte nicht geladen werden (%s) — kein Layer.", e)
+        self._census_loaded = True
+        return self._census
 
     # ------------------------------------------------------------------
     # Heat sources (fheat_eu), loaded once per layer

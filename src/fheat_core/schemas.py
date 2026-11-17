@@ -493,6 +493,23 @@ BiogasClustersSchema = FrameSchema(
     geometry_type="Polygon",
 )
 
+CensusSchema = FrameSchema(
+    name="Census",
+    required_columns={
+        cols.CENSUS_CELL_ID: "str",
+        **{column: "int" for column in (
+            cols.HEATING_TOTAL, cols.HEATING_DISTRICT, cols.HEATING_FLOOR, cols.HEATING_BLOCK,
+            cols.HEATING_CENTRAL, cols.HEATING_STOVES, cols.HEATING_NONE,
+            cols.CARRIER_TOTAL, cols.CARRIER_GAS, cols.CARRIER_OIL, cols.CARRIER_WOOD, cols.CARRIER_BIOMASS,
+            cols.CARRIER_SOLAR_HEAT_PUMP, cols.CARRIER_ELECTRICITY, cols.CARRIER_COAL,
+            cols.CARRIER_DISTRICT_HEAT, cols.CARRIER_NONE,
+        )},
+        "geometry": "Polygon",
+    },
+    optional_columns={cols.DATA_SOURCE: "str"},
+    geometry_type="Polygon",
+)
+
 
 @dataclass(frozen=True)
 class ResultSummarySchema:

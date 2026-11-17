@@ -155,6 +155,14 @@ class DataAdapter(ABC):
         """Optional: clusters (areas) of the units of :meth:`fetch_biogas`, chains of at most 3 km."""
         return None
 
+    def fetch_census(self) -> Optional[gpd.GeoDataFrame]:
+        """Optional: Census 2022 cells (100 m) in the area, information for the planner.
+
+        Dwellings per cell by the heating type (``heating_*``) and the energy
+        carrier (``carrier_*``) of their building, see :mod:`fheat_de.census`.
+        """
+        return None
+
     # Optional data — default implementation returns None;
     # the core then loads its own default.
     def provide_pipe_info(self) -> Optional[pd.DataFrame]:

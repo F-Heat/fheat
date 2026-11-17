@@ -17,7 +17,7 @@ from fheat_core import cache, cancel
 from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 
-from fheat_de import biogas, mastr
+from fheat_de import biogas, census, mastr
 from fheat_eu.loader import HeatSourceLoader
 from fheat_nrw import building_gaps as gaps_mod
 from fheat_nrw import download as dl
@@ -183,6 +183,11 @@ class NRWDataAdapter(DataAdapter):
         nichts geladen.
     wastewater_path : Path | None
         Lokale Datei der LANUK-Kläranlagen. Hat Vorrang vor dem Download.
+    download_census : bool
+        Wenn True (Standard), werden die 100-m-Zellen des Zensus 2022 im
+        Gebiet geladen: Wohnungen je Zelle nach Heizungsart und nach
+        Energieträger der Heizung ihres Gebäudes (Destatis, 2 ZIPs mit 46 MB, einmal in den
+        Zwischenspeicher). Fehler → Warnung, kein Layer.
     cache_dir : Path | None
         Ordner für große Downloads (Standard: ``FHEAT_CACHE_DIR`` oder
         ``~/.cache/fheat``).
@@ -222,6 +227,7 @@ class NRWDataAdapter(DataAdapter):
         heat_source_buffers: Optional[dict] = None,
         fordatis_path: Optional[Path] = None,
         wastewater_path: Optional[Path] = None,
+        download_census: bool = True,
         cache_dir: Optional[Path] = None,
     ) -> None:
         if not municipality_name and not city_name and not district_key:
@@ -261,6 +267,7 @@ class NRWDataAdapter(DataAdapter):
         self._heat_source_buffers = dict(heat_source_buffers or {})
         self._fordatis_path = _optional_path(fordatis_path)
         self._wastewater_path = _optional_path(wastewater_path)
+        self._download_census = bool(download_census)
         self._cache_dir = _optional_path(cache_dir)
         self._heat_source_loader: Optional[HeatSourceLoader] = None
 
@@ -404,6 +411,13 @@ class NRWDataAdapter(DataAdapter):
             "Biogas-Cluster konnten nicht gebildet werden (%s) — kein Layer.",
         )
 
+    def fetch_census(self) -> Optional[gpd.GeoDataFrame]:
+        """Census 2022 cells (heating type, energy carrier) in the loaded area (None on failure)."""
+        return self._optional_layer(
+            "census", self._load_census,
+            "Zensus 2022 konnte nicht geladen werden (%s) — kein Layer. download_census=False zum Abschalten.",
+        )
+
     # ------------------------------------------------------------------
     # Internal: optional layers (civil works, potentials)
     # ------------------------------------------------------------------
@@ -539,6 +553,11 @@ class NRWDataAdapter(DataAdapter):
     def _load_biogas_clusters(self) -> Optional[gpd.GeoDataFrame]:
         units = self.fetch_biogas()
         return None if units is None else biogas.biogas_clusters(units)
+
+    def _load_census(self) -> Optional[gpd.GeoDataFrame]:
+        if not self._download_census:
+            return None
+        return self._to_area_crs(census.read_census(self._area_outline(), LANDUSE_BBOX_CRS, self._cache_dir))
 
     def _heat_source_layer(self, key: str, label: str):
         """A layer of :class:`fheat_eu.loader.HeatSourceLoader` (method ``key``), None on failure."""
