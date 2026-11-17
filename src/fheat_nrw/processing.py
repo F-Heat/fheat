@@ -61,7 +61,11 @@ def process_buildings(
     with different addresses are not merged.
 
     Steps: filter heat>0 → LANUV type/age → merge → spatial-join with parcels →
-    BAK → Vlh + Lastprofil → custom heat demand → power → Anschluss → rename.
+    BAK → Vlh + Lastprofil → calculated heat demand → power → Anschluss → rename.
+
+    ``heat_demand`` and ``thermal_power`` come from ``heat_attribute`` (the
+    data source value), as in the QGIS plugin; the calculated heat demand
+    (floor area × specific demand) is only an extra column.
     """
     bld = raw.copy()
 
@@ -92,13 +96,10 @@ def process_buildings(
             bld = bld[bld["Lastprofil"].notna()].copy()
         # heat_col may be renamed by merge; re-resolve
         heat_col = _resolve_heat_col(bld, heat_attribute)
-        # the custom heat demand overrides heat_col; keep the data source value
-        bld["_heat_dataset"] = bld[heat_col]
-        bld = _add_custom_heat_demand(bld, wg_demand_data, building_info_db, heat_col)
+        bld = _add_custom_heat_demand(bld, wg_demand_data, building_info_db)
         bld = _add_power(bld, heat_col)
     else:
         bld["new_ID"] = bld.index.astype("int32")
-        bld["_heat_dataset"] = bld[heat_col]
         bld["Lastprofil"] = pd.NA
         bld["Vlh"] = 1600
         bld["power_th"] = bld[heat_col] / bld["Vlh"]
@@ -338,9 +339,12 @@ def _add_custom_heat_demand(
     gdf: gpd.GeoDataFrame,
     wg_data: pd.DataFrame,
     info_db: pd.DataFrame,
-    heat_col: str,
 ) -> gpd.GeoDataFrame:
-    """Recompute Waermebedarf based on WG/NWG-specific factors × NF."""
+    """Add the calculated heat demand ``Waermebedarf`` = NF × specific demand.
+
+    Specific demand: of the age class (EFH/MFH) or of the function (others).
+    The heat column of the data source stays unchanged.
+    """
     if "NF" not in gdf.columns or "Lastprofil" not in gdf.columns:
         return gdf
     if "BAK" not in gdf.columns:
@@ -382,9 +386,6 @@ def _add_custom_heat_demand(
         errors="ignore",
     )
     merged["Waermebedarf"] = merged["NF"] * merged["Spez_Waermebedarf"]
-    # Override original heat column with custom value where it's available
-    mask = merged["Waermebedarf"].notna() & (merged["Waermebedarf"] > 0)
-    merged.loc[mask, heat_col] = merged.loc[mask, "Waermebedarf"]
     return merged
 
 
@@ -416,8 +417,7 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
     out[cols.LOAD_PROFILE] = gdf["Lastprofil"].astype("string") if "Lastprofil" in gdf.columns else pd.NA
 
     # Optional columns
-    if "_heat_dataset" in gdf.columns:
-        out[cols.HEAT_DEMAND_DATASET] = gdf["_heat_dataset"].astype("float64")
+    out[cols.HEAT_DEMAND_DATASET] = out[cols.HEAT_DEMAND]
     if "Waermebedarf" in gdf.columns:
         out[cols.HEAT_DEMAND_CALCULATED] = gdf["Waermebedarf"].astype("float64")
     if "citygml_fu" in gdf.columns:

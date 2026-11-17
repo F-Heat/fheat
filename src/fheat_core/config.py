@@ -106,10 +106,11 @@ class FHeatConfig:
     buffer_distance: float = 50.0
 
     # Which heat demand of the buildings the pipeline uses, when the adapter
-    # provides both: "calculated" (floor area × specific demand of the age
-    # class, the data source value where none can be calculated) or "dataset"
-    # (the value of the data source, for NRW the LANUV RW_WW).
-    heat_demand_basis: str = "calculated"
+    # provides both: "dataset" (the value of the data source, for NRW the
+    # LANUV RW_WW, as in the QGIS plugin) or "calculated" (floor area ×
+    # specific demand of the age class, the data source value where none can
+    # be calculated).
+    heat_demand_basis: str = "dataset"
 
     # Share of the standardised pipe costs that is civil works (trench,
     # backfill, surface restoration). Only this share is multiplied by the

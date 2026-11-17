@@ -284,7 +284,7 @@ config = FHeatConfig(
     return_temperature=50.0,
     wld_threshold=500.0,     # kWh/(a·m)
     buffer_distance=50.0,    # m
-    heat_demand_basis="calculated",  # or "dataset" (the LANUV RW_WW value)
+    heat_demand_basis="dataset",     # the LANUV RW_WW value, or "calculated"
     year=2022,
     output_dir="./output",
 )
@@ -301,9 +301,10 @@ The NRW adapter keeps two heat demands per building: the value of the data
 source (`heat_demand_dataset`, the LANUV `RW_WW`) and the calculated one
 (`heat_demand_calculated`: floor area × specific demand of the construction
 age class). `heat_demand_basis` chooses which one the pipeline uses from the
-adjust step on (`"calculated"` falls back to the data source value where no
-specific demand exists); the thermal power is then heat demand ÷ full load
-hours. The QGIS plugin offers the same choice as `RW_WW [kWh/a]` / `WB [kWh/a]`.
+adjust step on, for the heat demand, the thermal power (heat demand ÷ full
+load hours), the heat densities and the network. The default `"dataset"`
+uses `RW_WW` as the QGIS plugin does; `"calculated"` falls back to the data
+source value where no specific demand exists.
 
 The adapter downloads a whole municipality (`municipality_name`) or a whole
 district (*Gemarkung*: `city_name`, or the unique `district_key` from the
