@@ -128,6 +128,7 @@ def estimate_gaps(
 ) -> gpd.GeoDataFrame:
     """The gaps as WBM-NRW buildings (see the module docstring); empty without new WBM-NRW buildings."""
     heat_col = _resolve_heat_col(raw, heat_attribute)
+    spez_col = heat_col.removesuffix(" [kWh/a]") + "_spez"
     homes = raw[(raw["WG_NWG"] == "WG") & (raw[heat_col] > 0)]
     kind = homes["GEBAEUDETY"].astype(str).str.split("_", n=1, expand=True).reindex(columns=[0, 1])
     age = pd.to_numeric(kind[1], errors="coerce")
@@ -137,7 +138,7 @@ def estimate_gaps(
     new_storeys = homes.loc[(age >= NEW_SINCE) & (homes["STKW"] > 0), "STKW"]
     assumed_storeys = max(1, int(round(new_storeys.median()))) if not new_storeys.empty else 2
     newest = age == newest_age
-    specific_by_type = homes.loc[newest, "RW_WW_spez"].groupby(kind.loc[newest, 0]).median()
+    specific_by_type = homes.loc[newest, spez_col].groupby(kind.loc[newest, 0]).median()
     efh_limit = homes.loc[kind[0] == "EFH", "NF"].max()
     mfh_limit = homes.loc[kind[0] == "MFH", "NF"].max()
 
@@ -155,7 +156,7 @@ def estimate_gaps(
     building_type = pd.Series(
         np.where(floor_area > mfh_limit, "GMFH", np.where(floor_area > efh_limit, "MFH", "EFH")), index=gaps.index
     )
-    specific = building_type.map(specific_by_type).fillna(homes.loc[newest, "RW_WW_spez"].median())
+    specific = building_type.map(specific_by_type).fillna(homes.loc[newest, spez_col].median())
     return gpd.GeoDataFrame(
         {
             "gml_id": gaps["oid"],
@@ -166,7 +167,7 @@ def estimate_gaps(
             "Hoehe": heights,
             "STKW": storeys,
             "NF": floor_area,
-            "RW_WW_spez": specific,
+            spez_col: specific,
             heat_col: floor_area * specific,
             # an own parcel key: an added building is never merged with another one
             "Flurstueck": gaps["oid"],
