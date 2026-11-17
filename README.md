@@ -14,7 +14,7 @@ The repository is a monorepo of four installable packages:
 | [`fheat_nrw`](src/fheat_nrw/) | Adapter that **downloads NRW open geodata** (building heat model via OpenGeoData NRW, cadastral parcels via the ALKIS WFS) and processes it into schema-compliant frames. |
 | [`fheat_flex`](src/fheat_flex/) | Adapter for **user-supplied** GeoPackages, with a column mapping onto the core schema. Use this when you bring your own data. |
 | [`fheat_eu`](src/fheat_eu/) | **Europe-wide heat source data** (Fraunhofer ISI, Hotmaps) for any adapter: wastewater plants, industrial excess heat, waste incineration, rivers, hydrothermal. |
-| [`fheat_de`](src/fheat_de/) | **Germany-wide open data** for any adapter: biogas CHP units of the Marktstammdatenregister and their clusters; the estimate of a building added by hand from its ALKIS function, storeys and age class (`fheat_de.building_estimate`). |
+| [`fheat_de`](src/fheat_de/) | **Germany-wide open data** for any adapter: biogas CHP units of the Marktstammdatenregister and their clusters; the Census 2022 grid (heating type, energy carrier); the estimate of a building added by hand from its ALKIS function, storeys and age class (`fheat_de.building_estimate`). |
 
 All five are import packages shipped from a single distribution named `fheat` (see [Installation](#installation)). The whole logic is derived from the former QGIS plugin to adress the flexibility with other applications.
 
@@ -233,6 +233,10 @@ The result summary adds the sums around the area (`wastewater_*`, `industrial_he
 | Hotmaps Industrial Database (Fraunhofer ISI et al.) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | LANUK, Kommunale Kläranlagen NRW, `https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/abwasser/abwasser_kom/` | [Datenlizenz Deutschland – Zero 2.0](https://www.govdata.de/dl-de/zero-2-0) |
 | Bundesnetzagentur, Marktstammdatenregister, Gesamtdatenexport `https://download.marktstammdatenregister.de/Stichtag/` | [Datenlizenz Deutschland – Namensnennung 2.0](https://www.govdata.de/dl-de/by-2-0) |
+
+### Census 2022 (Zensus 2022)
+
+Like the QGIS plugin, the adapters can load the 100 m cells of the Census 2022 in the area (`census_gdf` / file `zensus`): **dwellings** (not buildings) per cell by the main heating type of their building (`heating_*`: district, floor, block, central heating, stoves, none) and by its energy carrier (`carrier_*`: gas, oil, wood, biomass, solar/geothermal/heat pumps, electricity, coal, district heat, none), Stichtag 15.05.2022. Source: Statistische Ämter des Bundes und der Länder, grid data at `https://www.destatis.de/static/DE/zensus/gitterdaten/` (two ZIPs, 46 MB, cached once; copying with source reference allowed). The values carry the noise of the census secrecy procedure, so the categories need not add up to the total; a value belongs to the cell of its address point. Information only, it changes no calculation. `NRWDataAdapter(..., download_census=False)` switches it off; `FlexDataAdapter(..., download_census=True)` switches it on (off by default).
 ### Temperature year (Temperaturjahr)
 
 The hourly outdoor temperatures only shape the load profile of the `RESULTS` step (profile, tables, charts); network, diameters and costs do not use them. Sources, first match wins:

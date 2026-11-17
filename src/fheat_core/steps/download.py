@@ -5,6 +5,7 @@ from fheat_core.algorithms.potentials import attach_potentials
 from fheat_core.schemas import (
     BiogasClustersSchema,
     BiogasSchema,
+    CensusSchema,
     GeothermalBlocksSchema,
     GeothermalCellsSchema,
     GeothermalDeepSchema,
@@ -48,6 +49,7 @@ def _fetch_potentials(state: PipelineState, adapter) -> None:
         "study_potentials_df": (adapter.fetch_study_potentials, StudyPotentialsSchema),
         "biogas_gdf": (adapter.fetch_biogas, BiogasSchema),
         "biogas_clusters_gdf": (adapter.fetch_biogas_clusters, BiogasClustersSchema),
+        "census_gdf": (adapter.fetch_census, CensusSchema),
     }
     for attr, (fetch, schema) in layers.items():
         gdf = fetch()

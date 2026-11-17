@@ -203,6 +203,7 @@ class FHeatOrchestrator:
             "waermenetzgebiete_studie": self.state.study_dh_areas_gdf,
             "biogas_bhkw": self.state.biogas_gdf,
             "biogas_cluster": self.state.biogas_clusters_gdf,
+            "zensus": self.state.census_gdf,
         }
         if layers is not None:
             wanted = set(layers)
