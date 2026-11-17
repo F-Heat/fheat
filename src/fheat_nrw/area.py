@@ -44,8 +44,14 @@ def district_boundary(parcels: gpd.GeoDataFrame, district_key) -> gpd.GeoDataFra
 
 
 def clip_to_boundary(gdf: gpd.GeoDataFrame, boundary: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Features intersecting the boundary (features on the border are kept whole)."""
-    if gdf.empty or boundary.empty:
+    """Features intersecting the boundary (features on the border are kept whole).
+
+    An empty boundary raises ``ValueError``: keeping everything would pass the
+    whole municipality off as the district.
+    """
+    if boundary.empty:
+        raise ValueError("Leerer Umriss: es gibt nichts, worauf zugeschnitten werden kann.")
+    if gdf.empty:
         return gdf
     if boundary.crs is not None and gdf.crs is not None and boundary.crs != gdf.crs:
         boundary = boundary.to_crs(gdf.crs)

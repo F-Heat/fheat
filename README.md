@@ -309,7 +309,10 @@ The adapter downloads a whole municipality (`municipality_name`) or a whole
 district (*Gemarkung*: `city_name`, or the unique `district_key` from the
 `schluessel` column of [`cities.csv`](src/fheat_nrw/data/cities.csv)). Some
 district names exist in several municipalities (e.g. *Altendorf*); `city_name`
-then raises and asks for the `district_key`. `source_coordinates` are only
+then raises and asks for the `district_key`. A district whose parcels the WFS
+does not return raises an error instead of falling back to the whole
+municipality; `clip_to_boundary` likewise raises on an empty outline.
+`source_coordinates` are only
 needed for the network step. `adapter.provide_boundary()` returns the outline
 of the downloaded area; [`fheat_nrw.area`](src/fheat_nrw/area.py) cuts a
 district out of an already downloaded municipality (`district_boundary`,

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import geopandas as gpd
+import pytest
 from shapely.geometry import LineString, box
 
 from fheat_nrw.area import (
@@ -65,6 +66,13 @@ def test_clip_keeps_features_crossing_the_border():
     assert len(clipped) == 1
     assert clipped.geometry.iloc[0].length == 45  # kept whole
     assert "index_right" not in clipped.columns
+
+
+def test_clip_to_an_empty_boundary_is_an_error():
+    """An unknown district key must not keep the whole municipality."""
+    lines = gpd.GeoDataFrame(geometry=[LineString([(5, 5), (8, 5)])], crs=CRS)
+    with pytest.raises(ValueError, match="Leerer Umriss"):
+        clip_to_boundary(lines, district_boundary(_parcels(), "99999"))
 
 
 def test_clip_with_several_boundary_rows_has_no_duplicates():
