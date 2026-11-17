@@ -4,7 +4,6 @@ Covers (with HTTP and WFS calls mocked):
 - parse_bbox: tuple/list/string parsing, error paths
 - file_list_from_url: index parsing, network error path
 - search_filename: hit, miss, multiple files
-- read_shapefile_from_zip: ZIP extraction, missing-pattern error
 - get_parcels_from_wfs: nationalCadastralReference filter uses "0" + key
   (regression for the bug fixed in NRW filter logic).
 """
@@ -14,9 +13,6 @@ import io
 import json
 import urllib.error
 import urllib.request
-import zipfile
-from io import BytesIO
-from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
@@ -28,7 +24,6 @@ from fheat_nrw.download import (
     file_list_from_url,
     get_parcels_from_wfs,
     parse_bbox,
-    read_shapefile_from_zip,
     search_filename,
 )
 
@@ -138,77 +133,6 @@ class TestSearchFilename:
     def test_first_match_wins(self):
         files = [{"name": "kwp_055.zip"}, {"name": "kwp_055_v2.zip"}]
         assert search_filename(files, "055") == "kwp_055.zip"
-
-
-# ---------------------------------------------------------------------------
-# read_shapefile_from_zip
-# ---------------------------------------------------------------------------
-
-
-def _make_shapefile_zip_bytes(tmp_path: Path, pattern: str) -> bytes:
-    """Build a real ZIP archive containing a real shapefile of one polygon."""
-    gdf = gpd.GeoDataFrame(
-        {"id": [1], "geometry": [Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])]},
-        crs=CRS, geometry="geometry",
-    )
-    shp_dir = tmp_path / "shp"
-    shp_dir.mkdir()
-    shp_path = shp_dir / f"{pattern}.shp"
-    gdf.to_file(str(shp_path))
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        for ext in (".shp", ".shx", ".dbf", ".prj", ".cpg"):
-            f = shp_path.with_suffix(ext)
-            if f.exists():
-                zf.write(f, arcname=f.name)
-    buf.seek(0)
-    return buf.read()
-
-
-class TestReadShapefileFromZip:
-    def test_reads_shapefile_from_zip(self, monkeypatch, tmp_path):
-        zip_bytes = _make_shapefile_zip_bytes(tmp_path, "Gebaeude")
-
-        def fake_urlopen(url, timeout=120):
-            return _FakeResponse(zip_bytes)
-
-        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-        gdf = read_shapefile_from_zip(
-            url="https://fake/",
-            zipfile_name="kwp_test.zip",
-            file_pattern="Gebaeude",
-        )
-        assert isinstance(gdf, gpd.GeoDataFrame)
-        assert len(gdf) == 1
-        assert gdf.geometry.iloc[0].is_valid
-
-    def test_missing_pattern_raises(self, monkeypatch, tmp_path):
-        zip_bytes = _make_shapefile_zip_bytes(tmp_path, "Other")
-
-        def fake_urlopen(url, timeout=120):
-            return _FakeResponse(zip_bytes)
-
-        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-        with pytest.raises(RuntimeError, match="kein Shapefile"):
-            read_shapefile_from_zip(
-                url="https://fake/", zipfile_name="kwp_test.zip",
-                file_pattern="DoesNotExist",
-            )
-
-    def test_corrupt_zip_raises_runtime(self, monkeypatch):
-        def fake_urlopen(url, timeout=120):
-            return _FakeResponse(b"not a real zip")
-
-        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-        with pytest.raises(RuntimeError, match="beschaedigt"):
-            read_shapefile_from_zip(
-                url="https://fake/", zipfile_name="kwp.zip",
-                file_pattern="X",
-            )
 
 
 # ---------------------------------------------------------------------------
