@@ -58,8 +58,8 @@ class TestOutputFormat:
 
 
 class TestHeatDemandBasis:
-    def test_default_is_calculated(self):
-        assert FHeatConfig().heat_demand_basis == "calculated"
+    def test_default_is_dataset(self):
+        assert FHeatConfig().heat_demand_basis == "dataset"
 
     @pytest.mark.parametrize("basis", ["calculated", "dataset"])
     def test_allowed_values_succeed(self, basis):

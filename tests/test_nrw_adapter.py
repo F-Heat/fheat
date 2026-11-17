@@ -453,15 +453,13 @@ class TestRenameToSchema:
         assert out[cols.FULL_LOAD_HOURS].iloc[0] == 1500.0
 
     def test_keeps_dataset_and_calculated_heat_demand(self):
-        # After _add_custom_heat_demand the heat column holds the calculated
-        # value; the value of the data source was saved before.
+        # The heat column keeps the data source value; the calculated one is extra.
         gdf = gpd.GeoDataFrame(
             {
-                "RW_WW": [15000.0],
-                "_heat_dataset": [12000.0],
+                "RW_WW": [12000.0],
                 "Waermebedarf": [15000.0],
                 "Vlh": [1500.0],
-                "power_th": [10.0],
+                "power_th": [8.0],
                 "Lastprofil": ["EFH"],
                 "Anschluss": [1],
                 "new_ID": [0],
@@ -473,7 +471,7 @@ class TestRenameToSchema:
         BuildingsSchema.validate(out)
         assert out[cols.HEAT_DEMAND_DATASET].iloc[0] == 12000.0
         assert out[cols.HEAT_DEMAND_CALCULATED].iloc[0] == 15000.0
-        assert out[cols.HEAT_DEMAND].iloc[0] == 15000.0
+        assert out[cols.HEAT_DEMAND].iloc[0] == 12000.0
 
 
 class TestBundledReferenceData:
@@ -529,9 +527,10 @@ class TestBundledReferenceData:
             },
             crs=CRS, geometry="geometry",
         )
-        out = _add_custom_heat_demand(gdf, wg, db, "RW_WW")
+        out = _add_custom_heat_demand(gdf, wg, db)
         # BAK "A", EFH → waerme_efh_kwh_m2a (188.2) × NF (100) = 18820
-        assert out["RW_WW"].iloc[0] == pytest.approx(18820.0)
+        assert out["Waermebedarf"].iloc[0] == pytest.approx(18820.0)
+        assert out["RW_WW"].iloc[0] == 0.0
 
     def test_process_buildings_keeps_dataset_and_calculated_heat_demand(self):
         db, wg = self._adapter()._load_building_info()
@@ -558,7 +557,9 @@ class TestBundledReferenceData:
         expected = 100.0 * wg.loc[wg["Baualtersklasse"] == "B", "waerme_efh_kwh_m2a"].iloc[0]
         assert out[cols.HEAT_DEMAND_DATASET].iloc[0] == pytest.approx(10000.0)
         assert out[cols.HEAT_DEMAND_CALCULATED].iloc[0] == pytest.approx(expected)
-        assert out[cols.HEAT_DEMAND].iloc[0] == pytest.approx(expected)
+        # heat demand and power come from LANUV, as in the QGIS plugin
+        assert out[cols.HEAT_DEMAND].iloc[0] == pytest.approx(10000.0)
+        assert out[cols.THERMAL_POWER].iloc[0] == pytest.approx(10000.0 / out[cols.FULL_LOAD_HOURS].iloc[0])
 
 
 # ---------------------------------------------------------------------------
