@@ -161,6 +161,14 @@ class TestEstimateGaps:
         assert out["RW_WW"].tolist() == pytest.approx([140.0 * 60.0, 140.0 * 60.0, 1260.0 * 45.0, 315.0 * 50.0])
         assert out["Flurstueck"].tolist() == self._gaps()["oid"].tolist()
 
+    def test_specific_demand_of_the_chosen_heat_attribute(self):
+        homes = _homes()
+        homes = homes.assign(RW_spez=homes["RW_WW_spez"] - 10.0, RW=homes["NF"] * (homes["RW_WW_spez"] - 10.0))
+        out = gaps_mod.estimate_gaps(self._gaps(), homes, "RW", None)
+        assert out["RW_spez"].tolist() == [50.0, 50.0, 35.0, 40.0]
+        assert out["RW"].tolist() == pytest.approx([140.0 * 50.0, 140.0 * 50.0, 1260.0 * 35.0, 315.0 * 40.0])
+        assert "RW_WW_spez" not in out
+
     def test_without_lod2_all_storeys_are_assumed(self):
         out = gaps_mod.estimate_gaps(self._gaps(), _homes(), "RW_WW", None)
         assert (out[DATA_SOURCE] == gaps_mod.SOURCE_ASSUMED).all()
