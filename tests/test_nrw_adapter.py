@@ -150,6 +150,7 @@ class TestFilterCities:
 class TestDistrictWithoutParcels:
     def test_district_without_parcels_is_an_error(self, monkeypatch):
         """No parcels from the WFS must not turn a district run into a municipality run."""
+        from fheat_core import cache
         from fheat_nrw import download as dl
 
         cities = pd.DataFrame({
@@ -159,7 +160,9 @@ class TestDistrictWithoutParcels:
         raw = gpd.GeoDataFrame(geometry=[box(0, 0, 1, 1)], crs=CRS)
         monkeypatch.setattr(dl, "file_list_from_url", lambda url: [])
         monkeypatch.setattr(dl, "search_filename", lambda files, key: "x.zip")
-        monkeypatch.setattr(dl, "read_shapefile_from_zip", lambda *a: raw.copy())
+        monkeypatch.setattr(dl, "cached_file", lambda *a: "x.zip")
+        monkeypatch.setattr(cache, "vector_source", lambda *a: "x.zip")
+        monkeypatch.setattr(gpd, "read_file", lambda *a, **kw: raw.copy())
         monkeypatch.setattr(dl, "get_parcels_from_wfs", lambda *a: gpd.GeoDataFrame(geometry=[], crs=CRS))
         adapter = NRWDataAdapter(district_key=55190)
         monkeypatch.setattr(adapter, "_load_cities", lambda: cities)
