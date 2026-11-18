@@ -283,6 +283,8 @@ class TestBaubloecke:
         (None, "1945, 2022", "9999"),
         (None, "1955", "9999"),    # no LANUV class
         (None, None, "9999"),
+        (0, "1995", "4000"),       # year 0 means unknown: the LANUV class decides
+        (0, None, "9999"),
     ])
     def test_construction_period(self, year, age, code):
         assert construction_period_code({cols.CONSTRUCTION_YEAR: year, cols.AGE: age}) == code
