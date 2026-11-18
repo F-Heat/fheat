@@ -90,6 +90,15 @@ class TestCalculateVolumeflow:
         # double ΔT → half flow (density/cp shift slightly so allow ~3 % tolerance)
         assert v_large_dt == pytest.approx(v_small_dt / 2, rel=0.03)
 
+    def test_volumeflow_keeps_decimal_temperatures(self):
+        """70.9/50.1 °C is a ΔT of 20.8 K, not 20 K; ρ and cp at 70.9 °C."""
+        density = np.interp(70.9, [70, 80], [0.97778, 0.97182])
+        cp = np.interp(70.9, [70, 80], [4.1895, 4.1963])
+        assert calculate_volumeflow(100.0, 70.9, 50.1) == pytest.approx(100.0 / (density * cp * 20.8), rel=1e-9)
+
+    def test_volumeflow_below_one_kelvin_is_finite(self):
+        assert np.isfinite(calculate_volumeflow(100.0, 60.6, 60.2))
+
 
 # ---------------------------------------------------------------------------
 # calculate_diameter_velocity_loss
