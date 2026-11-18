@@ -101,8 +101,9 @@ def estimate_building(
     under every heat demand basis: the result then has no
     ``heat_demand_calculated`` (``FHeatConfig.heat_demand_basis`` falls back
     to ``heat_demand``). Raises ValueError for an unknown function or age
-    class, building type or load profile, for a function F|Heat has no load profile for and
-    for values that are not positive.
+    class, building type or load profile, for a function F|Heat has no load profile for, for
+    a function without specific heat demand when neither ``specific_heat_demand``
+    nor ``heat_demand`` is given, and for values that are not positive.
     """
     _positive("footprint_area", footprint_area)
     _positive("storeys", storeys)
@@ -148,6 +149,11 @@ def estimate_building(
         specific = age["waerme_mfh_kwh_m2a"]
     else:
         specific = info.get("WVBRpEBF") or 0.0
+        if not specific and heat_demand is None:
+            raise ValueError(
+                f"F|Heat has no specific heat demand for the building function {code} ({info.get('bez')}); "
+                "give specific_heat_demand or heat_demand."
+            )
     calculated = float(floor_area) * float(specific)
 
     out = {

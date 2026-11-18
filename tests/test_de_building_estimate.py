@@ -80,6 +80,14 @@ def test_a_given_specific_demand_replaces_the_one_of_the_tables():
     assert given[cols.THERMAL_POWER] == pytest.approx(140.0 * 50.0 / 2000)
 
 
+def test_a_function_without_specific_demand_needs_a_given_value():
+    assert est.building_functions()["2141"]["WVBRpEBF"] == 0  # Kühlhaus
+    unheated = est.estimate_building(100.0, function="2141", specific_heat_demand=0.0)
+    assert unheated[cols.HEAT_DEMAND] == 0.0
+    given = est.estimate_building(100.0, function="2141", heat_demand=5000.0)
+    assert given[cols.HEAT_DEMAND] == 5000.0
+
+
 def test_a_given_heat_demand_has_no_calculated_one():
     house = est.estimate_building(100.0, heat_demand=32000.0)
     assert house[cols.HEAT_DEMAND] == 32000.0
@@ -105,6 +113,7 @@ def test_the_estimate_is_a_building_for_the_pipeline(basis):
         {"function": "9999"},
         {"function": "Wohnhaus"},
         {"function": "1311"},  # no load profile
+        {"function": "2141"},  # Kühlhaus: a load profile, but no specific heat demand
         {"age_class": "Z"},
         {"building_type": "NWG"},
         {"storeys": 0},
