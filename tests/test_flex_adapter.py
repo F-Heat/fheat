@@ -276,6 +276,35 @@ class TestFetchStreetsAndParcels:
         ParcelsSchema.validate(parcels)
         assert parcels.geometry.iloc[0].is_valid
 
+    def test_streets_and_parcels_reprojected_to_buildings_crs(self, tmp_path, files_set):
+        streets = gpd.read_file(files_set["streets"]).to_crs("EPSG:4326")
+        parcels = gpd.read_file(files_set["parcels"]).to_crs("EPSG:4326")
+        streets.to_file(str(tmp_path / "streets_4326.gpkg"), driver="GPKG")
+        parcels.to_file(str(tmp_path / "parcels_4326.gpkg"), driver="GPKG")
+        adapter = FlexDataAdapter(
+            buildings_path=files_set["buildings"],
+            streets_path=tmp_path / "streets_4326.gpkg",
+            parcels_path=tmp_path / "parcels_4326.gpkg",
+            column_map={"wbedarf": cols.HEAT_DEMAND},
+        )
+        out_streets, out_parcels = adapter.fetch_streets(), adapter.fetch_parcels()
+        assert out_streets.crs == CRS and out_parcels.crs == CRS
+        assert out_streets.geometry.iloc[0].coords[0] == pytest.approx((-10, -5), abs=1e-3)
+        assert out_parcels.geometry.iloc[0].bounds == pytest.approx((-5, -5, 55, 15), abs=1e-3)
+
+    def test_streets_without_crs_raise(self, tmp_path, files_set):
+        streets = gpd.read_file(files_set["streets"]).set_crs(None, allow_override=True)
+        streets.to_file(str(tmp_path / "streets.shp"))  # shapefile without .prj
+        assert not (tmp_path / "streets.prj").exists()
+        adapter = FlexDataAdapter(
+            buildings_path=files_set["buildings"],
+            streets_path=tmp_path / "streets.shp",
+            parcels_path=files_set["parcels"],
+            column_map={"wbedarf": cols.HEAT_DEMAND},
+        )
+        with pytest.raises(ValueError, match=r"streets\.shp.*\.prj.*EPSG:25832"):
+            adapter.fetch_streets()
+
 
 # ---------------------------------------------------------------------------
 # fetch_source — three input flavours

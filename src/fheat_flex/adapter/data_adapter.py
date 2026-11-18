@@ -272,21 +272,32 @@ class FlexDataAdapter(DataAdapter):
         gdf["geometry"] = gdf["geometry"].buffer(0)
         return gdf
 
+    def _to_buildings_crs(self, gdf: gpd.GeoDataFrame, name: str) -> gpd.GeoDataFrame:
+        """Reproject a layer to the buildings' CRS; a layer without CRS is an error."""
+        target = self.fetch_buildings().crs
+        if target is None or gdf.crs == target:
+            return gdf
+        if gdf.crs is None:
+            raise ValueError(
+                f"{name}: kein Koordinatenbezugssystem (fehlt die .prj?). Bitte in "
+                f"QGIS ein KBS zuweisen, z. B. das der Gebäude ({target.to_string()})."
+            )
+        return gdf.to_crs(target)
+
     def _load_streets(self) -> gpd.GeoDataFrame:
-        gdf = gpd.read_file(self._streets_path)
+        gdf = self._to_buildings_crs(gpd.read_file(self._streets_path), f"Straßen '{self._streets_path.name}'")
         if cols.ROUTABLE not in gdf.columns:
             gdf[cols.ROUTABLE] = 1
         return gdf
 
     def _load_parcels(self) -> gpd.GeoDataFrame:
-        gdf = gpd.read_file(self._parcels_path)
+        gdf = self._to_buildings_crs(gpd.read_file(self._parcels_path), f"Flurstücke '{self._parcels_path.name}'")
         if not gdf.empty:
             gdf["geometry"] = gdf["geometry"].buffer(0)
         return gdf
 
     def _load_source(self) -> gpd.GeoDataFrame:
         src = self._source_input
-        target_crs = self.fetch_buildings().crs
 
         if isinstance(src, gpd.GeoDataFrame):
             gdf = src.copy()
@@ -301,6 +312,4 @@ class FlexDataAdapter(DataAdapter):
                 f"GeoDataFrame sein, bekommen {type(src).__name__}."
             )
 
-        if target_crs is not None and gdf.crs != target_crs:
-            gdf = gdf.to_crs(target_crs)
-        return gdf
+        return self._to_buildings_crs(gdf, "Quelle")
