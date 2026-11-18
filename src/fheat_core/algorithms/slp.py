@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import datetime
+import logging
 
 import numpy as np
 import pandas as pd
 
 from fheat_core import columns as cols
 from fheat_core.errors import PipelineInputError
+
+logger = logging.getLogger(__name__)
 
 # first hour of 29 February in a leap year (31 + 28 days)
 _LEAP_DAY_HOUR = 59 * 24
@@ -47,6 +50,15 @@ def build_load_profile(
     )
     demand = pd.DataFrame(index=demand_ts)
     temperature = align_temperature(temperature, demand_ts)
+
+    # buildings without a load profile get no curve but still count in the result summary
+    no_profile = buildings_gdf[cols.LOAD_PROFILE].isna() if cols.LOAD_PROFILE in buildings_gdf.columns else True
+    missing = buildings_gdf[cols.HEAT_DEMAND].where(no_profile & (buildings_gdf[cols.HEAT_DEMAND] > 0)).dropna()
+    if not missing.empty:
+        logger.warning(
+            "%d building(s) with %.1f MWh/a have no load profile and are missing from the load profile.",
+            len(missing), missing.sum() / 1000,
+        )
 
     if cols.LOAD_PROFILE in buildings_gdf.columns and buildings_gdf[cols.LOAD_PROFILE].notna().any():
         summary = (

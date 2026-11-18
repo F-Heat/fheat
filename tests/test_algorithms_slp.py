@@ -280,7 +280,7 @@ class TestAggregationFormulas:
 
 @pytest.mark.slow
 class TestEdgeCases:
-    def test_no_lastprofil_column(self, net_with_loss, temperature_series):
+    def test_no_lastprofil_column(self, net_with_loss, temperature_series, caplog):
         bld = gpd.GeoDataFrame(
             {
                 cols.HEAT_DEMAND: [1000.0],
@@ -301,6 +301,32 @@ class TestEdgeCases:
         assert (df[cols.BUILDING_DEMAND_SUM] == 0).all()
         # but losses are still applied
         assert df[cols.LOSS].iloc[0] > 0
+        assert "1 building(s) with 1.0 MWh/a have no load profile" in caplog.text
+
+    def test_some_lastprofil_nan_warns(self, net_with_loss, temperature_series, caplog):
+        bld = gpd.GeoDataFrame(
+            {
+                cols.HEAT_DEMAND: [20000.0, 30000.0, 0.0],
+                cols.LOAD_PROFILE: ["EFH", None, None],
+                "geometry": [Polygon([(i, 0), (i + 1, 0), (i + 1, 1), (i, 1)]) for i in (0, 2, 4)],
+            },
+            crs=CRS, geometry="geometry",
+        )
+        build_load_profile(
+            buildings_gdf=bld, net_gdf=net_with_loss, year=2022, temperature=temperature_series,
+            holidays={}, building_class=3, wind_class=1,
+        )
+        # the building without demand is not counted
+        assert "1 building(s) with 30.0 MWh/a have no load profile" in caplog.text
+
+    def test_all_profiles_known_no_warning(
+        self, buildings_with_lastprofil, net_with_loss, temperature_series, caplog
+    ):
+        build_load_profile(
+            buildings_gdf=buildings_with_lastprofil, net_gdf=net_with_loss, year=2022,
+            temperature=temperature_series, holidays={}, building_class=3, wind_class=1,
+        )
+        assert "no load profile" not in caplog.text
 
     def test_all_lastprofil_nan(self, net_with_loss, temperature_series):
         bld = gpd.GeoDataFrame(
