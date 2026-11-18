@@ -814,6 +814,14 @@ def test_writeback_connect_keeps_all_when_every_centroid_matches(buildings_gdf):
     assert out[cols.CONNECT].tolist() == [1, 1, 1]
 
 
+def test_writeback_connect_matches_within_a_micrometre(buildings_gdf):
+    """A sink counts for a building up to 1e-6 m from its centroid; extra sinks elsewhere do not matter."""
+    c = buildings_gdf.geometry.centroid
+    sinks = [(c.iloc[0].x + 5e-7, c.iloc[0].y), (c.iloc[1].x + 2e-6, c.iloc[1].y), (1e9, 1e9)]
+    out = TopothermBackend._writeback_connect(buildings_gdf, edges_df=None, nodes_df=_sink_nodes_at(sinks))
+    assert out[cols.CONNECT].tolist() == [1, 0, 0]
+
+
 def test_writeback_connect_rejects_an_empty_sink_set(buildings_gdf):
     nodes_df = pd.DataFrame({"type_": ["source"], "x": [0.0], "y": [0.0]})
     with pytest.raises(NetworkBackendError, match="no building was connected") as excinfo:

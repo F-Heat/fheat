@@ -25,6 +25,7 @@ import time
 import geopandas as gpd
 import networkx as nx
 import numpy as np
+import shapely
 from shapely.geometry import LineString
 
 from fheat_core import columns as cols
@@ -650,11 +651,11 @@ class TopothermBackend(NetworkBackend):
                 "topotherm built an empty network — no building was connected.",
                 code=EMPTY_NETWORK,
             )
-        centroids = np.column_stack(
-            [buildings.geometry.centroid.x.values, buildings.geometry.centroid.y.values]
-        )
-        d = np.linalg.norm(centroids[:, None, :] - connected_pts[None, :, :], axis=2)
-        is_connected = (d.min(axis=1) < 1e-6).astype(int)
+        # a spatial index instead of a buildings × sinks distance matrix (19 GB at 20,000)
+        tree = shapely.STRtree(shapely.points(connected_pts))
+        hit, _ = tree.query_nearest(buildings.geometry.centroid.values, max_distance=1e-6, all_matches=False)
+        is_connected = np.zeros(len(buildings), dtype=int)
+        is_connected[hit] = 1
 
         out = buildings.copy()
         dropped = int((out[cols.CONNECT].to_numpy(int) == 1).sum() - is_connected.sum())
