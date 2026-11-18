@@ -113,7 +113,7 @@ def construction_period_code(building: dict) -> str:
     ("1945, 2022") is unknown unless the classes fall into one category.
     """
     year = _number(building.get(cols.CONSTRUCTION_YEAR))
-    if year is not None:
+    if year is not None and year > 0:  # 0 is a common placeholder for "unknown"
         return mapping.construction_period(int(year), int(year))
     age = _text(building.get(cols.AGE))
     periods = {mapping.AGE_PERIODS.get(part.strip()) for part in age.split(",")} if age else {None}
