@@ -39,10 +39,6 @@ def _compute_wld(buildings: gpd.GeoDataFrame, streets: gpd.GeoDataFrame) -> gpd.
     streets = streets.copy().reset_index(drop=True)
     streets[cols.LENGTH] = streets.geometry.length
 
-    if cols.BUILDING_ID not in buildings.columns:
-        buildings = buildings.copy()
-        buildings[cols.BUILDING_ID] = buildings.index.astype("int32")
-
     centroids = gpd.GeoDataFrame(
         {
             cols.BUILDING_ID: buildings[cols.BUILDING_ID].astype(int).values,

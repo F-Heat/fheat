@@ -580,7 +580,7 @@ class TopothermBackend(NetworkBackend):
         power = edges_df["power"].to_numpy(float)      # kW, undiversified
         length = edges_df["length"].to_numpy(float)    # m
         edge_type = np.where(
-            edges_df["to_consumer"].to_numpy(), cols.EDGE_TYPE_HOUSE_CONNECTION, "Straßenleitung"
+            edges_df["to_consumer"].to_numpy(), cols.EDGE_TYPE_HOUSE_CONNECTION, cols.EDGE_TYPE_STREET
         )
 
         glf = np.array([calculate_glf(int(n)) for n in n_bld])

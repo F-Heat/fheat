@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-#: structure: fields, code lists, units, references (xplan-tools)
-#: schema: the GML against the XSD (with schema_dir)
-#: consistency: the export against the F|Heat result it came from
-#: conformity: the conformity conditions of the schema documentation (mapping.CONFORMITY)
-#: A finding on any level means no file is written.
-LEVELS = ("structure", "schema", "consistency", "conformity")
+# Levels of a finding:
+# structure: fields, code lists, units, references (xplan-tools)
+# schema: the GML against the XSD (with schema_dir)
+# consistency: the export against the F|Heat result it came from
+# conformity: the conformity conditions of the schema documentation (mapping.CONFORMITY)
+# A finding on any level means no file is written.
 
 
 @dataclass(frozen=True)

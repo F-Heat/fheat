@@ -101,7 +101,7 @@ def process_buildings(
     else:
         bld["new_ID"] = bld.index.astype("int32")
         bld["Lastprofil"] = pd.NA
-        bld["Vlh"] = 1600
+        bld["Vlh"] = cols.DEFAULT_FULL_LOAD_HOURS
         bld["power_th"] = bld[heat_col] / bld["Vlh"]
 
     bld["Anschluss"] = 1
@@ -391,8 +391,8 @@ def _add_custom_heat_demand(
 
 def _add_power(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
     if "Vlh" not in gdf.columns:
-        gdf["Vlh"] = 1600
-    vlh = gdf["Vlh"].where(gdf["Vlh"] != 0, 1600)
+        gdf["Vlh"] = cols.DEFAULT_FULL_LOAD_HOURS
+    vlh = gdf["Vlh"].where(gdf["Vlh"] != 0, cols.DEFAULT_FULL_LOAD_HOURS)
     gdf["power_th"] = gdf[heat_col] / vlh
     return gdf
 
@@ -413,7 +413,7 @@ def _rename_to_schema(gdf: gpd.GeoDataFrame, heat_col: str) -> gpd.GeoDataFrame:
         out[cols.THERMAL_POWER] = gdf[cols.THERMAL_POWER].astype("float64")
     else:
         out[cols.THERMAL_POWER] = 0.0
-    out[cols.FULL_LOAD_HOURS] = gdf["Vlh"].astype("float64") if "Vlh" in gdf.columns else 1600.0
+    out[cols.FULL_LOAD_HOURS] = gdf["Vlh"].astype("float64") if "Vlh" in gdf.columns else float(cols.DEFAULT_FULL_LOAD_HOURS)
     out[cols.LOAD_PROFILE] = gdf["Lastprofil"].astype("string") if "Lastprofil" in gdf.columns else pd.NA
 
     # Optional columns
