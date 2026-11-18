@@ -205,7 +205,7 @@ RIVER_SIZE_CLASS = "river_size_class"        # small / medium / large (winter fl
 SOURCE_FULL_LOAD_HOURS = "source_full_load_hours"  # full load hours of the source [h/a]
 DH_AREA_ID = "dh_area_id"                    # district heating area of the study ("Label")
 DH_DEMAND_2050_MWH = "dh_demand_2050_mwh"    # its district heating demand 2050 [MWh/a]
-DATA_SOURCE = "data_source"                  # source of the values
+# the dataset of the values: DATA_SOURCE, defined with the buildings above
 
 # Study values per municipality (Manz et al. 2024, sheet Matching_results):
 # supply = sources within the maximum distance, utilization = the part the
@@ -563,7 +563,6 @@ LABELS_DE: dict[str, str] = {
     SOURCE_FULL_LOAD_HOURS: "Vlh [h/a]",
     DH_AREA_ID: "Gebiet_ID",
     DH_DEMAND_2050_MWH: "Waermenetzbedarf 2050 [MWh/a]",
-    DATA_SOURCE: "Quelle",
     STUDY_SOURCE: "Waermequelle",
     STUDY_SUPPLY_HT_MWH: "Angebot HT [MWh/a]",
     STUDY_UTILIZATION_HT_MWH: "Nutzbar HT [MWh/a]",
