@@ -237,11 +237,22 @@ def map_waermelinien(wld_gdf: Optional[gpd.GeoDataFrame], boundary: Optional[Bas
 # ------------------------------------------------------------------
 
 def named(networks: Sequence[NetworkResult]) -> list[NetworkResult]:
-    """The networks with name and key: without a name "Netz <n>", without a key the name, else "N<nn>"."""
-    return [
+    """The networks with name and key: without a name "Netz <n>", without a key the name, else "N<nn>".
+
+    Raises ValueError when two networks end up with the same key; the export
+    looks networks up by key, so one would be checked against the other.
+    """
+    out = [
         dataclasses.replace(net, name=net.name or f"Netz {i}", key=net.key or net.name or f"N{i:02d}")
         for i, net in enumerate(networks, start=1)
     ]
+    keys = [net.key for net in out]
+    repeated = sorted({k for k in keys if keys.count(k) > 1})
+    if repeated:
+        raise ValueError(
+            f"Several networks have the key {', '.join(map(repr, repeated))}: give them different names or keys."
+        )
+    return out
 
 
 def map_waermenetze(networks: Sequence[NetworkResult], config: XWPExportConfig, crs) -> list[dict]:

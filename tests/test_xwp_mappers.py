@@ -144,6 +144,19 @@ class TestWaermenetz:
                                   config, CRS)
         assert [(r["key"], r["properties"]["status"]) for r in records] == [("A", "2000"), ("N02", "2000")]
 
+    def test_same_name_without_key_raises(self, config):
+        with pytest.raises(ValueError, match="key 'Netz'"):
+            map_waermenetze([NetworkResult(network_state(), name="Netz"), NetworkResult(network_state(), name="Netz")],
+                            config, CRS)
+
+    def test_same_name_with_own_keys_is_fine(self, config):
+        """fheat-web passes the network id as key; equal display names are allowed."""
+        records = map_waermenetze(
+            [NetworkResult(network_state(), name="Netz", key="1"), NetworkResult(network_state(), name="Netz", key="2")],
+            config, CRS,
+        )
+        assert [r["key"] for r in records] == ["1", "2"]
+
     def test_network_without_result_raises(self, config):
         with pytest.raises(ValueError, match="no result"):
             map_waermenetze([NetworkResult(PipelineState(net_gdf=network_state().net_gdf))], config, CRS)
