@@ -39,6 +39,7 @@ from shapely.geometry import Polygon
 from shapely.ops import unary_union
 
 from fheat_core import cancel
+from fheat_de.building_estimate import NET_FLOOR_FACTOR
 from fheat_nrw import download as dl
 from fheat_nrw.processing import DATA_SOURCE, _resolve_heat_col
 
@@ -49,7 +50,6 @@ SOURCE_ASSUMED = "alkis_assumed"  # added from ALKIS, storeys assumed
 #: 1000-1299 are Wohnen and gemischt genutzt mit Wohnen; 13xx (Freizeit,
 #: Ferien-, Wochenend-, Gartenhaus) and all others are not added.
 RESIDENTIAL_FUNCTIONS = (1000, 1299)
-NET_FLOOR_FACTOR = 0.7
 #: WBM-NRW age classes from this year on count as new buildings.
 NEW_SINCE = 2015
 #: With fewer WBM-NRW buildings in the LoD2 footprints, all storeys are assumed.

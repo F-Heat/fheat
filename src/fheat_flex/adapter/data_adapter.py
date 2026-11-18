@@ -106,7 +106,7 @@ class FlexDataAdapter(DataAdapter):
         parcels_path: Union[str, Path],
         source: Optional[SourceInput] = None,
         column_map: Optional[dict] = None,
-        default_vlh: float = 1600.0,
+        default_vlh: float = float(cols.DEFAULT_FULL_LOAD_HOURS),
         default_lastprofil: str = "GMK",
         download_heat_sources: bool = False,
         lau_id: Optional[str] = None,

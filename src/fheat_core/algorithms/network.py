@@ -79,13 +79,13 @@ def build_street_graph(streets_gdf: gpd.GeoDataFrame, crs) -> nx.Graph:
             for i in range(len(coords)):
                 G.add_node(coords[i])
                 if i > 0:
-                    G.add_edge(coords[i - 1], coords[i], **{cols.TYPE: "Straßenleitung"})
+                    G.add_edge(coords[i - 1], coords[i], **{cols.TYPE: cols.EDGE_TYPE_STREET})
             if (
                 prev_end is not None
                 and prev_end != coords[0]
                 and Point(prev_end).distance(Point(coords[0])) < PIECE_GAP_TOLERANCE
             ):
-                G.add_edge(prev_end, coords[0], **{cols.TYPE: "Straßenleitung"})
+                G.add_edge(prev_end, coords[0], **{cols.TYPE: cols.EDGE_TYPE_STREET})
             prev_end = coords[-1]
     return G
 
@@ -151,7 +151,7 @@ def compute_network(
         n = data.get(cols.N_BUILDINGS, 1)
         p = data.get(cols.THERMAL_POWER, 0.0)
         length = data.get(cols.LENGTH, 0.0)
-        edge_type = data.get(cols.TYPE, "Straßenleitung")
+        edge_type = data.get(cols.TYPE, cols.EDGE_TYPE_STREET)
         glf = calculate_glf(n)
         p_glf = p * glf
         vf = calculate_volumeflow(p_glf, htemp, ltemp)

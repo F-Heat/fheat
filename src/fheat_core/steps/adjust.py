@@ -37,8 +37,6 @@ _HEAT_DEMAND_COLUMNS = {
     "calculated": cols.HEAT_DEMAND_CALCULATED,
     "dataset": cols.HEAT_DEMAND_DATASET,
 }
-#: Full load hours assumed for a building without any (as fheat_nrw.processing).
-_DEFAULT_FULL_LOAD_HOURS = 1600
 
 
 def _apply_heat_demand_basis(gdf: gpd.GeoDataFrame, basis: str) -> gpd.GeoDataFrame:
@@ -58,7 +56,7 @@ def _apply_heat_demand_basis(gdf: gpd.GeoDataFrame, basis: str) -> gpd.GeoDataFr
             heat = heat.where(heat > 0, pd.to_numeric(gdf[fallback], errors="coerce"))
     gdf[cols.HEAT_DEMAND] = heat.astype("float64")
     hours = pd.to_numeric(gdf[cols.FULL_LOAD_HOURS], errors="coerce")
-    gdf[cols.THERMAL_POWER] = gdf[cols.HEAT_DEMAND] / hours.where(hours > 0, _DEFAULT_FULL_LOAD_HOURS)
+    gdf[cols.THERMAL_POWER] = gdf[cols.HEAT_DEMAND] / hours.where(hours > 0, cols.DEFAULT_FULL_LOAD_HOURS)
     return gdf
 
 

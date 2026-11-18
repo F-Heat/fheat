@@ -100,6 +100,11 @@ POTENTIAL_BUILDINGS = "potential_buildings"  # buildings of the average power th
 # Value of TYPE for a building's house connection. Every other edge type
 # (street pipe, source connection) counts as route in the pipe summary.
 EDGE_TYPE_HOUSE_CONNECTION = "Hausanschluss"
+# Value of TYPE for a pipe along a street.
+EDGE_TYPE_STREET = "Straßenleitung"
+
+# Full load hours [h/a] of a building without any (adapters, adjust, fheat_de).
+DEFAULT_FULL_LOAD_HOURS = 1600
 
 
 # ============================================================

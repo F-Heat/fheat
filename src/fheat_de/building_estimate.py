@@ -38,7 +38,7 @@ NET_FLOOR_FACTOR = 0.7
 #: Largest net floor area [m²] of a single-family house (the largest EFH of WBM-NRW in Vreden).
 EFH_MAX_FLOOR_AREA = 280.0
 #: Full load hours of a building whose function has none.
-DEFAULT_FULL_LOAD_HOURS = 1600
+DEFAULT_FULL_LOAD_HOURS = cols.DEFAULT_FULL_LOAD_HOURS
 #: Building type of a building that is no single- or multi-family house.
 NON_RESIDENTIAL = "NWG"
 #: Building types of a house: single- and multi-family house, also their load profiles.
