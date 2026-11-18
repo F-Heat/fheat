@@ -19,6 +19,25 @@ logger = logging.getLogger(__name__)
 SourceInput = Union[Tuple[float, float], str, Path, gpd.GeoDataFrame]
 
 
+def _int32_ids(ids: pd.Series) -> pd.Series:
+    """User building IDs as int32; raises instead of wrapping, truncating or repeating them."""
+    numbers = pd.to_numeric(ids, errors="coerce")
+    bad = numbers.isna() | (numbers % 1 != 0) | (numbers < -2**31) | (numbers > 2**31 - 1)
+    hint = f"Spalte '{cols.BUILDING_ID}' entfernen, dann nummeriert der Adapter die Gebäude selbst."
+    if bad.any():
+        raise ValueError(
+            f"Buildings: '{cols.BUILDING_ID}' muss eine ganze Zahl zwischen -2147483648 und 2147483647 "
+            f"sein, {int(bad.sum())} Wert(e) nicht, z. B. {ids[bad].iloc[0]!r}. {hint}"
+        )
+    repeated = numbers[numbers.duplicated()]
+    if not repeated.empty:
+        raise ValueError(
+            f"Buildings: '{cols.BUILDING_ID}' muss eindeutig sein, {repeated.nunique()} ID(s) mehrfach, "
+            f"z. B. {int(repeated.iloc[0])}. {hint}"
+        )
+    return numbers.astype("int32")
+
+
 class FlexDataAdapter(DataAdapter):
     """Adapter for user-supplied files with column mapping.
 
@@ -258,7 +277,7 @@ class FlexDataAdapter(DataAdapter):
         if cols.BUILDING_ID not in gdf.columns:
             gdf[cols.BUILDING_ID] = gdf.index.astype("int32")
         else:
-            gdf[cols.BUILDING_ID] = gdf[cols.BUILDING_ID].astype("int32")
+            gdf[cols.BUILDING_ID] = _int32_ids(gdf[cols.BUILDING_ID])
 
         if cols.CONNECT not in gdf.columns:
             gdf[cols.CONNECT] = 1

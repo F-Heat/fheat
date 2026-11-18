@@ -245,6 +245,34 @@ class TestFetchBuildings:
         bld = adapter.fetch_buildings()
         assert bld[cols.BUILDING_ID].tolist() == [0, 1, 2]
 
+    def test_own_ids_kept(self, tmp_path):
+        adapter = FlexDataAdapter(
+            buildings_path=_write_buildings(tmp_path, building_id=[7.0, 3.0, 2147483647.0]),
+            streets_path=_write_streets(tmp_path),
+            parcels_path=_write_parcels(tmp_path),
+            column_map={"wbedarf": cols.HEAT_DEMAND},
+        )
+        bld = adapter.fetch_buildings()
+        assert bld[cols.BUILDING_ID].tolist() == [7, 3, 2147483647]
+        assert bld[cols.BUILDING_ID].dtype == "int32"
+
+    @pytest.mark.parametrize("ids, match", [
+        ([4294967297, 1, 2], r"ganze Zahl.*1 Wert.*4294967297"),   # would wrap to 1
+        ([1.0, 1.7, 2.0], r"ganze Zahl.*1\.7"),                     # would be cut to 1
+        (["DENW1", "DENW2", "3"], r"ganze Zahl.*2 Wert.*DENW1"),
+        ([1.0, None, 2.0], r"ganze Zahl"),
+        ([5, 5, 6], r"eindeutig.*1 ID.*5"),
+    ])
+    def test_unusable_ids_raise(self, tmp_path, ids, match):
+        adapter = FlexDataAdapter(
+            buildings_path=_write_buildings(tmp_path, building_id=ids),
+            streets_path=_write_streets(tmp_path),
+            parcels_path=_write_parcels(tmp_path),
+            column_map={"wbedarf": cols.HEAT_DEMAND},
+        )
+        with pytest.raises(ValueError, match=match):
+            adapter.fetch_buildings()
+
 
 # ---------------------------------------------------------------------------
 # fetch_streets / fetch_parcels
