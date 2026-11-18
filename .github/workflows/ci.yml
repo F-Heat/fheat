@@ -1,7 +1,10 @@
 name: CI
 
 on:
+  # push only on the long-lived branches: a PR branch is tested by its
+  # pull_request run, otherwise every push starts two runs of the same commit
   push:
+    branches: [dev, main]
   pull_request:
   workflow_dispatch:
 
