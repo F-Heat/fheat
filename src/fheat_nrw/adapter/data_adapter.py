@@ -18,6 +18,7 @@ from fheat_core import columns as cols
 from fheat_core.adapters.base import DataAdapter
 
 from fheat_de import biogas, census, mastr
+from fheat_de.building_estimate import age_classes, building_functions
 from fheat_eu.loader import HeatSourceLoader
 from fheat_nrw import building_gaps as gaps_mod
 from fheat_nrw import download as dl
@@ -819,21 +820,16 @@ class NRWDataAdapter(DataAdapter):
         Quelle sind zwei JSON-Dateien (gekeyt nach Funktionscode bzw. Baualtersklasse);
         zurückgegeben wird die DataFrame-Form, die die Merge-Logik in processing.py erwartet.
         """
+        # the default tables are the cached ones of fheat_de; _keyed_json_to_df copies them
         if self._building_functions_path is not None:
             functions = json.loads(Path(self._building_functions_path).read_text(encoding="utf-8"))
         else:
-            with (files("fheat_de.data").joinpath("building_functions.json")).open(
-                "r", encoding="utf-8"
-            ) as f:
-                functions = json.load(f)
+            functions = building_functions()
 
         if self._building_age_classes_path is not None:
             age = json.loads(Path(self._building_age_classes_path).read_text(encoding="utf-8"))
         else:
-            with (files("fheat_de.data").joinpath("building_age_classes.json")).open(
-                "r", encoding="utf-8"
-            ) as f:
-                age = json.load(f)
+            age = age_classes()
 
         db = self._keyed_json_to_df(functions, "Funktion")
         wg = self._keyed_json_to_df(age, "Baualtersklasse")
