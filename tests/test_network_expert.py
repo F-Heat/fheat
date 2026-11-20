@@ -41,6 +41,7 @@ from fheat_core.network.topotherm_backend import (
     _interrupt_on_cancel,
     _require_topotherm,
     _set_solver_limits,
+    _tighten_big_m,
 )
 from fheat_core.resources import load_pipe_info
 from fheat_core.schemas import NetSchema
@@ -423,6 +424,23 @@ def test_economic_mode_with_profitability_connects_buildings(
     state = network_step.run(expert_state, config, expert_adapter)
     NetSchema.validate(state.net_gdf)
     assert int(state.buildings_gdf[cols.CONNECT].sum()) >= 1
+
+
+def test_big_m_is_the_buildings_power_plus_losses():
+    pyo = pytest.importorskip("pyomo.environ")
+    m = pyo.ConcreteModel()
+    m.P = pyo.Var(["ij"], ["in"], [0], [0], bounds=(0, 2e5))
+    m.lambda_ = pyo.Var(["ij"], [0], domain=pyo.Binary)
+    m.P_source = pyo.Var([0], [0], bounds=(0, 1e6))
+    m.P_source_inst = pyo.Var([0], bounds=(0, 1e6))
+    m.cons_power_bigm_P = pyo.Constraint(["ij"], [0], [0], rule=lambda m, d, k, t: m.P[d, "in", k, t] <= 2e5 * m.lambda_[d, k])
+    # Q = 100 kW, L = 1000 m: M = (100 + 0.02·1000) / (1 − 1e-4·1000) = 120 / 0.9
+    _tighten_big_m(m, {"q_c": np.array([[30.0], [70.0]]), "l_i": np.array([[1000.0]])}, {"a": 1e-4, "b": 0.02})
+    big_m = 120 / 0.9
+    m.P["ij", "in", 0, 0].value = m.lambda_["ij", 0].value = 1
+    con = m.cons_power_bigm_P["ij", 0, 0]
+    assert pyo.value(con.body) - pyo.value(con.upper) == pytest.approx(1 - big_m)
+    assert m.P["ij", "in", 0, 0].ub == m.P_source[0, 0].ub == m.P_source_inst[0].ub == pytest.approx(big_m)
 
 
 # ---------------------------------------------------------------------------

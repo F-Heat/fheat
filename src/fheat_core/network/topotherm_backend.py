@@ -202,6 +202,31 @@ def _as_2d_float(arr) -> np.ndarray:
     return a.reshape(a.shape[0], -1)
 
 
+def _tighten_big_m(model, mat, regression_losses) -> None:
+    """Bound every pipe and source power by the buildings' total power plus all losses.
+
+    topotherm 0.6.0 takes the capacity of its largest pipe as Big-M
+    (``cons_power_bigm_P``: P ≤ M·λ), e.g. 200 MW for a 2 MW network. With
+    coefficients that far apart HiGHS proves wrong optima. No pipe carries more
+    than the source delivers: the buildings Q plus the losses (a·P + b)·l of the
+    built pipes, at most a·M·L + b·L over all candidate pipes (length L), so
+    M = (Q + b·L) / (1 − a·L) cuts off no network.
+    """
+    q = float(np.asarray(mat["q_c"], dtype=float).sum(axis=0).max())
+    length = float(np.asarray(mat["l_i"], dtype=float).sum())
+    a, b = float(regression_losses["a"]), float(regression_losses["b"])
+    if a * length >= 1:
+        return  # no finite bound from the losses; topotherm's stays
+    big_m = (q + b * length) / (1 - a * length)
+    for (d, k, t), con in model.cons_power_bigm_P.items():
+        if big_m < model.P[d, "in", k, t].ub:
+            con.set_value(model.P[d, "in", k, t] - big_m * model.lambda_[d, k] <= 0)
+    for var in (model.P, model.P_source, model.P_source_inst):
+        for v in var.values():
+            if v.ub is None or v.ub > big_m:
+                v.setub(max(big_m, v.lb or 0.0))
+
+
 def _weigh_pipe_capex(model, mat, regression_inst, economics) -> None:
     """Replace topotherm's pipe CAPEX constraint by one weighted with mat["civil_m"].
 
@@ -429,6 +454,7 @@ class TopothermBackend(NetworkBackend):
         )
         if "civil_m" in mat:
             _weigh_pipe_capex(model, mat, r_cap, settings.economics)
+        _tighten_big_m(model, mat, r_loss)
         opt = pyo.SolverFactory(tcfg.solver)
         if not opt.available(False):
             raise NetworkBackendError(
