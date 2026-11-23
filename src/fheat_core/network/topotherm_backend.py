@@ -60,6 +60,8 @@ _NODE_TOLERANCE = 1e-3     # m — a candidate line ends at a node closer than t
 # building's own foot point, so it is connected at right angles to the street
 # like in the Phase-0 backend.
 _CONNECTION_BUFFER = 1e-3
+# street nodes closer than this become one node (see _merge_close_nodes)
+_MIN_EDGE_LENGTH = 1.0  # m
 _STOP_CHECK_INTERVAL = 0.5  # s — the optimisation asks should_stop at most this often
 # HiGHS callbacks that can interrupt: the LP relaxation (simplex, interior
 # point) and the MIP search
@@ -190,6 +192,53 @@ def _interrupt_on_cancel(opt, model):
         if event is not None:
             event.subscribe(_interrupt)
     return stopped
+
+
+def _merge_close_nodes(gdf_nodes, gdf_edges, min_length: float = _MIN_EDGE_LENGTH):
+    """Merge the street nodes at both ends of a candidate edge shorter than ``min_length``.
+
+    topotherm splits a street where a house connection meets it; a meeting
+    point millimetres from a street vertex leaves an edge that short, and its
+    length as coefficient (down to ~1e-7) made HiGHS prove wrong optima (seen
+    2026-11-23). Only "internal" (street) nodes merge, so buildings and sources
+    keep their one connection edge; the edges at a merged node get the kept
+    node's position as end point and their length anew.
+    """
+    kind = dict(zip(gdf_nodes["Node_ID"], gdf_nodes["Type"]))
+    parent: dict = {}
+
+    def find(node):
+        while node in parent:
+            node = parent[node]
+        return node
+
+    for u, v in gdf_edges.loc[gdf_edges["Length"] < min_length, ["u", "v"]].itertuples(index=False):
+        ru, rv = find(u), find(v)
+        if ru != rv and kind[ru] == kind[rv] == "internal":
+            parent[rv] = ru
+    if not parent:
+        return gdf_nodes, gdf_edges
+
+    point = dict(zip(gdf_nodes["Node_ID"], gdf_nodes.geometry))
+    old = gdf_edges[["u", "v"]]
+    edges = gdf_edges.copy()
+    edges["u"], edges["v"] = old["u"].map(find), old["v"].map(find)
+    edges = edges[edges["u"] != edges["v"]]
+    lines = []
+    for (ou, ov), (nu, nv), line in zip(
+        old.loc[edges.index].itertuples(index=False), edges[["u", "v"]].itertuples(index=False), edges.geometry
+    ):
+        coords = list(line.coords)
+        for was, now in ((ou, nu), (ov, nv)):
+            if was != now:
+                end = 0 if shapely.Point(coords[0]).distance(point[was]) <= shapely.Point(coords[-1]).distance(point[was]) else -1
+                coords[end] = (point[now].x, point[now].y)
+        lines.append(LineString(coords))
+    edges = edges.set_geometry(gpd.GeoSeries(lines, index=edges.index, crs=gdf_edges.crs))
+    edges["Length"] = edges.geometry.length
+    nodes = gdf_nodes[~gdf_nodes["Node_ID"].isin(parent)].reset_index(drop=True)
+    logger.info("Merged %d street nodes closer than %s m.", len(parent), min_length)
+    return nodes, edges.reset_index(drop=True)
 
 
 def _as_2d_float(arr) -> np.ndarray:
@@ -356,6 +405,7 @@ class TopothermBackend(NetworkBackend):
                 "street/source input.",
                 code=UNMATCHED_NODES,
             )
+        gdf_nodes, gdf_edges = _merge_close_nodes(gdf_nodes, gdf_edges)
         raise_if_cancelled()
         # topotherm drops duplicate candidate edges here; the gdf_edges it
         # returns stays aligned with the matrices: mat["l_i"][k] and column k

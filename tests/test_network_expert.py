@@ -39,6 +39,7 @@ from fheat_core.network.topotherm_backend import (
     TopothermBackend,
     _as_2d_float,
     _interrupt_on_cancel,
+    _merge_close_nodes,
     _require_topotherm,
     _set_solver_limits,
     _tighten_big_m,
@@ -531,6 +532,26 @@ def test_require_topotherm_explains_the_python_version_blocker(monkeypatch):
 # ---------------------------------------------------------------------------
 # _as_2d_float — the object-dtype matrices topotherm hands back
 # ---------------------------------------------------------------------------
+
+
+def test_merge_close_nodes_removes_short_street_edges_only():
+    nodes = gpd.GeoDataFrame(
+        {"Type": ["internal", "internal", "internal", "sink"], "Node_ID": ["A", "B", "C", "S"]},
+        geometry=[Point(0, 0), Point(0.004, 0), Point(10, 0), Point(10, 0.5)],
+        crs=CRS,
+    )
+    edges = gpd.GeoDataFrame(
+        {"u": ["A", "B", "S"], "v": ["B", "C", "C"], "Road_ID": ["R0", "R1", "R2"]},
+        geometry=[LineString([(0, 0), (0.004, 0)]), LineString([(0.004, 0), (10, 0)]), LineString([(10, 0.5), (10, 0)])],
+        crs=CRS,
+    )
+    edges["Length"] = edges.geometry.length
+    out_nodes, out_edges = _merge_close_nodes(nodes, edges)
+    assert list(out_nodes["Node_ID"]) == ["A", "C", "S"]
+    # the 4 mm edge is gone, the street now starts at A; the 0.5 m house connection stays
+    assert list(zip(out_edges["u"], out_edges["v"])) == [("A", "C"), ("S", "C")]
+    assert out_edges.geometry.iloc[0].coords[0] == (0, 0)
+    assert out_edges["Length"].tolist() == pytest.approx([10.0, 0.5])
 
 
 def test_as_2d_float_normalises_object_array_of_scalars():
