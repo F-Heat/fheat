@@ -22,6 +22,10 @@ class NetworkBackend(ABC):
     #: its best solution so far: ``{"gap": relative gap to the best bound, or None}``
     time_limit_solution: Optional[dict] = None
 
+    #: analysis values ``build`` adds to the step's network generation time
+    #: (see ``PipelineState.network_analysis``); None for none
+    analysis: Optional[dict] = None
+
     @abstractmethod
     def build(
         self,
@@ -58,6 +62,7 @@ NO_ROUTABLE_STREETS = "no_routable_streets"      # no street may carry a pipe
 UNMATCHED_NODES = "unmatched_nodes"              # street/source endpoints not matched to a node
 SOLVER_UNAVAILABLE = "solver_unavailable"        # MILP solver not installed
 TOPOTHERM_UNAVAILABLE = "topotherm_unavailable"  # topotherm missing or not importable
+PCST_UNAVAILABLE = "pcst_unavailable"            # start solution "pcst" without pcst_fast installed
 
 
 class NetworkBackendError(RuntimeError):

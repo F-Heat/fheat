@@ -10,6 +10,7 @@ a backend-decided connection status back into the full buildings frame.
 from __future__ import annotations
 
 import logging
+import time
 
 from fheat_core import columns as cols
 from fheat_core.algorithms.under_buildings import mark_length_under_buildings
@@ -63,11 +64,14 @@ def run(state: PipelineState, config, adapter) -> PipelineState:
 
     backend = get_backend(config.network_mode)
     logger.info("NETWORK phase using backend '%s' for %d building(s)", backend.name, len(buildings))
+    started = time.perf_counter()
     net_gdf, buildings_out = backend.build(
         buildings, streets, source, config, adapter, civil_layers=layers
     )
+    seconds = time.perf_counter() - started
     raise_if_cancelled()
     state.time_limit_solution = backend.time_limit_solution
+    state.network_analysis = {"seconds": seconds, **(backend.analysis or {})}
 
     NetSchema.validate(net_gdf)
     net_gdf = mark_length_under_buildings(net_gdf, buildings, buildings_all)
