@@ -13,7 +13,7 @@ from fheat_core.algorithms.potentials import heat_source_summary, potential_summ
 from fheat_core.algorithms.slp import build_load_profile
 from fheat_core.algorithms.summary import network_length_split, summarize_buildings, summarize_pipes
 from fheat_core.errors import NET_DISCONNECTED, PipelineInputError
-from fheat_core.network.recalculate import recalculate_net
+from fheat_core.network.recalculate import heat_loss_rule, recalculate_net
 from fheat_core.resources import load_default_holidays, load_default_temperature, resolve_pipe_info
 from fheat_core.schemas import (
     LOAD_PROFILE_SCHEMA,
@@ -119,7 +119,10 @@ def _recalculated_net(state: PipelineState, config, adapter):
     """The net with lengths, flows and DN following its geometry, which a planner may have edited.
 
     Raises PipelineInputError (``NET_DISCONNECTED``) when pipes are not
-    connected to the heat source. Without a source the net stays as it is.
+    connected to the heat source. A net whose lengths match its geometry
+    stays as it is: it is untouched (a net of topotherm keeps its powers) or
+    the application recalculated it on every edit. Without a source the net
+    stays as it is too.
     """
     net_gdf = state.net_gdf
     if state.source_gdf is None or state.source_gdf.empty or net_gdf.empty:
@@ -128,12 +131,16 @@ def _recalculated_net(state: PipelineState, config, adapter):
     net_gdf, report = recalculate_net(
         net_gdf, source, resolve_pipe_info(adapter),
         config.supply_temperature, config.return_temperature, config.civil_cost_share,
+        heat_losses=heat_loss_rule(config),
     )
     if report["disconnected"]:
         raise PipelineInputError(
             f"{report['disconnected']} pipe(s) of the net are not connected to the heat source.",
             code=NET_DISCONNECTED,
         )
+    stored = pd.to_numeric(state.net_gdf[cols.LENGTH], errors="coerce")
+    if (stored - state.net_gdf.geometry.length).abs().max() <= 1e-3:  # NaN: recalculated
+        return state.net_gdf
     state.net_gdf = net_gdf
     return net_gdf
 

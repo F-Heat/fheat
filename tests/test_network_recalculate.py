@@ -103,6 +103,61 @@ def test_a_part_without_connection_to_the_source_carries_nothing_and_keeps_its_d
     assert out.loc[_row(full, "S", "A"), cols.N_BUILDINGS] == 1
 
 
+def test_a_changed_house_power_reaches_the_source():
+    full = _net()
+    h3 = _row(full, "B", "H3")
+    net = full.copy()
+    net.loc[h3, cols.THERMAL_POWER] = 500.0  # changed in the attribute editor; buildings behind each edge stay
+    out, _ = _recalculate(net)
+    for a, b, power in (("A", "B", 560.0), ("S", "A", 600.0)):
+        row = out.loc[_row(full, a, b)]
+        assert row[cols.THERMAL_POWER] == pytest.approx(power)
+        catalogue = list(PIPES["DN"])
+        assert catalogue.index(row[cols.NOMINAL_DIAMETER]) > catalogue.index(full.loc[_row(full, a, b), cols.NOMINAL_DIAMETER])
+
+
+LOSSES = {"a": 1e-4, "b": 0.02}  # topotherm's (a · P_in + b) · length [kW]
+
+
+def _with_losses(net):
+    return recalculate_net(net, SOURCE, PIPES, SUPPLY, RETURN, SHARE, heat_losses=LOSSES)
+
+
+def test_with_topotherms_losses_a_pipe_carries_what_flows_behind_it_and_its_own_losses():
+    full = _net()
+    out, report = _with_losses(full)
+    assert report["disconnected"] == 0
+    p_in = lambda p_out, length: (p_out + LOSSES["b"] * length) / (1 - LOSSES["a"] * length)  # noqa: E731
+    ab = p_in(60.0 + 80.0, 100.0)
+    assert out.loc[_row(full, "A", "B"), cols.THERMAL_POWER] == pytest.approx(ab)
+    assert out.loc[_row(full, "S", "A"), cols.THERMAL_POWER] == pytest.approx(p_in(40.0 + ab, 100.0))
+    for a, b in (("A", "H1"), ("B", "H2"), ("B", "H3")):  # unchanged length: the stored power
+        assert out.loc[_row(full, a, b), cols.THERMAL_POWER] == pytest.approx(POWER[b])
+
+
+def test_with_topotherms_losses_a_longer_house_connection_raises_the_power_to_the_source():
+    full = _net()
+    before, _ = _with_losses(full)
+    net = full.copy()
+    h1 = _row(full, "A", "H1")
+    net.loc[h1, "geometry"] = LineString([(100, 0), (130, 0), (130, 20), (100, 20)])  # 80 m instead of 20 m
+    after, _ = _with_losses(net)
+    extra = after.loc[h1, cols.THERMAL_POWER] - before.loc[h1, cols.THERMAL_POWER]
+    assert extra == pytest.approx(
+        (40.0 * (1 - LOSSES["a"] * 20) - LOSSES["b"] * 20 + LOSSES["b"] * 80) / (1 - LOSSES["a"] * 80) - 40.0
+    )
+    sa = _row(full, "S", "A")
+    assert after.loc[sa, cols.THERMAL_POWER] > before.loc[sa, cols.THERMAL_POWER] + extra  # plus the losses of S-A on it
+    assert after.loc[_row(full, "A", "B"), cols.THERMAL_POWER] == pytest.approx(before.loc[_row(full, "A", "B"), cols.THERMAL_POWER])
+
+
+def test_only_a_net_of_topotherm_has_heat_losses():
+    from fheat_core.config import FHeatConfig
+    from fheat_core.network.recalculate import heat_loss_rule
+
+    assert heat_loss_rule(FHeatConfig()) is None
+
+
 def test_a_dn_chosen_by_hand_stays_while_it_carries_the_flow():
     net = _net()
     sa = _row(net, "S", "A")
@@ -121,6 +176,17 @@ def test_a_dn_chosen_by_hand_that_became_too_small_is_raised():
     out, report = _recalculate(net)
     assert report["raised_manual"] == 1
     assert out.loc[sa, cols.NOMINAL_DIAMETER] == _net().loc[sa, cols.NOMINAL_DIAMETER]
+    assert not out.loc[sa, cols.NOMINAL_DIAMETER_MANUAL]
+
+
+def test_pipes_without_a_mark_stay_without_one():
+    net = _net()
+    sa = _row(net, "S", "A")
+    net.loc[sa, cols.NOMINAL_DIAMETER_MANUAL] = True  # one pipe marked, the column empty elsewhere
+    net.loc[sa, cols.NOMINAL_DIAMETER] = PIPES["DN"].iloc[0]
+    out, report = _recalculate(net)
+    assert report["raised_manual"] == 1
+    assert out[cols.NOMINAL_DIAMETER_MANUAL].drop(index=sa).isna().all()
     assert not out.loc[sa, cols.NOMINAL_DIAMETER_MANUAL]
 
 
