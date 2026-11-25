@@ -36,3 +36,20 @@ def test_without_obstacles_nothing_is_marked():
     net = _net((cols.EDGE_TYPE_HOUSE_CONNECTION, LineString([(0, 0), (0, 23)])))
     out = mark_length_under_buildings(net, _frame(REAR), None)
     assert out[cols.LENGTH_UNDER_BUILDINGS].tolist() == [0.0]
+
+
+def test_the_own_building_is_the_one_an_end_lies_in():
+    # the planner moved the building end of the rear house from its centroid to its back
+    net = _net((cols.EDGE_TYPE_HOUSE_CONNECTION, LineString([(0, 0), (0, 25)])))
+    out = mark_length_under_buildings(net, _frame(REAR, FRONT), _frame(FRONT, REAR))
+    assert out[cols.LENGTH_UNDER_BUILDINGS].tolist() == [10.0]
+
+
+def test_an_end_millimetres_beside_the_centroid_still_finds_its_building():
+    # a U-shaped house: its centroid lies in the courtyard, outside the outline;
+    # a web map moved the untouched end there by its coordinate round trip
+    u_shape = box(-5, 20, -3, 30).union(box(3, 20, 5, 30)).union(box(-5, 28, 5, 30))
+    centroid = u_shape.centroid
+    net = _net((cols.EDGE_TYPE_HOUSE_CONNECTION, LineString([(0, 40), (centroid.x + 0.0017, centroid.y)])))
+    out = mark_length_under_buildings(net, _frame(u_shape), _frame(u_shape))
+    assert out[cols.LENGTH_UNDER_BUILDINGS].tolist() == [0.0]

@@ -816,3 +816,16 @@ class TopothermBackend(NetworkBackend):
         if dropped > 0:
             logger.info("topotherm (economic) left %d building(s) unconnected.", dropped)
         return out
+
+
+def heat_loss_regression(config) -> dict:
+    """topotherm's heat losses of a pipe for ``config``: ``(a · P_in + b) · length`` [kW].
+
+    The linear fit topotherm sizes its net with (``regression_heat_losses``,
+    the same settings as :meth:`TopothermBackend.build`): a pipe carries what
+    flows behind it plus these losses. Fast, no optimisation.
+    """
+    tt = _require_topotherm()
+    settings = TopothermBackend._build_settings(tt, config)
+    losses = tt.hydraulic.regression_heat_losses(settings, tt.hydraulic.regression_thermal_capacity(settings))
+    return {"a": float(losses["a"]), "b": float(losses["b"])}

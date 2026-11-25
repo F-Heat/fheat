@@ -4,6 +4,7 @@ from __future__ import annotations
 # Codes of PipelineInputError: stable identifiers an application can turn
 # into its own message (the exception text is meant for developers).
 NO_BUILDINGS = "no_buildings"  # NETWORK: no building to connect in the planning area
+NET_DISCONNECTED = "net_disconnected"  # RESULTS: pipes of the edited net are not connected to the source
 
 
 class PipelineInputError(ValueError):

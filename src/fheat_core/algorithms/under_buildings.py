@@ -15,6 +15,12 @@ import shapely
 from fheat_core import columns as cols
 
 
+#: Distance [m] within which a house connection end still counts as the
+#: centroid of its building: an edit in a web map moves an untouched end by
+#: millimetres (projected → WGS84 → projected).
+CENTROID_TOLERANCE = 0.05
+
+
 def mark_length_under_buildings(
     net: gpd.GeoDataFrame,
     buildings: gpd.GeoDataFrame,
@@ -22,8 +28,10 @@ def mark_length_under_buildings(
 ) -> gpd.GeoDataFrame:
     """Write ``length_under_buildings`` onto the net: how far a house connection runs under other buildings.
 
-    ``buildings`` are the connected buildings: a house connection starts at the
-    centroid of one of them, and that building does not count. ``obstacles``
+    ``buildings`` are the connected buildings. A house connection's own
+    building, which does not count, is the one of them an end of the line
+    lies in, else the one whose centroid an end meets (``CENTROID_TOLERANCE``).
+    So a planner may move the building end within the building. ``obstacles``
     are all buildings. Every other edge gets 0.
     """
     net = net.copy()
@@ -32,16 +40,28 @@ def mark_length_under_buildings(
     if house.any() and obstacles is not None and not obstacles.empty and not buildings.empty:
         lines = net.geometry.to_numpy(dtype=object)[house]
         own = np.full(len(lines), shapely.GeometryCollection(), dtype=object)
-        centroids = shapely.STRtree(buildings.geometry.centroid.to_numpy(dtype=object))
         building_geoms = buildings.geometry.to_numpy(dtype=object)
-        for end in (0, -1):
+        centroids = shapely.STRtree(shapely.centroid(building_geoms))
+        outlines = shapely.STRtree(building_geoms)
+        for end in line_ends(lines):
             line_idx, building_idx = centroids.query_nearest(
-                shapely.get_point(lines, end), max_distance=1e-3, all_matches=False
+                end, max_distance=CENTROID_TOLERANCE, all_matches=False
             )
+            own[line_idx] = building_geoms[building_idx]
+        for end in line_ends(lines):  # containment wins over a centroid
+            line_idx, building_idx = outlines.query(end, predicate="within")
             own[line_idx] = building_geoms[building_idx]
         length[house] = _length_under(lines, own, obstacles.geometry.to_numpy(dtype=object))
     net[cols.LENGTH_UNDER_BUILDINGS] = np.round(length, 2)
     return net
+
+
+def line_ends(lines) -> tuple[np.ndarray, np.ndarray]:
+    """First and last point of each (Multi)LineString."""
+    coords, index = shapely.get_coordinates(lines, return_index=True)
+    first = np.searchsorted(index, np.arange(len(lines)), side="left")
+    last = np.searchsorted(index, np.arange(len(lines)), side="right") - 1
+    return shapely.points(coords[first]), shapely.points(coords[last])
 
 
 def _length_under(lines, own, obstacles) -> np.ndarray:

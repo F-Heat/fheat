@@ -206,6 +206,37 @@ def solved_expert_net(tt, expert_state, expert_adapter):
     return state
 
 
+def test_an_untouched_expert_net_recalculates_to_topotherms_powers(solved_expert_net, expert_adapter):
+    from fheat_core.network.recalculate import heat_loss_rule, recalculate_net
+    from fheat_core.resources import resolve_pipe_info
+    from fheat_core.steps.results import _recalculated_net
+
+    net = solved_expert_net.net_gdf
+    config = _forced_config()
+    source = solved_expert_net.source_gdf.to_crs(net.crs).geometry.iloc[0]
+    losses = heat_loss_rule(config)
+    assert losses is not None and losses["b"] > 0
+    out, report = recalculate_net(
+        net, source, resolve_pipe_info(expert_adapter),
+        config.supply_temperature, config.return_temperature, config.civil_cost_share,
+        heat_losses=losses,
+    )
+    # every edge carries what flows behind it plus topotherm's heat losses, as topotherm sized it
+    assert report == {"disconnected": 0, "raised_manual": 0}
+    assert out[cols.N_BUILDINGS].tolist() == net[cols.N_BUILDINGS].tolist()
+    assert out[cols.THERMAL_POWER].to_numpy() == pytest.approx(net[cols.THERMAL_POWER].to_numpy(float), rel=1e-4)
+    assert out[cols.NOMINAL_DIAMETER].tolist() == net[cols.NOMINAL_DIAMETER].tolist()
+    # without the losses an edge carries less: the plain sum
+    plain, _ = recalculate_net(
+        net, source, resolve_pipe_info(expert_adapter),
+        config.supply_temperature, config.return_temperature, config.civil_cost_share,
+    )
+    street = net[cols.TYPE] != cols.EDGE_TYPE_HOUSE_CONNECTION
+    assert (plain.loc[street, cols.THERMAL_POWER] < out.loc[street, cols.THERMAL_POWER]).all()
+    # untouched, the results step keeps topotherm's values
+    assert _recalculated_net(solved_expert_net, config, expert_adapter) is net
+
+
 def test_expert_net_satisfies_net_schema(solved_expert_net):
     net = solved_expert_net.net_gdf
     NetSchema.validate(net)

@@ -57,4 +57,6 @@ def resize_pipes(
     out[cols.VELOCITY] = [v[1] for v in values]
     out[cols.HEAT_LOSS] = [v[2] for v in values]
     out[cols.HEAT_LOSS_EXTRA_INSULATION] = [v[3] for v in values]
+    # recalculate_net keeps this DN while it carries the flow
+    out[cols.NOMINAL_DIAMETER_MANUAL] = True
     return annotate_network_costs(out, None, pipe_info, civil_cost_share)

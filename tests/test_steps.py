@@ -15,7 +15,7 @@ from shapely.geometry import LineString, Point, Polygon, box
 
 from fheat_core import columns as cols
 from fheat_core.config import FHeatConfig
-from fheat_core.errors import NO_BUILDINGS, PipelineInputError
+from fheat_core.errors import NET_DISCONNECTED, NO_BUILDINGS, PipelineInputError
 from fheat_core.schemas import SchemaError
 from fheat_core.state import Phase, PipelineState
 from fheat_core.steps import adjust, download, network, results, status
@@ -347,6 +347,29 @@ class TestResultsStep:
         assert state.load_profile_df is not None
         assert len(state.load_profile_df) == 8760
         assert isinstance(state.result_summary, dict)
+
+    def test_an_edited_net_counts_with_its_edited_length(self, stub_adapter, cfg):
+        state = PipelineState()
+        for step in (download, adjust, status, network):
+            step.run(state, cfg, stub_adapter)
+        house = state.net_gdf.index[state.net_gdf[cols.TYPE] == cols.EDGE_TYPE_HOUSE_CONNECTION][0]
+        line = state.net_gdf.geometry[house]
+        start, end = line.coords[0], line.coords[-1]
+        detour = LineString([start, (start[0] + 50, start[1]), (end[0] + 50, end[1]), end])
+        state.net_gdf.loc[house, "geometry"] = detour  # moved by a planner; length still the old one
+        results.run(state, cfg, stub_adapter)
+        assert state.net_gdf.loc[house, cols.LENGTH] == pytest.approx(detour.length)
+        assert state.result_summary["total_network_length_m"] == pytest.approx(state.net_gdf.geometry.length.sum(), abs=0.1)
+
+    def test_a_net_cut_off_from_the_source_stops_the_results(self, stub_adapter, cfg):
+        state = PipelineState()
+        for step in (download, adjust, status, network):
+            step.run(state, cfg, stub_adapter)
+        routes = state.net_gdf.index[state.net_gdf[cols.TYPE] != cols.EDGE_TYPE_HOUSE_CONNECTION]
+        state.net_gdf = state.net_gdf.drop(index=routes)  # only the house connections are left
+        with pytest.raises(PipelineInputError) as excinfo:
+            results.run(state, cfg, stub_adapter)
+        assert excinfo.value.code == NET_DISCONNECTED
 
     def test_result_summary_keys_and_values(self, stub_adapter, cfg):
         state = PipelineState()
