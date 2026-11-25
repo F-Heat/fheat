@@ -8,6 +8,7 @@ extra, and they skip via the :func:`tt` fixture.
 from __future__ import annotations
 
 import builtins
+import copy
 import subprocess
 import sys
 import time
@@ -27,6 +28,7 @@ from fheat_core.network import DijkstraBackend, get_backend
 from fheat_core.network.base import (
     EMPTY_NETWORK,
     NO_ROUTABLE_STREETS,
+    PCST_UNAVAILABLE,
     SOLVER_UNAVAILABLE,
     SOURCE_ON_STREET,
     TIME_LIMIT,
@@ -103,6 +105,7 @@ def test_invalid_optimization_mode_raises():
         ({"mip_gap": -1e-3}, "mip_gap"),
         ({"time_limit": 0}, "time_limit"),
         ({"threads": 0}, "threads"),
+        ({"start_solution": "greedy"}, "start_solution"),
     ],
 )
 def test_topotherm_config_rejects_invalid_numbers(kwargs, match):
@@ -458,6 +461,30 @@ def test_economic_mode_with_profitability_connects_buildings(
     assert int(state.buildings_gdf[cols.CONNECT].sum()) >= 1
 
 
+@pytest.mark.parametrize("mode", ["economic", "forced"])
+def test_pcst_start_solution_reaches_the_same_optimum(tt, expert_state, expert_adapter, mode):
+    pytest.importorskip("pcst_fast")
+    nets = []
+    for start in ("none", "pcst"):
+        config = FHeatConfig(
+            network_mode=NetworkMode.EXPERT.value,
+            topotherm=TopothermConfig(
+                optimization_mode=mode, heat_price=10.0, source_price=1e-3, pipes_c_irr=0.01,
+                start_solution=start,
+            ),
+        )
+        # run mutates the state (connect flags): each start begins from the same input
+        state = network_step.run(copy.deepcopy(expert_state), config, expert_adapter)
+        nets.append((int(state.buildings_gdf[cols.CONNECT].sum()), round(float(state.net_gdf[cols.LENGTH].sum()), 6)))
+    assert nets[0] == nets[1]
+    analysis = state.network_analysis
+    # HiGHS accepted the start; a rejected one would leave the optimum unchanged
+    assert analysis["pcst_start_ok"] is True
+    # the optimum is at least as profitable as its PCST start
+    assert analysis["profit"] >= analysis["pcst_profit"] - 1e-6
+    assert {"seconds", "solver_seconds", "pcst_seconds", "pcst_fixed_seconds"} <= analysis.keys()
+
+
 def test_big_m_is_the_buildings_power_plus_losses():
     pyo = pytest.importorskip("pyomo.environ")
     m = pyo.ConcreteModel()
@@ -499,6 +526,8 @@ def test_phase0_dispatch_leaves_buildings_frame_untouched(
     assert cols.CENTROID not in out.buildings_gdf.columns
     assert cols.CONNECTION_POINT not in out.buildings_gdf.columns
     assert len(out.buildings_gdf) == 3
+    # the network generation time, for comparing the methods
+    assert set(out.network_analysis) == {"seconds"}
 
 
 def test_phase0_never_imports_topotherm():
@@ -563,6 +592,25 @@ def test_require_topotherm_explains_the_python_version_blocker(monkeypatch):
 # ---------------------------------------------------------------------------
 # _as_2d_float — the object-dtype matrices topotherm hands back
 # ---------------------------------------------------------------------------
+
+
+def test_an_invalid_pcst_tree_is_reported(tt, monkeypatch):
+    pcst_fast = pytest.importorskip("pcst_fast")
+    from types import SimpleNamespace
+
+    from fheat_core.network.pcst_start import pcst_lambda
+
+    # the broken manylinux wheel under numpy 2: every vertex 0, one edge repeated
+    monkeypatch.setattr(pcst_fast, "pcst_fast", lambda edges, *_: (np.zeros(3, dtype=int), np.full(2, 1)))
+    mat = {
+        "a_i": np.array([[1], [-1]]), "l_i": np.array([[10.0]]),
+        "a_c": np.array([[0], [1]]), "a_p": np.array([[1], [0]]),
+        "q_c": np.array([[5.0]]), "flh_sinks": np.array([[2000.0]]),
+    }
+    economics = SimpleNamespace(pipes_c_irr=0.05, pipes_lifetime=40)
+    with pytest.raises(NetworkBackendError, match="from source") as exc:
+        pcst_lambda(mat, economics, {"b": 1.0}, forced=True)
+    assert exc.value.code == PCST_UNAVAILABLE
 
 
 def test_merge_close_nodes_removes_short_street_edges_only():

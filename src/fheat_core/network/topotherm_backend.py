@@ -154,12 +154,7 @@ def _interrupt_on_cancel(opt, model):
     should_stop = current_check()
     if should_stop is None or not hasattr(opt, "set_instance"):
         return None
-    # set_instance resets opt.config: keep the limits set before
-    config = getattr(opt, "config", None)
-    limits = {key: getattr(config, key) for key in ("time_limit", "rel_gap", "threads") if config is not None and key in config}
-    opt.set_instance(model)
-    for key, value in limits.items():
-        setattr(config, key, value)
+    _set_instance(opt, model)
     highs = getattr(opt, "_solver_model", None)
     events = [getattr(highs, name, None) for name in _HIGHS_INTERRUPTS]
     if not any(events):
@@ -192,6 +187,75 @@ def _interrupt_on_cancel(opt, model):
         if event is not None:
             event.subscribe(_interrupt)
     return stopped
+
+
+def _set_instance(opt, model) -> None:
+    """Build the solver's instance of ``model`` now; set_instance resets opt.config, so the limits set before are kept."""
+    if getattr(opt, "_model", None) is model:
+        return
+    config = getattr(opt, "config", None)
+    limits = {key: getattr(config, key) for key in ("time_limit", "rel_gap", "threads") if config is not None and key in config}
+    opt.set_instance(model)
+    for key, value in limits.items():
+        setattr(config, key, value)
+
+
+def _pcst_start(model, mat, settings, regression_inst, tcfg, analysis):
+    """``(variable, value)`` of every model variable for the PCST network, or None without a feasible one.
+
+    The PCST's edges are fixed in topotherm's model and the rest (flows, source
+    power, costs) is solved with them, so the start is feasible for the MILP.
+    ``analysis`` gets the PCST time, the time of that solve and the PCST
+    network's profit (see ``PipelineState.network_analysis``).
+    """
+    import pyomo.environ as pyo
+
+    from fheat_core.network.pcst_start import pcst_lambda
+
+    started = time.perf_counter()
+    lam = pcst_lambda(mat, settings.economics, regression_inst, tcfg.optimization_mode == "forced")
+    analysis["pcst_seconds"] = time.perf_counter() - started
+    if lam is None:
+        logger.info("The PCST connects no building; topotherm starts without a start solution.")
+        return None
+    lam_ij, lam_ji = lam
+    for k in model.set_n_i:
+        model.lambda_["ij", k].fix(float(lam_ij[k]))
+        model.lambda_["ji", k].fix(float(lam_ji[k]))
+    try:
+        opt = pyo.SolverFactory(tcfg.solver)
+        _set_solver_limits(opt, settings.solver.time_limit, settings.solver.mip_gap, tcfg.threads)
+        started = time.perf_counter()
+        result = opt.solve(model, tee=False, load_solutions=False)
+        analysis["pcst_fixed_seconds"] = time.perf_counter() - started
+        cond = result.solver.termination_condition
+        if cond != pyo.TerminationCondition.optimal:
+            logger.warning("topotherm's model with the PCST network gave no optimum (%s); no start solution.", cond)
+            return None
+        model.solutions.load_from(result)
+        analysis["pcst_profit"] = -float(pyo.value(model.obj))
+        return [(v, v.value) for v in model.component_data_objects(pyo.Var) if v.value is not None]
+    finally:
+        model.lambda_.unfix()
+
+
+def _set_start(opt, model, values) -> bool:
+    """Hand ``values`` (pairs of pyomo variable and value) to HiGHS as its first solution; True if HiGHS took it."""
+    if not hasattr(opt, "set_instance"):
+        # shortcut: Gurobi/CPLEX would take it with solve(warmstart=True); add when they are used
+        logger.warning("The start solution is passed to HiGHS only; %s starts without it.", type(opt).__name__)
+        return False
+    import highspy
+
+    _set_instance(opt, model)
+    var_map = opt._pyomo_var_to_solver_var_map
+    pairs = [(var_map[id(v)], value) for v, value in values if id(v) in var_map]
+    index = np.array([i for i, _ in pairs], dtype=np.int32)
+    value = np.array([x for _, x in pairs], dtype=float)
+    status = opt._solver_model.setSolution(len(pairs), index, value)
+    accepted = status == highspy.HighsStatus.kOk
+    (logger.info if accepted else logger.warning)("Start solution handed to HiGHS (%d values): %s", len(pairs), status)
+    return accepted
 
 
 def _merge_close_nodes(gdf_nodes, gdf_edges, min_length: float = _MIN_EDGE_LENGTH):
@@ -329,7 +393,8 @@ class TopothermBackend(NetworkBackend):
         raise_if_cancelled()
         civil = self._candidate_civil_factors(mat, gdf_edges, civil_layers, buildings.crs, config)
         settings = self._build_settings(tt, config)
-        model, opt_mats, self.time_limit_solution = self._solve(tt, mat, settings, tcfg)
+        self.analysis = {}
+        model, opt_mats, self.time_limit_solution = self._solve(tt, mat, settings, tcfg, self.analysis)
         nodes_df, edges_df = tt.postprocessing.to_dataframe(opt_mats, mat)
         raise_if_cancelled()
 
@@ -482,7 +547,8 @@ class TopothermBackend(NetworkBackend):
     # -- step 4: solve -----------------------------------------------------
 
     @staticmethod
-    def _solve(tt, mat, settings, tcfg):
+    def _solve(tt, mat, settings, tcfg, analysis):
+        """Solve topotherm's model; ``analysis`` gets the solver time and the profit (see ``PipelineState.network_analysis``)."""
         import pyomo.environ as pyo
 
         r_cap = tt.hydraulic.regression_thermal_capacity(settings)
@@ -512,13 +578,23 @@ class TopothermBackend(NetworkBackend):
                 "e.g. `pip install highspy` for the open-source HiGHS solver.",
                 code=SOLVER_UNAVAILABLE,
             )
-        _set_solver_limits(opt, settings.solver.time_limit, settings.solver.mip_gap, tcfg.threads)
+        started = time.perf_counter()
+        start = _pcst_start(model, mat, settings, r_cap, tcfg, analysis) if tcfg.start_solution == "pcst" else None
+        # the time limit covers the PCST start too, so the job stays inside its worker limit
+        time_limit = max(1.0, settings.solver.time_limit - (time.perf_counter() - started))
         raise_if_cancelled()
+        _set_solver_limits(opt, time_limit, settings.solver.mip_gap, tcfg.threads)
+        raise_if_cancelled()
+        # from here: the solver's instance of the model is built in every case
+        started = time.perf_counter()
         stopped = _interrupt_on_cancel(opt, model)
+        if start is not None:
+            analysis["pcst_start_ok"] = _set_start(opt, model, start)
         raise_if_cancelled()
         # loaded only once it is optimal: Pyomo's newer interface raises when
         # the time limit ends the run before any feasible solution
         result = opt.solve(model, tee=False, load_solutions=False)
+        analysis["solver_seconds"] = time.perf_counter() - started
         if stopped is not None and stopped.is_set():
             # Pyomo reports HiGHS' interrupt only as "unknown"
             raise CalculationCancelled("The calculation was cancelled during the optimisation.")
@@ -535,6 +611,7 @@ class TopothermBackend(NetworkBackend):
             code = TIME_LIMIT if cond == pyo.TerminationCondition.maxTimeLimit else NO_OPTIMAL_SOLUTION
             raise NetworkBackendError(f"topotherm optimisation failed: {cond}", code=code)
         model.solutions.load_from(result)
+        analysis["profit"] = -float(pyo.value(model.obj))
 
         try:
             opt_mats = tt.postprocessing.sts(model=model, matrices=mat, settings=settings)

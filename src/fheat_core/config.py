@@ -24,6 +24,10 @@ class TopothermConfig:
 
     # --- what to optimise -------------------------------------------------
     optimization_mode: str = "economic"   # "economic" | "forced"
+    start_solution: str = "none"          # "none" | "pcst"
+    """"pcst": a prize-collecting Steiner tree (pcst_fast) is evaluated with
+    topotherm's model and handed to the solver as its first solution (upper
+    bound). Needs the pcst_fast package; the start is passed to HiGHS only."""
 
     # --- solver -----------------------------------------------------------
     solver: str = "highs"
@@ -62,12 +66,18 @@ class TopothermConfig:
     above then override it. Use only for parameters not exposed here."""
 
     _ALLOWED_MODES: ClassVar[frozenset] = frozenset({"economic", "forced"})
+    _ALLOWED_STARTS: ClassVar[frozenset] = frozenset({"none", "pcst"})
 
     def __post_init__(self) -> None:
         if self.optimization_mode not in self._ALLOWED_MODES:
             raise ValueError(
                 f"optimization_mode '{self.optimization_mode}' is not allowed. "
                 f"Allowed values: {sorted(self._ALLOWED_MODES)}"
+            )
+        if self.start_solution not in self._ALLOWED_STARTS:
+            raise ValueError(
+                f"start_solution '{self.start_solution}' is not allowed. "
+                f"Allowed values: {sorted(self._ALLOWED_STARTS)}"
             )
         if self.mip_gap < 0:
             raise ValueError("mip_gap must be >= 0.")

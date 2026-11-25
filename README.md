@@ -120,6 +120,7 @@ config = FHeatConfig(
     network_mode=NetworkMode.EXPERT.value,
     topotherm=TopothermConfig(
         optimization_mode="economic",  # "economic" (default) | "forced"
+        start_solution="none",         # "pcst": PCST tree as the solver's first solution (needs pcst_fast)
         solver="highs",
         heat_price=120e-3,             # €/kW revenue
         source_price=80e-3,            # €/kW variable production cost

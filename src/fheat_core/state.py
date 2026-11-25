@@ -73,3 +73,8 @@ class PipelineState:
     # NETWORK stopped at the solver's time limit and the net is the best solution
     # found until then (not proven optimal): {"gap": relative gap or None}
     time_limit_solution: Optional[dict] = None
+
+    # Analysis values of the NETWORK phase for comparing methods: "seconds" of
+    # the network generation; topotherm adds its solver time and the annual
+    # profit (−objective, €/a), with a PCST start also those of the PCST network
+    network_analysis: Optional[dict] = None
