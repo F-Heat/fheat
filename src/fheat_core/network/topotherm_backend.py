@@ -60,6 +60,8 @@ _NODE_TOLERANCE = 1e-3     # m — a candidate line ends at a node closer than t
 # building's own foot point, so it is connected at right angles to the street
 # like in the Phase-0 backend.
 _CONNECTION_BUFFER = 1e-3
+# street nodes closer than this become one node (see _merge_close_nodes)
+_MIN_EDGE_LENGTH = 1.0  # m
 _STOP_CHECK_INTERVAL = 0.5  # s — the optimisation asks should_stop at most this often
 # HiGHS callbacks that can interrupt: the LP relaxation (simplex, interior
 # point) and the MIP search
@@ -192,6 +194,53 @@ def _interrupt_on_cancel(opt, model):
     return stopped
 
 
+def _merge_close_nodes(gdf_nodes, gdf_edges, min_length: float = _MIN_EDGE_LENGTH):
+    """Merge the street nodes at both ends of a candidate edge shorter than ``min_length``.
+
+    topotherm splits a street where a house connection meets it; a meeting
+    point millimetres from a street vertex leaves an edge that short, and its
+    length as coefficient (down to ~1e-7) made HiGHS prove wrong optima (seen
+    2026-11-23). Only "internal" (street) nodes merge, so buildings and sources
+    keep their one connection edge; the edges at a merged node get the kept
+    node's position as end point and their length anew.
+    """
+    kind = dict(zip(gdf_nodes["Node_ID"], gdf_nodes["Type"]))
+    parent: dict = {}
+
+    def find(node):
+        while node in parent:
+            node = parent[node]
+        return node
+
+    for u, v in gdf_edges.loc[gdf_edges["Length"] < min_length, ["u", "v"]].itertuples(index=False):
+        ru, rv = find(u), find(v)
+        if ru != rv and kind[ru] == kind[rv] == "internal":
+            parent[rv] = ru
+    if not parent:
+        return gdf_nodes, gdf_edges
+
+    point = dict(zip(gdf_nodes["Node_ID"], gdf_nodes.geometry))
+    old = gdf_edges[["u", "v"]]
+    edges = gdf_edges.copy()
+    edges["u"], edges["v"] = old["u"].map(find), old["v"].map(find)
+    edges = edges[edges["u"] != edges["v"]]
+    lines = []
+    for (ou, ov), (nu, nv), line in zip(
+        old.loc[edges.index].itertuples(index=False), edges[["u", "v"]].itertuples(index=False), edges.geometry
+    ):
+        coords = list(line.coords)
+        for was, now in ((ou, nu), (ov, nv)):
+            if was != now:
+                end = 0 if shapely.Point(coords[0]).distance(point[was]) <= shapely.Point(coords[-1]).distance(point[was]) else -1
+                coords[end] = (point[now].x, point[now].y)
+        lines.append(LineString(coords))
+    edges = edges.set_geometry(gpd.GeoSeries(lines, index=edges.index, crs=gdf_edges.crs))
+    edges["Length"] = edges.geometry.length
+    nodes = gdf_nodes[~gdf_nodes["Node_ID"].isin(parent)].reset_index(drop=True)
+    logger.info("Merged %d street nodes closer than %s m.", len(parent), min_length)
+    return nodes, edges.reset_index(drop=True)
+
+
 def _as_2d_float(arr) -> np.ndarray:
     """Coerce topotherm's object-dtype matrices to (rows, timesteps) float."""
     a = np.asarray(arr)
@@ -200,6 +249,31 @@ def _as_2d_float(arr) -> np.ndarray:
     else:
         a = np.asarray(a, dtype=float)
     return a.reshape(a.shape[0], -1)
+
+
+def _tighten_big_m(model, mat, regression_losses) -> None:
+    """Bound every pipe and source power by the buildings' total power plus all losses.
+
+    topotherm 0.6.0 takes the capacity of its largest pipe as Big-M
+    (``cons_power_bigm_P``: P ≤ M·λ), e.g. 200 MW for a 2 MW network. With
+    coefficients that far apart HiGHS proves wrong optima. No pipe carries more
+    than the source delivers: the buildings Q plus the losses (a·P + b)·l of the
+    built pipes, at most a·M·L + b·L over all candidate pipes (length L), so
+    M = (Q + b·L) / (1 − a·L) cuts off no network.
+    """
+    q = float(np.asarray(mat["q_c"], dtype=float).sum(axis=0).max())
+    length = float(np.asarray(mat["l_i"], dtype=float).sum())
+    a, b = float(regression_losses["a"]), float(regression_losses["b"])
+    if a * length >= 1:
+        return  # no finite bound from the losses; topotherm's stays
+    big_m = (q + b * length) / (1 - a * length)
+    for (d, k, t), con in model.cons_power_bigm_P.items():
+        if big_m < model.P[d, "in", k, t].ub:
+            con.set_value(model.P[d, "in", k, t] - big_m * model.lambda_[d, k] <= 0)
+    for var in (model.P, model.P_source, model.P_source_inst):
+        for v in var.values():
+            if v.ub is None or v.ub > big_m:
+                v.setub(max(big_m, v.lb or 0.0))
 
 
 def _weigh_pipe_capex(model, mat, regression_inst, economics) -> None:
@@ -331,6 +405,7 @@ class TopothermBackend(NetworkBackend):
                 "street/source input.",
                 code=UNMATCHED_NODES,
             )
+        gdf_nodes, gdf_edges = _merge_close_nodes(gdf_nodes, gdf_edges)
         raise_if_cancelled()
         # topotherm drops duplicate candidate edges here; the gdf_edges it
         # returns stays aligned with the matrices: mat["l_i"][k] and column k
@@ -429,6 +504,7 @@ class TopothermBackend(NetworkBackend):
         )
         if "civil_m" in mat:
             _weigh_pipe_capex(model, mat, r_cap, settings.economics)
+        _tighten_big_m(model, mat, r_loss)
         opt = pyo.SolverFactory(tcfg.solver)
         if not opt.available(False):
             raise NetworkBackendError(
