@@ -39,8 +39,10 @@ from fheat_core.network.topotherm_backend import (
     TopothermBackend,
     _as_2d_float,
     _interrupt_on_cancel,
+    _merge_close_nodes,
     _require_topotherm,
     _set_solver_limits,
+    _tighten_big_m,
 )
 from fheat_core.resources import load_pipe_info
 from fheat_core.schemas import NetSchema
@@ -456,6 +458,23 @@ def test_economic_mode_with_profitability_connects_buildings(
     assert int(state.buildings_gdf[cols.CONNECT].sum()) >= 1
 
 
+def test_big_m_is_the_buildings_power_plus_losses():
+    pyo = pytest.importorskip("pyomo.environ")
+    m = pyo.ConcreteModel()
+    m.P = pyo.Var(["ij"], ["in"], [0], [0], bounds=(0, 2e5))
+    m.lambda_ = pyo.Var(["ij"], [0], domain=pyo.Binary)
+    m.P_source = pyo.Var([0], [0], bounds=(0, 1e6))
+    m.P_source_inst = pyo.Var([0], bounds=(0, 1e6))
+    m.cons_power_bigm_P = pyo.Constraint(["ij"], [0], [0], rule=lambda m, d, k, t: m.P[d, "in", k, t] <= 2e5 * m.lambda_[d, k])
+    # Q = 100 kW, L = 1000 m: M = (100 + 0.02·1000) / (1 − 1e-4·1000) = 120 / 0.9
+    _tighten_big_m(m, {"q_c": np.array([[30.0], [70.0]]), "l_i": np.array([[1000.0]])}, {"a": 1e-4, "b": 0.02})
+    big_m = 120 / 0.9
+    m.P["ij", "in", 0, 0].value = m.lambda_["ij", 0].value = 1
+    con = m.cons_power_bigm_P["ij", 0, 0]
+    assert pyo.value(con.body) - pyo.value(con.upper) == pytest.approx(1 - big_m)
+    assert m.P["ij", "in", 0, 0].ub == m.P_source[0, 0].ub == m.P_source_inst[0].ub == pytest.approx(big_m)
+
+
 # ---------------------------------------------------------------------------
 # Phase 0 must be unaffected by the dispatcher rewrite
 # ---------------------------------------------------------------------------
@@ -544,6 +563,26 @@ def test_require_topotherm_explains_the_python_version_blocker(monkeypatch):
 # ---------------------------------------------------------------------------
 # _as_2d_float — the object-dtype matrices topotherm hands back
 # ---------------------------------------------------------------------------
+
+
+def test_merge_close_nodes_removes_short_street_edges_only():
+    nodes = gpd.GeoDataFrame(
+        {"Type": ["internal", "internal", "internal", "sink"], "Node_ID": ["A", "B", "C", "S"]},
+        geometry=[Point(0, 0), Point(0.004, 0), Point(10, 0), Point(10, 0.5)],
+        crs=CRS,
+    )
+    edges = gpd.GeoDataFrame(
+        {"u": ["A", "B", "S"], "v": ["B", "C", "C"], "Road_ID": ["R0", "R1", "R2"]},
+        geometry=[LineString([(0, 0), (0.004, 0)]), LineString([(0.004, 0), (10, 0)]), LineString([(10, 0.5), (10, 0)])],
+        crs=CRS,
+    )
+    edges["Length"] = edges.geometry.length
+    out_nodes, out_edges = _merge_close_nodes(nodes, edges)
+    assert list(out_nodes["Node_ID"]) == ["A", "C", "S"]
+    # the 4 mm edge is gone, the street now starts at A; the 0.5 m house connection stays
+    assert list(zip(out_edges["u"], out_edges["v"])) == [("A", "C"), ("S", "C")]
+    assert out_edges.geometry.iloc[0].coords[0] == (0, 0)
+    assert out_edges["Length"].tolist() == pytest.approx([10.0, 0.5])
 
 
 def test_as_2d_float_normalises_object_array_of_scalars():
