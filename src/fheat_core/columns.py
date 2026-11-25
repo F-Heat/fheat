@@ -92,6 +92,8 @@ PIPE_COST = "pipe_cost"              # pipe investment of the edge [€]
 CIVIL_COST = "civil_cost"            # civil works part of pipe_cost [€]
 # Written by the NETWORK step (fheat_core/algorithms/under_buildings.py)
 LENGTH_UNDER_BUILDINGS = "length_under_buildings"  # house connection under other buildings [m], 0 = none
+# Written by fheat_core/network/resize.py: True where a planner chose the DN by hand
+NOMINAL_DIAMETER_MANUAL = "nominal_diameter_manual"
 # Expansion potential of an edge for an average building power, computed on
 # request and never stored (fheat_core/algorithms/expansion.py)
 EXPANDABLE_POWER = "expandable_power"        # building power connectable at the edge before a DN on its way to the source grows [kW]
@@ -487,6 +489,7 @@ LABELS_DE: dict[str, str] = {
     CIVIL_COST_FACTOR: "Tiefbau_Faktor",
     ROAD_SURFACE: "Belag",
     LENGTH_UNDER_BUILDINGS: "Unter Gebaeuden [m]",
+    NOMINAL_DIAMETER_MANUAL: "DN von Hand",
     PIPE_COST: "Rohrkosten [€]",
     CIVIL_COST: "Tiefbaukosten [€]",
     # Load profile

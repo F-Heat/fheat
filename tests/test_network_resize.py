@@ -50,6 +50,7 @@ def test_values_follow_the_new_dn():
     resized = resize_pipes(net, "PEX 40", PIPES, SUPPLY, RETURN, SHARE).iloc[0]
     before = net.iloc[0]
     assert resized[cols.NOMINAL_DIAMETER] == "PEX 40"
+    assert resized[cols.NOMINAL_DIAMETER_MANUAL]  # recalculate_net keeps it
     # same water through a wider pipe
     assert resized[cols.VOLUME_FLOW] == before[cols.VOLUME_FLOW]
     assert resized[cols.THERMAL_POWER_GLF] == before[cols.THERMAL_POWER_GLF]

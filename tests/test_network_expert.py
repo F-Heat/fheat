@@ -201,6 +201,24 @@ def solved_expert_net(tt, expert_state, expert_adapter):
     return state
 
 
+def test_an_untouched_expert_net_recalculates_to_itself(solved_expert_net, expert_adapter):
+    from fheat_core.network.recalculate import recalculate_net
+    from fheat_core.resources import resolve_pipe_info
+
+    net = solved_expert_net.net_gdf
+    config = _forced_config()
+    source = solved_expert_net.source_gdf.to_crs(net.crs).geometry.iloc[0]
+    out, report = recalculate_net(
+        net, source, resolve_pipe_info(expert_adapter),
+        config.supply_temperature, config.return_temperature, config.civil_cost_share,
+    )
+    assert report == {"disconnected": 0, "raised_manual": 0}
+    for column in (cols.N_BUILDINGS, cols.NOMINAL_DIAMETER):
+        assert out[column].tolist() == net[column].tolist(), column
+    for column in (cols.LENGTH, cols.THERMAL_POWER, cols.VOLUME_FLOW, cols.HEAT_LOSS, cols.PIPE_COST):
+        assert out[column].to_numpy() == pytest.approx(net[column].to_numpy(dtype=float), rel=1e-6, nan_ok=True), column
+
+
 def test_expert_net_satisfies_net_schema(solved_expert_net):
     net = solved_expert_net.net_gdf
     NetSchema.validate(net)
