@@ -99,7 +99,7 @@ def recalculate_net(
 
     catalogue = list(pipe_info["DN"])
     manual = (
-        out[cols.NOMINAL_DIAMETER_MANUAL].eq(True).to_numpy()
+        out[cols.NOMINAL_DIAMETER_MANUAL].eq(True).to_numpy(copy=True)  # written below; read-only under copy-on-write
         if cols.NOMINAL_DIAMETER_MANUAL in out.columns else np.zeros(len(out), dtype=bool)
     )
     values = []
