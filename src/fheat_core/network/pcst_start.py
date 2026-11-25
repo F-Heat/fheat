@@ -63,7 +63,14 @@ def pcst_lambda(mat, economics, regression_inst, forced: bool):
         np.column_stack([start, end]),
         np.column_stack([np.full(len(sources), root), sources]),
     ]).astype(np.int64)
-    _, chosen = pcst_fast.pcst_fast(edges, prizes, np.concatenate([costs, np.zeros(len(sources))]), root, 1, "strong", 0)
+    vertices, chosen = pcst_fast.pcst_fast(edges, prizes, np.concatenate([costs, np.zeros(len(sources))]), root, 1, "strong", 0)
+    if root not in vertices or len(set(chosen.tolist())) != len(chosen):
+        # the manylinux wheels of pcst_fast 1.0.10 return garbage under numpy 2 (seen 2026-11-25, Python 3.12)
+        raise NetworkBackendError(
+            "pcst_fast returns an invalid tree; build it from source: "
+            "pip install --no-binary pcst_fast --force-reinstall pcst_fast",
+            code=PCST_UNAVAILABLE,
+        )
     if not np.any(chosen < n_edges):
         return None
 

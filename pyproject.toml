@@ -50,7 +50,7 @@ topotherm = [                                # expert mode: topotherm STS optimi
     # installed separately AND EDITABLE — see the README for the command.
     "pandas<3",                              # topotherm 0.6.0 breaks on pandas 3.x
     "highspy>=1.7",                          # open-source MILP solver
-    "pcst_fast>=1.0.10",                     # start_solution="pcst" (no wheel for 3.13: builds with a C++ compiler)
+    "pcst_fast>=1.0.10",                     # start_solution="pcst"; install with --no-binary pcst_fast (C++ compiler): its Linux wheels fail under numpy 2
 ]
 # XWaermeplan export (fheat_core.export.xwp). xplan-tools needs Python 3.13
 # and the GDAL Python binding, which PyPI has no wheel for: install system

@@ -28,6 +28,7 @@ from fheat_core.network import DijkstraBackend, get_backend
 from fheat_core.network.base import (
     EMPTY_NETWORK,
     NO_ROUTABLE_STREETS,
+    PCST_UNAVAILABLE,
     SOLVER_UNAVAILABLE,
     SOURCE_ON_STREET,
     TIME_LIMIT,
@@ -560,6 +561,25 @@ def test_require_topotherm_explains_the_python_version_blocker(monkeypatch):
 # ---------------------------------------------------------------------------
 # _as_2d_float — the object-dtype matrices topotherm hands back
 # ---------------------------------------------------------------------------
+
+
+def test_an_invalid_pcst_tree_is_reported(tt, monkeypatch):
+    pcst_fast = pytest.importorskip("pcst_fast")
+    from types import SimpleNamespace
+
+    from fheat_core.network.pcst_start import pcst_lambda
+
+    # the broken manylinux wheel under numpy 2: every vertex 0, one edge repeated
+    monkeypatch.setattr(pcst_fast, "pcst_fast", lambda edges, *_: (np.zeros(3, dtype=int), np.full(2, 1)))
+    mat = {
+        "a_i": np.array([[1], [-1]]), "l_i": np.array([[10.0]]),
+        "a_c": np.array([[0], [1]]), "a_p": np.array([[1], [0]]),
+        "q_c": np.array([[5.0]]), "flh_sinks": np.array([[2000.0]]),
+    }
+    economics = SimpleNamespace(pipes_c_irr=0.05, pipes_lifetime=40)
+    with pytest.raises(NetworkBackendError, match="from source") as exc:
+        pcst_lambda(mat, economics, {"b": 1.0}, forced=True)
+    assert exc.value.code == PCST_UNAVAILABLE
 
 
 def test_merge_close_nodes_removes_short_street_edges_only():

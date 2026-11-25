@@ -110,6 +110,8 @@ jobs:
           python -m pip install --editable \
             "git+https://github.com/jylambert/topotherm@v0.6.0#egg=topotherm" \
             --src "${{ runner.temp }}/vendor"
+          # die manylinux-Wheels von pcst_fast 1.0.10 liefern unter numpy 2 Unsinn
+          python -m pip install --no-binary pcst_fast --force-reinstall --no-deps pcst_fast
 
       - name: Sicherstellen, dass topotherm wirklich nutzbar ist
         # Ohne diese Prüfung würde der Job auch dann grün, wenn die
