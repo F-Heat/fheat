@@ -52,6 +52,9 @@ logger = logging.getLogger(__name__)
 #: (projected → WGS84 → projected). Ends that meet exactly are never moved
 #: apart or together: street vertices of a net can be millimetres apart.
 NODE_TOLERANCE = 0.05
+#: Distance [m] within which ends are the same point: the float noise of a
+#: stored geometry (ends of a stored topotherm net differ by nanometres).
+SAME_POINT = 1e-6
 
 
 def recalculate_net(
@@ -195,13 +198,18 @@ def _power_with_losses(graph, distance, paths, is_house, stored_power, stored_le
 def _nodes(lines, source) -> tuple[np.ndarray, np.ndarray, int | None]:
     """Node of the first and last end of each line, and the node at the source (None: no end there).
 
-    Ends at the same coordinates are one node; an end that meets no other
-    joins the nearest end within ``NODE_TOLERANCE``.
+    Ends at the same point (``SAME_POINT``) are one node; an end that meets
+    no other joins the nearest end within ``NODE_TOLERANCE``.
     """
     first, last = line_ends(lines)
     ends = np.concatenate([first, last])
-    _, exact, count = np.unique(shapely.get_coordinates(ends), axis=0, return_inverse=True, return_counts=True)
-    exact = exact.ravel()
+    same = nx.Graph()
+    same.add_nodes_from(range(len(ends)))
+    same.add_edges_from(zip(*shapely.STRtree(ends).query(ends, predicate="dwithin", distance=SAME_POINT)))
+    exact = np.empty(len(ends), dtype=int)
+    for k, members in enumerate(nx.connected_components(same)):
+        exact[list(members)] = k
+    count = np.bincount(exact)
     joined = nx.Graph()
     joined.add_nodes_from(range(len(count)))
     alone = np.flatnonzero(count[exact] == 1)

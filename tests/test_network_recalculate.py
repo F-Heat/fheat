@@ -218,3 +218,15 @@ def test_street_vertices_millimetres_apart_stay_apart():
     assert first[1] == last[0]
     assert first[2] == last[3]
     assert first[1] != first[2]
+
+
+def test_ends_nanometres_apart_are_one_node():
+    # a stored net: at a node two pipe ends meet exactly, two more exactly a few nanometres off
+    from fheat_core.network.recalculate import _nodes
+
+    lines = [
+        LineString([(0, 0), (1, 0)]), LineString([(1, 0), (2, 0)]),
+        LineString([(1 + 2e-9, 0), (1, 5)]), LineString([(1, -5), (1 + 2e-9, 0)]),
+    ]
+    first, last, _ = _nodes(lines, SOURCE)
+    assert last[0] == first[1] == first[2] == last[3]
