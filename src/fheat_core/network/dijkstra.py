@@ -49,8 +49,11 @@ class DijkstraBackend(NetworkBackend):
         G = connect_source_to_graph(G, source)
         G = add_edge_lengths(G)
         raise_if_cancelled()
+        return self._network(G, buildings, source, pipe_info, civil_layers, config), buildings
 
-        net_gdf = compute_network(
+    def _network(self, G, buildings, source, pipe_info, civil_layers, config):
+        """The sized net on the street graph ``G``; subclasses choose its routes."""
+        return compute_network(
             G,
             buildings,
             source,
@@ -60,4 +63,3 @@ class DijkstraBackend(NetworkBackend):
             ltemp=config.return_temperature,
             crs=buildings.crs,
         )
-        return net_gdf, buildings

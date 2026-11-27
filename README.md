@@ -85,11 +85,12 @@ except CalculationCancelled:
 
 ### Network modes
 
-The `NETWORK` phase dispatches to an interchangeable backend, selected by `FHeatConfig.network_mode`. The step itself contains no algorithm; both backends live in [`fheat_core/network/`](src/fheat_core/network/) behind the `NetworkBackend` contract and return the same `NetSchema`-compliant `net_gdf`, so everything downstream (load profile, summary, export labels) is identical.
+The `NETWORK` phase dispatches to an interchangeable backend, selected by `FHeatConfig.network_mode`. The step itself contains no algorithm; all backends live in [`fheat_core/network/`](src/fheat_core/network/) behind the `NetworkBackend` contract and return the same `NetSchema`-compliant `net_gdf`, so everything downstream (load profile, summary, export labels) is identical.
 
 | Mode | Backend | How the route is found |
 |---|---|---|
 | `"phase0"` *(default)* | [`dijkstra.py`](src/fheat_core/network/dijkstra.py) | union of the shortest paths from the source to every building along the street graph (one Dijkstra search from the source, so the net is a tree) |
+| `"steiner"` | [`steiner.py`](src/fheat_core/network/steiner.py) | a tree grown from the source (Prim–Dijkstra trade-off): the next building attaches where `steiner_path_weight` × route from the source + new branch is lowest, each edge weighted by length × civil works multiplier. `0` is a Steiner tree heuristic (Takahashi–Matsuyama, at most 2× the shortest total network): a building may hang off its neighbour. `1` gives every building its shortest route, as Phase 0. The default `None` builds the net for `0`, `0.1`, …, `1` and Phase 0's own net and keeps the one with the lowest pipe costs, so it never costs more than Phase 0. Pipe sizing as in Phase 0 |
 | `"expert"` | [`topotherm_backend.py`](src/fheat_core/network/topotherm_backend.py) | mixed-integer optimisation ([topotherm](https://github.com/jylambert/topotherm) single-time-step MILP) |
 
 **topotherm determines the topology only** — which street segments are built, and (in `optimization_mode="economic"`) which buildings are worth connecting. The simultaneity factor (GLF), volume flow, DN, velocity and heat losses are then computed by F|Heat with the *same* functions Phase 0 uses, from F|Heat's own pipe catalogue. That keeps the two modes directly comparable and every column meaning the same thing in both.
