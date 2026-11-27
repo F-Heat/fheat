@@ -19,6 +19,12 @@ def test_get_backend_steiner():
 
 
 def _run(mode, parcels_gdf, pipe_info_df, temperature_series, landuse=None, path_weight=0.0):
+    net = _state(mode, parcels_gdf, pipe_info_df, temperature_series, landuse, path_weight).net_gdf
+    NetSchema.validate(net)
+    return net
+
+
+def _state(mode, parcels_gdf, pipe_info_df, temperature_series, landuse=None, path_weight=0.0):
     # Source near (0, 0). A sits at the end of the straight street, B at the end
     # of the diagonal one, and a 20 m link joins the two ends. Shortest paths
     # use both streets (~202 m); the shortest network is straight street + link
@@ -56,9 +62,7 @@ def _run(mode, parcels_gdf, pipe_info_df, temperature_series, landuse=None, path
         phase=Phase.STATUS, buildings_gdf=buildings, streets_gdf=streets,
         parcels_gdf=parcels_gdf, source_gdf=source, landuse_gdf=landuse,
     )
-    net = network_step.run(state, FHeatConfig(network_mode=mode, steiner_path_weight=path_weight), adapter).net_gdf
-    NetSchema.validate(net)
-    return net
+    return network_step.run(state, FHeatConfig(network_mode=mode, steiner_path_weight=path_weight), adapter)
 
 
 def _street_length(net):
@@ -132,8 +136,13 @@ def test_auto_path_weight_keeps_the_cheapest_net(parcels_gdf, pipe_info_df, temp
 
 
 def test_auto_path_weight_without_pipe_costs_takes_the_shortest_net(parcels_gdf, pipe_info_df, temperature_series):
-    steiner = _run(NetworkMode.STEINER.value, parcels_gdf, pipe_info_df, temperature_series, path_weight=None)
-    assert _street_length(steiner) == pytest.approx(120.0)
+    state = _state(NetworkMode.STEINER.value, parcels_gdf, pipe_info_df, temperature_series, path_weight=None)
+    assert _street_length(state.net_gdf) == pytest.approx(120.0)
+    # the chosen weight is reported; 0 is the first weight that gives the shortest net
+    assert state.network_analysis["path_weight"] == 0.0
+    # a fixed weight reports none, it is in the config
+    fixed = _state(NetworkMode.STEINER.value, parcels_gdf, pipe_info_df, temperature_series, path_weight=0.5)
+    assert "path_weight" not in fixed.network_analysis
 
 
 def test_auto_path_weight_is_the_default():

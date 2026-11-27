@@ -85,6 +85,8 @@ class SteinerBackend(DijkstraBackend):
             if total < best[0]:
                 best = (total, c, net)
         logger.info("Steiner: cheapest net with path weight %s, pipe cost %.0f", best[1], best[0])
+        # the weight it chose, "phase0" when Phase 0's own net won (see PipelineState.network_analysis)
+        self.analysis = {"path_weight": best[1]}
         return best[2]
 
 
