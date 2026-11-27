@@ -485,6 +485,30 @@ def test_pcst_start_solution_reaches_the_same_optimum(tt, expert_state, expert_a
     assert {"seconds", "solver_seconds", "pcst_seconds", "pcst_fixed_seconds"} <= analysis.keys()
 
 
+@pytest.mark.parametrize("mode", ["economic", "forced"])
+def test_pcst_only_keeps_the_pcst_network(tt, expert_state, expert_adapter, mode):
+    pytest.importorskip("pcst_fast")
+    states = {}
+    for key, options in (("pcst", {"pcst_only": True}), ("milp", {"start_solution": "pcst"})):
+        config = FHeatConfig(
+            network_mode=NetworkMode.EXPERT.value,
+            topotherm=TopothermConfig(
+                optimization_mode=mode, heat_price=10.0, source_price=1e-3, pipes_c_irr=0.01, **options,
+            ),
+        )
+        states[key] = network_step.run(copy.deepcopy(expert_state), config, expert_adapter)
+    NetSchema.validate(states["pcst"].net_gdf)
+    pcst, milp = states["pcst"].network_analysis, states["milp"].network_analysis
+    # no MILP: its profit is that of the PCST network, the MILP's start
+    assert {"seconds", "pcst_seconds", "pcst_fixed_seconds", "profit"} <= pcst.keys()
+    assert not {"solver_seconds", "pcst_profit", "pcst_start_ok"} & pcst.keys()
+    assert pcst["profit"] == pytest.approx(milp["pcst_profit"])
+    assert milp["profit"] >= pcst["profit"] - 1e-6
+    if mode == "forced":
+        connected = [int(s.buildings_gdf[cols.CONNECT].sum()) for s in states.values()]
+        assert connected[0] == connected[1]
+
+
 def test_big_m_is_the_buildings_power_plus_losses():
     pyo = pytest.importorskip("pyomo.environ")
     m = pyo.ConcreteModel()

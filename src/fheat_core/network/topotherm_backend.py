@@ -52,6 +52,10 @@ from fheat_core.resources import resolve_pipe_info
 
 logger = logging.getLogger(__name__)
 
+_EMPTY_NETWORK_MESSAGE = (
+    "topotherm built an empty network — in 'economic' mode no connection was profitable. "
+    "Raise `heat_price`, lower `source_price`/`pipes_c_irr`, or use optimization_mode='forced'."
+)
 _MIN_SOURCE_OFFSET = 1e-3  # m — below this a source is treated as "on the road"
 _NODE_TOLERANCE = 1e-3     # m — a candidate line ends at a node closer than this
 # m — topotherm merges connection points closer than twice this buffer and
@@ -216,7 +220,7 @@ def _pcst_start(model, mat, settings, regression_inst, tcfg, analysis):
     lam = pcst_lambda(mat, settings.economics, regression_inst, tcfg.optimization_mode == "forced")
     analysis["pcst_seconds"] = time.perf_counter() - started
     if lam is None:
-        logger.info("The PCST connects no building; topotherm starts without a start solution.")
+        logger.info("The PCST connects no building.")
         return None
     lam_ij, lam_ji = lam
     for k in model.set_n_i:
@@ -579,54 +583,61 @@ class TopothermBackend(NetworkBackend):
                 code=SOLVER_UNAVAILABLE,
             )
         started = time.perf_counter()
-        start = _pcst_start(model, mat, settings, r_cap, tcfg, analysis) if tcfg.start_solution == "pcst" else None
-        # the time limit covers the PCST start too, so the job stays inside its worker limit
-        time_limit = max(1.0, settings.solver.time_limit - (time.perf_counter() - started))
+        use_pcst = tcfg.pcst_only or tcfg.start_solution == "pcst"
+        start = _pcst_start(model, mat, settings, r_cap, tcfg, analysis) if use_pcst else None
         raise_if_cancelled()
-        _set_solver_limits(opt, time_limit, settings.solver.mip_gap, tcfg.threads)
-        raise_if_cancelled()
-        # from here: the solver's instance of the model is built in every case
-        started = time.perf_counter()
-        stopped = _interrupt_on_cancel(opt, model)
-        if start is not None:
-            analysis["pcst_start_ok"] = _set_start(opt, model, start)
-        raise_if_cancelled()
-        # loaded only once it is optimal: Pyomo's newer interface raises when
-        # the time limit ends the run before any feasible solution
-        result = opt.solve(model, tee=False, load_solutions=False)
-        analysis["solver_seconds"] = time.perf_counter() - started
-        if stopped is not None and stopped.is_set():
-            # Pyomo reports HiGHS' interrupt only as "unknown"
-            raise CalculationCancelled("The calculation was cancelled during the optimisation.")
-        raise_if_cancelled()
-
-        cond = result.solver.termination_condition
         time_limit_solution = None
-        if cond == pyo.TerminationCondition.maxTimeLimit and len(result.solution):
-            # the best solution found until the time limit, not proven optimal
-            time_limit_solution = {"gap": _relative_gap(result)}
-            logger.warning("topotherm reached the time limit; using its best solution (gap %s).", time_limit_solution["gap"])
-            result.solver.status = pyo.SolverStatus.ok  # Pyomo warns when loading an "aborted" result
-        elif cond != pyo.TerminationCondition.optimal:
-            code = TIME_LIMIT if cond == pyo.TerminationCondition.maxTimeLimit else NO_OPTIMAL_SOLUTION
-            raise NetworkBackendError(f"topotherm optimisation failed: {cond}", code=code)
-        model.solutions.load_from(result)
-        analysis["profit"] = -float(pyo.value(model.obj))
+        if tcfg.pcst_only:
+            # the model still holds the PCST network's solution: that is the result
+            if start is None:
+                if "pcst_fixed_seconds" in analysis:
+                    raise NetworkBackendError(
+                        "topotherm's model with the PCST network gave no optimum.", code=NO_OPTIMAL_SOLUTION
+                    )
+                raise NetworkBackendError(_EMPTY_NETWORK_MESSAGE, code=EMPTY_NETWORK)
+            analysis["profit"] = analysis.pop("pcst_profit")
+        else:
+            # the time limit covers the PCST start too, so the job stays inside its worker limit
+            time_limit = max(1.0, settings.solver.time_limit - (time.perf_counter() - started))
+            _set_solver_limits(opt, time_limit, settings.solver.mip_gap, tcfg.threads)
+            raise_if_cancelled()
+            # from here: the solver's instance of the model is built in every case
+            started = time.perf_counter()
+            stopped = _interrupt_on_cancel(opt, model)
+            if start is not None:
+                analysis["pcst_start_ok"] = _set_start(opt, model, start)
+            raise_if_cancelled()
+            # loaded only once it is optimal: Pyomo's newer interface raises when
+            # the time limit ends the run before any feasible solution
+            result = opt.solve(model, tee=False, load_solutions=False)
+            analysis["solver_seconds"] = time.perf_counter() - started
+            if stopped is not None and stopped.is_set():
+                # Pyomo reports HiGHS' interrupt only as "unknown"
+                raise CalculationCancelled("The calculation was cancelled during the optimisation.")
+            raise_if_cancelled()
+
+            cond = result.solver.termination_condition
+            if cond == pyo.TerminationCondition.maxTimeLimit and len(result.solution):
+                # the best solution found until the time limit, not proven optimal
+                time_limit_solution = {"gap": _relative_gap(result)}
+                logger.warning("topotherm reached the time limit; using its best solution (gap %s).", time_limit_solution["gap"])
+                result.solver.status = pyo.SolverStatus.ok  # Pyomo warns when loading an "aborted" result
+            elif cond != pyo.TerminationCondition.optimal:
+                code = TIME_LIMIT if cond == pyo.TerminationCondition.maxTimeLimit else NO_OPTIMAL_SOLUTION
+                raise NetworkBackendError(f"topotherm optimisation failed: {cond}", code=code)
+            model.solutions.load_from(result)
+            analysis["profit"] = -float(pyo.value(model.obj))
 
         try:
             opt_mats = tt.postprocessing.sts(model=model, matrices=mat, settings=settings)
         except ValueError as exc:
             raise NetworkBackendError(
-                "topotherm built an empty network — in 'economic' mode no "
-                "connection was profitable. Raise `heat_price`, lower "
-                "`source_price`/`pipes_c_irr`, or use optimization_mode='forced'.",
+                _EMPTY_NETWORK_MESSAGE,
                 code=EMPTY_NETWORK,
             ) from exc
         if np.asarray(opt_mats["p"]).size == 0 or np.asarray(opt_mats["q_c"]).size == 0:
             raise NetworkBackendError(
-                "topotherm built an empty network — in 'economic' mode no "
-                "connection was profitable. Raise `heat_price`, lower "
-                "`source_price`/`pipes_c_irr`, or use optimization_mode='forced'.",
+                _EMPTY_NETWORK_MESSAGE,
                 code=EMPTY_NETWORK,
             )
         return model, opt_mats, time_limit_solution

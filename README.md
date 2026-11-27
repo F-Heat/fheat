@@ -122,6 +122,7 @@ config = FHeatConfig(
     topotherm=TopothermConfig(
         optimization_mode="economic",  # "economic" (default) | "forced"
         start_solution="none",         # "pcst": PCST tree as the solver's first solution (needs pcst_fast)
+        pcst_only=False,               # True: keep that PCST tree, skip the MILP (seconds, not optimal)
         solver="highs",
         heat_price=120e-3,             # €/kW revenue
         source_price=80e-3,            # €/kW variable production cost
