@@ -10,6 +10,7 @@ class NetworkMode(str, Enum):
     """Which algorithm generates the pipe network in the NETWORK phase."""
 
     PHASE0 = "phase0"   # shortest path (Dijkstra) — historical default
+    STEINER = "steiner"  # Steiner tree / shortest path trade-off (steiner_path_weight)
     EXPERT = "expert"   # topotherm single-time-step MILP
 
 
@@ -110,6 +111,12 @@ class FHeatConfig:
     # Which algorithm builds the network
     network_mode: str = NetworkMode.PHASE0.value
     topotherm: Optional[TopothermConfig] = None
+    # Steiner mode only: weight of the route from the source when a building
+    # is attached. 0 = least total network (Steiner tree), 1 = every building
+    # on its shortest route (as Phase 0); in between trades network length
+    # against the larger pipes long routes need. None = try 0, 0.1, …, 1 and
+    # keep the net with the lowest pipe costs.
+    steiner_path_weight: Optional[float] = None
 
     # WLD / suitability polygons
     wld_threshold: float = 500.0
@@ -202,6 +209,10 @@ class FHeatConfig:
         if not 0.0 <= self.civil_cost_share <= 1.0:
             raise ValueError(
                 f"civil_cost_share ({self.civil_cost_share}) must be between 0 and 1."
+            )
+        if self.steiner_path_weight is not None and not 0.0 <= self.steiner_path_weight <= 1.0:
+            raise ValueError(
+                f"steiner_path_weight ({self.steiner_path_weight}) must be between 0 and 1."
             )
 
         allowed_modes = {m.value for m in NetworkMode}

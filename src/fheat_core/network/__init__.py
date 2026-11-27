@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from fheat_core.network.base import NetworkBackend, NetworkBackendError
 from fheat_core.network.dijkstra import DijkstraBackend
+from fheat_core.network.steiner import SteinerBackend
 
-__all__ = ["NetworkBackend", "NetworkBackendError", "DijkstraBackend", "get_backend"]
+__all__ = ["NetworkBackend", "NetworkBackendError", "DijkstraBackend", "SteinerBackend", "get_backend"]
 
 
 def get_backend(mode: str) -> NetworkBackend:
@@ -15,10 +16,12 @@ def get_backend(mode: str) -> NetworkBackend:
     """
     if mode == DijkstraBackend.name:
         return DijkstraBackend()
+    if mode == SteinerBackend.name:
+        return SteinerBackend()
     if mode == "expert":
         from fheat_core.network.topotherm_backend import TopothermBackend
 
         return TopothermBackend()
     raise ValueError(
-        f"Unknown network_mode {mode!r}. Allowed: 'phase0', 'expert'."
+        f"Unknown network_mode {mode!r}. Allowed: 'phase0', 'steiner', 'expert'."
     )

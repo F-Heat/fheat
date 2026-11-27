@@ -76,5 +76,7 @@ class PipelineState:
 
     # Analysis values of the NETWORK phase for comparing methods: "seconds" of
     # the network generation; topotherm adds its solver time and the annual
-    # profit (−objective, €/a), with a PCST start also those of the PCST network
+    # profit (−objective, €/a), with a PCST start also those of the PCST network;
+    # steiner with steiner_path_weight=None the "path_weight" it chose ("phase0"
+    # when Phase 0's net was cheapest)
     network_analysis: Optional[dict] = None
