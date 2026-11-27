@@ -29,6 +29,10 @@ class TopothermConfig:
     """"pcst": a prize-collecting Steiner tree (pcst_fast) is evaluated with
     topotherm's model and handed to the solver as its first solution (upper
     bound). Needs the pcst_fast package; the start is passed to HiGHS only."""
+    pcst_only: bool = False
+    """Keep that PCST network, evaluated with topotherm's model, as the result
+    and skip the MILP: seconds instead of minutes, but not optimal. Ignores
+    ``start_solution`` and ``mip_gap``; ``time_limit`` covers the evaluation."""
 
     # --- solver -----------------------------------------------------------
     solver: str = "highs"
